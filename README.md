@@ -3,17 +3,31 @@
 Multi-tenant loyalty platform cho SME (cà phê, nhà hàng, shop bán lẻ).
 
 ## Stack
-- Backend: FastAPI + PostgreSQL + SQLAlchemy 2.0 async
-- Frontend: Next.js 14 App Router + Tailwind + shadcn/ui + PWA
+- Backend: FastAPI + PostgreSQL + SQLAlchemy 2.0 async + Alembic
+- Frontend: Next.js 14 App Router + Tailwind CSS v4 + shadcn/ui + PWA
 - Infra: Docker Compose
 
 ## Setup nhanh
 
 ```bash
-docker compose up -d
-# Backend: http://localhost:8000
+# 1. Copy env files
+cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+
+# 2. Start all services
+docker compose up -d --build
+
+# 3. Verify
+curl http://localhost:8000/health
 # Frontend: http://localhost:3000
-# Postgres: localhost:5432
+```
+
+## Run tests
+
+```bash
+cd backend
+pytest -v
 ```
 
 ## Tài liệu
