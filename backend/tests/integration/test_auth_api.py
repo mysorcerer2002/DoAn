@@ -1,5 +1,7 @@
 import pytest
 
+from app.models.user import User
+
 
 @pytest.mark.asyncio
 async def test_register_endpoint_creates_user_and_returns_tokens(client):
@@ -163,6 +165,40 @@ async def test_login_rate_limit_429_after_excessive_attempts(client):
     got_429 = False
     for _ in range(10):
         response = await client.post("/auth/login", json=payload)
+        if response.status_code == 429:
+            got_429 = True
+            break
+    assert got_429, "Expected 429 rate limit response"
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_with_inactive_user_returns_401(client, db_session):
+    """Refresh token bị reject nếu user bị deactivate."""
+    reg = await client.post(
+        "/auth/register",
+        json={"email": "deactivated@example.com", "password": "pass12345", "full_name": "Dead"},
+    )
+    refresh_token = reg.json()["refresh_token"]
+
+    # Deactivate user trong DB
+    from sqlalchemy import select
+    user = await db_session.scalar(select(User).where(User.email == "deactivated@example.com"))
+    user.is_active = False
+    await db_session.flush()
+
+    response = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_register_rate_limit_429(client):
+    """Endpoint /auth/register phải trả 429 khi vượt rate limit (5/phút)."""
+    got_429 = False
+    for i in range(8):
+        response = await client.post(
+            "/auth/register",
+            json={"email": f"ratelimit{i}@example.com", "password": "pass12345", "full_name": f"RL{i}"},
+        )
         if response.status_code == 429:
             got_429 = True
             break

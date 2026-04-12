@@ -327,3 +327,16 @@ async def test_admin_cross_tenant_detail(client, db_session):
     assert data["name"] == "OtherShopAdmin"
     assert data["member_count"] == 0
     assert data["transaction_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_dashboard_api_invalid_date_range_returns_422(client, db_session):
+    """from_date > to_date phải trả 422."""
+    _, _, headers = await _setup_analytics(db_session)
+
+    resp = await client.get(
+        "/merchant/analytics/dashboard",
+        params={"from": "2025-02-01", "to": "2025-01-01"},
+        headers=headers,
+    )
+    assert resp.status_code == 422
