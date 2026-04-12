@@ -17,5 +17,29 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: loyalty-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://loyalty:loyalty_dev@postgres:5432/loyalty
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-32-bytes-min}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 15
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      ENVIRONMENT: development
+      DEBUG: "true"
+      ENABLE_SCHEDULER: "false"
+      FRONTEND_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
 volumes:
   postgres_data:
