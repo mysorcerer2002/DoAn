@@ -153,3 +153,26 @@ async def require_owner_in_tenant(
             detail="Owner access required",
         )
     return role
+
+
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Trả về User nếu có Bearer token hợp lệ, None nếu không."""
+    if credentials is None:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+    except JWTError:
+        return None
+    if payload.get("type") != "access":
+        return None
+    try:
+        user_id = int(payload["sub"])
+    except (ValueError, KeyError):
+        return None
+    user = await db.get(User, user_id)
+    if user is None or not user.is_active:
+        return None
+    return user

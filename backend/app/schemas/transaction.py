@@ -37,3 +37,18 @@ class TransactionWithMemberResponse(BaseModel):
     new_tier_id: int | None
     new_tier_name: str | None
     tier_upgraded: bool
+
+
+class CreateQrCustomerTransactionRequest(BaseModel):
+    """Tạo giao dịch từ QR scan — staff quét QR khách."""
+    qr_payload: str = Field(min_length=1, max_length=500)
+    gross_amount: int = Field(gt=0, le=100_000_000)
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class NoMembershipResponse(BaseModel):
+    """Trả về khi khách chưa là thành viên."""
+    user_id: int
+    phone: str | None
+    full_name: str | None
+    is_member: bool = False

@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,6 +10,9 @@ from app.api import auth as auth_router
 from app.api.admin import router as admin_router
 from app.api.members import router as members_router
 from app.api.point_rules import router as point_rules_router
+from app.api.qr import router as qr_router
+from app.api.redemptions import router as redemptions_router
+from app.api.rewards import router as rewards_router
 from app.api.settings import router as settings_router
 from app.api.tenant_staff import router as tenant_staff_router
 from app.api.tenants import merchant_router, tenants_router
@@ -15,12 +20,23 @@ from app.api.tiers import router as tiers_router
 from app.api.transactions import router as transactions_router
 from app.core.config import get_settings
 from app.core.limiter import limiter
+from app.jobs.scheduler import init_scheduler, shutdown_scheduler
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Startup / shutdown events."""
+    init_scheduler()
+    yield
+    shutdown_scheduler()
+
 
 app = FastAPI(
     title=settings.app_name,
     debug=settings.debug,
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter
@@ -53,6 +69,9 @@ app.include_router(point_rules_router)
 app.include_router(settings_router)
 app.include_router(transactions_router)
 app.include_router(members_router)
+app.include_router(qr_router)
+app.include_router(rewards_router)
+app.include_router(redemptions_router)
 
 
 @app.get("/health")

@@ -1,6 +1,8 @@
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
+from app.models.redemption import Redemption, RedemptionStatus
+from app.models.reward import Reward
 from app.models.tenant import Tenant, TenantStatus
 from app.models.tenant_settings_audit import TenantSettingsAudit
 from app.models.tenant_staff import TenantStaff, TenantStaffRole
@@ -15,4 +17,5 @@ __all__ = [
     "VerificationCode", "VerificationCodePurpose",
     "Membership", "Transaction", "TransactionMethod",
     "PointLedger", "LedgerReason", "LedgerRefType",
+    "Reward", "Redemption", "RedemptionStatus",
 ]

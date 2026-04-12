@@ -12,6 +12,7 @@ from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.schemas.transaction import (
     CreateManualTransactionRequest,
+    CreateQrCustomerTransactionRequest,
     TransactionResponse,
     TransactionWithMemberResponse,
 )
@@ -21,6 +22,10 @@ from app.services.tier_service import TierService
 
 
 class NoActivePointRuleError(Exception):
+    pass
+
+
+class NoMembershipError(Exception):
     pass
 
 
@@ -153,3 +158,134 @@ class TransactionService:
             .offset(offset)
         )
         return list(rows.all())
+
+    async def create_qr_customer(
+        self,
+        *,
+        tenant_id: int,
+        staff_id: int,
+        request: CreateQrCustomerTransactionRequest,
+    ) -> TransactionWithMemberResponse:
+        """Tạo giao dịch từ QR scan — staff quét QR khách."""
+        from app.core.qr import InvalidQRError
+        from app.services.qr_service import QrService
+
+        qr_svc = QrService(self.db)
+        try:
+            user_id = await qr_svc.decode_qr_payload(
+                payload=request.qr_payload, tenant_id=tenant_id
+            )
+        except InvalidQRError as e:
+            raise ValueError(f"Invalid QR: {e}") from e
+
+        # Tìm membership
+        membership = await self.db.scalar(
+            select(Membership)
+            .options(joinedload(Membership.user, innerjoin=True))
+            .where(
+                Membership.tenant_id == tenant_id,
+                Membership.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        if membership is None:
+            raise NoMembershipError(
+                f"User {user_id} not a member of tenant {tenant_id}"
+            )
+
+        return await self._create_transaction_for_membership(
+            tenant_id=tenant_id,
+            staff_id=staff_id,
+            membership=membership,
+            gross_amount=request.gross_amount,
+            note=request.note,
+            method=TransactionMethod.QR_CUSTOMER,
+        )
+
+    async def _create_transaction_for_membership(
+        self,
+        *,
+        tenant_id: int,
+        staff_id: int,
+        membership: Membership,
+        gross_amount: int,
+        note: str | None,
+        method: TransactionMethod,
+        voucher_id: int | None = None,
+        voucher_discount: int | None = None,
+    ) -> TransactionWithMemberResponse:
+        """Logic tạo transaction dùng chung cho manual và QR."""
+        ledger_svc = LedgerService(self.db)
+        tier_svc = TierService(self.db)
+
+        old_tier_id = membership.current_tier_id
+        old_tier_min_points = 0
+        if old_tier_id is not None:
+            old_tier = await self.db.get(Tier, old_tier_id)
+            old_tier_min_points = old_tier.min_points if old_tier else 0
+
+        rule = await self.db.scalar(
+            select(PointRule).where(
+                PointRule.tenant_id == tenant_id, PointRule.is_active.is_(True)
+            )
+        )
+        if rule is None:
+            raise NoActivePointRuleError(
+                f"Tenant {tenant_id} has no active point rule"
+            )
+
+        net_amount = gross_amount - (voucher_discount or 0)
+        points_earned = self._calculate_points(rule, net_amount)
+
+        txn = Transaction(
+            tenant_id=tenant_id,
+            membership_id=membership.id,
+            staff_id=staff_id,
+            gross_amount=gross_amount,
+            voucher_id=voucher_id,
+            voucher_discount_amount=voucher_discount,
+            net_amount=net_amount,
+            points_earned=points_earned,
+            method=method,
+            note=note,
+        )
+        self.db.add(txn)
+        await self.db.flush()
+
+        new_balance = membership.points_balance + points_earned
+        membership.points_balance = new_balance
+        membership.total_points_earned += points_earned
+        membership.last_activity_at = datetime.now(timezone.utc)
+
+        if points_earned > 0:
+            await ledger_svc.log_entry(
+                tenant_id=tenant_id,
+                membership_id=membership.id,
+                delta=points_earned,
+                reason=LedgerReason.EARN,
+                ref_type=LedgerRefType.TRANSACTION,
+                ref_id=txn.id,
+                new_balance=new_balance,
+                description=f"{method.value} transaction #{txn.id}",
+            )
+
+        new_tier = await tier_svc.recompute_tier(
+            tenant_id=tenant_id, membership_id=membership.id
+        )
+        await self.db.flush()
+
+        tier_upgraded = False
+        if new_tier is not None and old_tier_id is not None and new_tier.id != old_tier_id:
+            tier_upgraded = new_tier.min_points > old_tier_min_points
+
+        user = membership.user
+        return TransactionWithMemberResponse(
+            transaction=TransactionResponse.model_validate(txn),
+            member_phone=user.phone if user else None,
+            member_full_name=user.full_name if user else None,
+            new_balance=membership.points_balance,
+            new_total_earned=membership.total_points_earned,
+            new_tier_id=membership.current_tier_id,
+            new_tier_name=new_tier.name if new_tier else None,
+            tier_upgraded=tier_upgraded,
+        )
