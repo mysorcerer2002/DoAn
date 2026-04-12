@@ -62,3 +62,13 @@ async def clear_tenant_cache():
     tenant_role_cache.clear()
     yield
     tenant_role_cache.clear()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def reset_rate_limiter():
+    """Reset rate limiter giữa các test để tránh 429 từ test khác."""
+    from app.core.limiter import limiter
+
+    limiter.reset()
+    yield
+    limiter.reset()

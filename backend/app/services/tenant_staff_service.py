@@ -1,18 +1,17 @@
-import secrets
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.core.security import hash_password
 from app.models.tenant_staff import TenantStaff, TenantStaffRole
 from app.models.user import User
+from app.models.verification_code import VerificationCodePurpose
 from app.schemas.tenant_staff import (
     StaffAddRequest,
     StaffAddResponse,
     StaffResponse,
     StaffUpdateRoleRequest,
 )
+from app.services.verification_code_service import VerificationCodeService
 
 
 class StaffNotFoundError(Exception):
@@ -21,11 +20,6 @@ class StaffNotFoundError(Exception):
 
 class StaffAlreadyInTenantError(Exception):
     pass
-
-
-def _generate_verification_code() -> str:
-    """Sinh code 6 số ngẫu nhiên (cryptographically secure)."""
-    return f"{secrets.randbelow(1_000_000):06d}"
 
 
 class TenantStaffService:
@@ -42,18 +36,24 @@ class TenantStaffService:
         verification_code: str | None = None
 
         if existing_user is None:
-            # Tạo shadow user
-            verification_code = _generate_verification_code()
+            # Tạo shadow user — chưa có password
             existing_user = User(
                 email=request.email,
                 full_name=request.full_name,
-                password_hash=hash_password(verification_code),
+                password_hash=None,
                 is_active=True,
                 is_shadow=True,
                 system_role="regular",
             )
             self.db.add(existing_user)
             await self.db.flush()
+
+            # Sinh verification code qua HMAC service
+            vcs = VerificationCodeService(self.db)
+            verification_code = await vcs.create_code(
+                user_id=existing_user.id,
+                purpose=VerificationCodePurpose.CLAIM_SHADOW,
+            )
 
         # Check đã có trong tenant_staff chưa
         existing_link = await self.db.scalar(

@@ -14,6 +14,7 @@ from app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
+from app.schemas.claim_shadow import ClaimShadowRequest, RequestClaimRequest
 from app.services.auth_service import AuthService, EmailAlreadyExistsError, InvalidCredentialsError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -87,3 +88,35 @@ async def refresh(
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.post("/request-claim", status_code=202)
+async def request_claim(
+    body: RequestClaimRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    service = AuthService(db)
+    await service.request_claim(email=body.email)
+    return {"message": "If account exists and is shadow, code has been sent"}
+
+
+@router.post("/claim-shadow", response_model=TokenResponse)
+async def claim_shadow(
+    body: ClaimShadowRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    service = AuthService(db)
+    try:
+        user = await service.claim_shadow(
+            email=body.email,
+            code=body.code,
+            password=body.password,
+            full_name=body.full_name,
+            birthday=body.birthday,
+        )
+    except InvalidCredentialsError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
+    return TokenResponse(
+        access_token=create_access_token(user_id=user.id),
+        refresh_token=create_refresh_token(user_id=user.id),
+    )

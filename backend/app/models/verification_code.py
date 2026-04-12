@@ -1,0 +1,31 @@
+import enum
+from datetime import datetime
+
+from sqlalchemy import DateTime, Enum, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import Base, TimestampMixin
+
+
+class VerificationCodePurpose(str, enum.Enum):
+    CLAIM_SHADOW = "claim_shadow"
+    RESET_PASSWORD = "reset_password"
+
+
+class VerificationCode(Base, TimestampMixin):
+    __tablename__ = "verification_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    purpose: Mapped[VerificationCodePurpose] = mapped_column(
+        Enum(VerificationCodePurpose, name="verification_code_purpose"), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
