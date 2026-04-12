@@ -1,15 +1,17 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.models.campaign import Campaign, DiscountType
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType
 from app.models.point_rule import PointRule
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
+from app.models.voucher import Voucher, VoucherStatus
 from app.schemas.transaction import (
     CreateManualTransactionRequest,
     CreateQrCustomerTransactionRequest,
@@ -26,6 +28,10 @@ class NoActivePointRuleError(Exception):
 
 
 class NoMembershipError(Exception):
+    pass
+
+
+class InvalidVoucherError(Exception):
     pass
 
 
@@ -68,6 +74,17 @@ class TransactionService:
         if membership is None:
             raise ValueError(f"Membership {member.membership_id} not found")
 
+        # Apply voucher nếu có
+        voucher_id = None
+        voucher_discount = None
+        if request.voucher_code:
+            voucher_id, voucher_discount = await self._apply_voucher_if_provided(
+                tenant_id=tenant_id,
+                membership_id=membership.id,
+                voucher_code=request.voucher_code,
+                gross_amount=request.gross_amount,
+            )
+
         # Snapshot old_tier TRƯỚC khi recompute
         old_tier_id = membership.current_tier_id
         old_tier_min_points = 0
@@ -85,7 +102,7 @@ class TransactionService:
                 f"Tenant {tenant_id} has no active point rule"
             )
 
-        net_amount = request.gross_amount
+        net_amount = request.gross_amount - (voucher_discount or 0)
         points_earned = self._calculate_points(rule, net_amount)
 
         txn = Transaction(
@@ -93,8 +110,8 @@ class TransactionService:
             membership_id=membership.id,
             staff_id=staff_id,
             gross_amount=request.gross_amount,
-            voucher_id=None,
-            voucher_discount_amount=None,
+            voucher_id=voucher_id,
+            voucher_discount_amount=voucher_discount,
             net_amount=net_amount,
             points_earned=points_earned,
             method=TransactionMethod.MANUAL,
@@ -146,6 +163,59 @@ class TransactionService:
             return 0
         units = Decimal(net_amount) / Decimal(rule.unit_amount)
         return int(units * rule.points_per_unit)
+
+    async def _apply_voucher_if_provided(
+        self,
+        *,
+        tenant_id: int,
+        membership_id: int,
+        voucher_code: str,
+        gross_amount: int,
+    ) -> tuple[int, int]:
+        """Validate + atomic mark_used voucher. Trả về (voucher_id, discount_amount)."""
+        voucher = await self.db.scalar(
+            select(Voucher)
+            .options(joinedload(Voucher.campaign))
+            .where(
+                Voucher.tenant_id == tenant_id,
+                Voucher.code == voucher_code,
+            )
+            .with_for_update()
+        )
+        if voucher is None:
+            raise InvalidVoucherError("Voucher not found")
+        if voucher.membership_id != membership_id:
+            raise InvalidVoucherError("Voucher does not belong to this member")
+        if voucher.status != VoucherStatus.ISSUED:
+            raise InvalidVoucherError(f"Voucher status is {voucher.status.value}, expected issued")
+        if voucher.expires_at and voucher.expires_at < datetime.now(timezone.utc):
+            raise InvalidVoucherError("Voucher expired")
+
+        campaign = voucher.campaign
+        if campaign is None:
+            raise InvalidVoucherError("Campaign not found for voucher")
+
+        # Tính discount
+        if campaign.discount_type == DiscountType.PERCENT:
+            discount = int(gross_amount * campaign.discount_value / 100)
+            if campaign.max_discount:
+                discount = min(discount, campaign.max_discount)
+        else:
+            discount = campaign.discount_value
+
+        discount = min(discount, gross_amount)
+
+        if campaign.min_order and gross_amount < campaign.min_order:
+            raise InvalidVoucherError(
+                f"Order amount {gross_amount} below minimum {campaign.min_order}"
+            )
+
+        # Atomic mark used
+        voucher.status = VoucherStatus.USED
+        voucher.used_at = datetime.now(timezone.utc)
+        await self.db.flush()
+
+        return voucher.id, discount
 
     async def list_transactions(
         self, *, tenant_id: int, limit: int = 50, offset: int = 0

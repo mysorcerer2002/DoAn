@@ -1,0 +1,24 @@
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+..........................................                               [100%]
+============================== warnings summary ===============================
+tests/integration/test_auth_api.py: 3 warnings
+tests/integration/test_claim_shadow.py: 2 warnings
+tests/integration/test_members_api.py: 6 warnings
+tests/integration/test_point_rules_api.py: 7 warnings
+tests/integration/test_qr_api.py: 1 warning
+tests/integration/test_redemptions_api.py: 9 warnings
+tests/integration/test_rewards_api.py: 14 warnings
+tests/integration/test_settings_api.py: 5 warnings
+tests/integration/test_tenant_isolation.py: 8 warnings
+tests/integration/test_tenant_staff_api.py: 6 warnings
+tests/integration/test_tenants_api.py: 18 warnings
+tests/integration/test_tiers_api.py: 12 warnings
+tests/integration/test_transactions_api.py: 8 warnings
+tests/unit/test_qr.py: 2 warnings
+tests/unit/test_security.py: 2 warnings
+  C:\Users\Admin\AppData\Roaming\Python\Python312\site-packages\jose\jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = timegm(datetime.utcnow().utctimetuple())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+186 passed, 103 warnings in 230.07s (0:03:50)

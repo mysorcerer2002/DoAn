@@ -1,4 +1,6 @@
+from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
+from app.models.notification import Notification
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
 from app.models.redemption import Redemption, RedemptionStatus
@@ -10,6 +12,7 @@ from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
 from app.models.verification_code import VerificationCode, VerificationCodePurpose
+from app.models.voucher import Voucher, VoucherStatus
 
 __all__ = [
     "User", "Tenant", "TenantStatus", "TenantStaff", "TenantStaffRole",
@@ -18,4 +21,6 @@ __all__ = [
     "Membership", "Transaction", "TransactionMethod",
     "PointLedger", "LedgerReason", "LedgerRefType",
     "Reward", "Redemption", "RedemptionStatus",
+    "Campaign", "CampaignSource", "DiscountType",
+    "Voucher", "VoucherStatus", "Notification",
 ]

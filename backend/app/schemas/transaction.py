@@ -9,6 +9,7 @@ class CreateManualTransactionRequest(BaseModel):
     phone: str = Field(min_length=8, max_length=20)
     gross_amount: int = Field(gt=0, le=100_000_000)
     note: str | None = Field(default=None, max_length=1000)
+    voucher_code: str | None = Field(default=None, min_length=8, max_length=8)
 
 
 class TransactionResponse(BaseModel):

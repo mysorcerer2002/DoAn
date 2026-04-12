@@ -37,11 +37,18 @@ def shutdown_scheduler() -> None:
 
 def _register_jobs(sched: AsyncIOScheduler) -> None:
     """Đăng ký tất cả background jobs."""
+    from app.jobs.birthday_voucher import birthday_voucher_job
     from app.jobs.cleanup_codes import cleanup_expired_verification_codes
 
     sched.add_job(
         cleanup_expired_verification_codes,
         trigger=CronTrigger(minute=5),
         id="cleanup_expired_verification_codes",
+        replace_existing=True,
+    )
+    sched.add_job(
+        birthday_voucher_job,
+        trigger=CronTrigger(hour=0, minute=5),
+        id="birthday_voucher_job",
         replace_existing=True,
     )
