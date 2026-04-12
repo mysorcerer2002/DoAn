@@ -30,11 +30,11 @@ class CampaignCreateRequest(BaseModel):
 
 
 class CampaignUpdateRequest(BaseModel):
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
     is_active: bool | None = None
     ends_at: datetime | None = None
-    max_issuances: int | None = None
+    max_issuances: int | None = Field(default=None, gt=0)
 
 
 class CampaignResponse(BaseModel):

@@ -27,7 +27,7 @@ class CampaignNotEligibleError(Exception):
 _CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 
 
-def _generate_code() -> str:
+def generate_code() -> str:
     return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(8))
 
 
@@ -82,10 +82,10 @@ class VoucherService:
             raise CampaignNotEligibleError("Campaign not active or out of window")
 
         # Step 2: INSERT voucher với savepoint retry on code collision
-        ttl = await self._get_voucher_ttl(tenant_id)
+        ttl = await self.get_voucher_ttl(tenant_id)
         last_error: IntegrityError | None = None
         for _attempt in range(3):
-            code = _generate_code()
+            code = generate_code()
             try:
                 async with self.db.begin_nested():
                     voucher = Voucher(
@@ -131,7 +131,7 @@ class VoucherService:
             f"Failed to generate unique voucher code after 3 retries: {last_error}"
         )
 
-    async def _get_voucher_ttl(self, tenant_id: int) -> int:
+    async def get_voucher_ttl(self, tenant_id: int) -> int:
         tenant = await self.db.get(Tenant, tenant_id)
         if tenant is None:
             return self.DEFAULT_TTL_DAYS

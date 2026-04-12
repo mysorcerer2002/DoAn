@@ -2,13 +2,13 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.voucher import VoucherStatus
 
 
 class VoucherClaimRequest(BaseModel):
-    campaign_id: int
+    campaign_id: int = Field(gt=0)
 
 
 class VoucherResponse(BaseModel):

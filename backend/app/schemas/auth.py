@@ -1,3 +1,5 @@
+from typing import Literal
+
 from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field
@@ -30,7 +32,7 @@ class UserResponse(BaseModel):
     email: str | None
     full_name: str | None
     birthday: date | None
-    system_role: str
+    system_role: Literal["regular", "admin", "super_admin"]
     created_at: datetime
 
     model_config = {"from_attributes": True}

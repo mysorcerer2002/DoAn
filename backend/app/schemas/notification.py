@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class NotificationResponse(BaseModel):
@@ -20,4 +20,4 @@ class NotificationResponse(BaseModel):
 
 
 class MarkReadRequest(BaseModel):
-    notification_ids: list[int]
+    notification_ids: list[int] = Field(max_length=100)

@@ -1,3 +1,5 @@
+from typing import Any
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -32,8 +34,8 @@ class SettingsUpdateRequest(BaseModel):
 class SettingsAuditEntry(BaseModel):
     id: int
     field_key: str
-    old_value: object
-    new_value: object
+    old_value: Any
+    new_value: Any
     user_id: int
     created_at: datetime
 

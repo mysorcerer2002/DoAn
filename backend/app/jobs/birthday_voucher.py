@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import extract, select
+from sqlalchemy import extract, select, update
 from sqlalchemy.orm import joinedload
 
 from app.core.db import AsyncSessionLocal
@@ -12,7 +12,7 @@ from app.models.membership import Membership
 from app.models.notification import Notification
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
-from app.services.voucher_service import VoucherService, _generate_code
+from app.services.voucher_service import VoucherService, generate_code
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,14 @@ async def birthday_voucher_job() -> dict:
     Chạy lúc 00:05 mỗi ngày (CronTrigger). Idempotent: nếu đã có voucher
     từ campaign sinh nhật trong ngày → bỏ qua.
     """
+    try:
+        return await _birthday_voucher_logic()
+    except Exception:
+        logger.exception("birthday_voucher_job failed")
+        return {"issued": 0, "skipped": 0, "error": True}
+
+
+async def _birthday_voucher_logic() -> dict:
     today = datetime.now(timezone.utc).date()
     issued = 0
     skipped = 0
@@ -80,9 +88,9 @@ async def birthday_voucher_job() -> dict:
                     continue
 
                 # Tạo voucher
-                voucher_code = _generate_code()
+                voucher_code = generate_code()
                 svc = VoucherService(session)
-                ttl_days = await svc._get_voucher_ttl(campaign.tenant_id)
+                ttl_days = await svc.get_voucher_ttl(campaign.tenant_id)
                 now = datetime.now(timezone.utc)
 
                 voucher = Voucher(
@@ -95,7 +103,11 @@ async def birthday_voucher_job() -> dict:
                     expires_at=now + timedelta(days=ttl_days),
                 )
                 session.add(voucher)
-                campaign.issued_count += 1
+                await session.execute(
+                    update(Campaign)
+                    .where(Campaign.id == campaign.id)
+                    .values(issued_count=Campaign.issued_count + 1)
+                )
 
                 # Push notification
                 notification = Notification(

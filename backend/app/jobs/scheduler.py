@@ -20,7 +20,10 @@ def init_scheduler() -> AsyncIOScheduler | None:
         logger.info("Scheduler disabled (ENABLE_SCHEDULER=false)")
         return None
 
-    scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
+    scheduler = AsyncIOScheduler(
+        timezone="Asia/Ho_Chi_Minh",
+        job_defaults={"misfire_grace_time": 3600},
+    )
     _register_jobs(scheduler)
     scheduler.start()
     logger.info("APScheduler started with %d jobs", len(scheduler.get_jobs()))
