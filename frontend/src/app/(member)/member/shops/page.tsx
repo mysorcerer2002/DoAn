@@ -99,7 +99,7 @@ export default function ShopsPage() {
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between bg-slate-50/95 px-4 backdrop-blur">
         <Link
           href="/member"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6366F1] hover:bg-indigo-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
           aria-label="Quay lại"
         >
           <ArrowLeft className="h-6 w-6" />
@@ -109,7 +109,7 @@ export default function ShopsPage() {
         </h1>
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6366F1] hover:bg-indigo-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
           aria-label="Vị trí"
         >
           <MapPin className="h-6 w-6" />
@@ -122,7 +122,7 @@ export default function ShopsPage() {
           <input
             type="text"
             placeholder="Tìm cửa hàng..."
-            className="block w-full rounded-full border border-slate-200 bg-white py-3 pl-12 pr-4 text-[14px] outline-none placeholder:text-slate-400 focus:border-[#6366F1] focus:ring-2 focus:ring-[#6366F1]/20"
+            className="block w-full rounded-full border border-slate-200 bg-white py-3 pl-12 pr-4 text-[14px] outline-none placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
           />
         </div>
 
@@ -133,8 +133,8 @@ export default function ShopsPage() {
               type="button"
               className={
                 idx === 0
-                  ? "shrink-0 rounded-full bg-[#6366F1] px-4 py-1.5 text-[12px] font-bold text-white"
-                  : "shrink-0 rounded-full border border-[#6366F1]/30 bg-white px-4 py-1.5 text-[12px] font-medium text-[#6366F1]"
+                  ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
+                  : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
               }
             >
               {f.emoji ? `${f.emoji} ${f.label}` : f.label}
@@ -151,7 +151,7 @@ export default function ShopsPage() {
           </button>
           <button
             type="button"
-            className="flex-1 rounded-full bg-[#6366F1] px-4 py-2 text-[13px] font-bold text-white shadow"
+            className="flex-1 rounded-full bg-brand-indigo px-4 py-2 text-[13px] font-bold text-white shadow"
           >
             Khám phá (12)
           </button>
@@ -164,7 +164,7 @@ export default function ShopsPage() {
               className="relative rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
             >
               {shop.badge && (
-                <span className="absolute right-4 top-4 rounded-full bg-[#FB923C] px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                <span className="absolute right-4 top-4 rounded-full bg-brand-orange px-2 py-0.5 text-[10px] font-bold uppercase text-white">
                   {shop.badge}
                 </span>
               )}
@@ -199,11 +199,11 @@ export default function ShopsPage() {
                     <span>{shop.distance}</span>
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-[#6366F1]">
+                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-brand-indigo">
                       {shop.pointRate}
                     </span>
                     {shop.highlight && (
-                      <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-[#FB923C]">
+                      <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-brand-orange">
                         {shop.highlight}
                       </span>
                     )}
@@ -216,7 +216,7 @@ export default function ShopsPage() {
                     <span
                       className={
                         shop.joinedTier.tone === "indigo"
-                          ? "rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold uppercase text-[#6366F1]"
+                          ? "rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold uppercase text-brand-indigo"
                           : "rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500"
                       }
                     >
@@ -224,7 +224,7 @@ export default function ShopsPage() {
                     </span>
                     <button
                       type="button"
-                      className="rounded-full border border-[#6366F1] px-4 py-1.5 text-[12px] font-bold text-[#6366F1]"
+                      className="rounded-full border border-brand-indigo px-4 py-1.5 text-[12px] font-bold text-brand-indigo"
                     >
                       Xem chi tiết
                     </button>
@@ -232,7 +232,7 @@ export default function ShopsPage() {
                 ) : (
                   <button
                     type="button"
-                    className="rounded-full bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] px-4 py-1.5 text-[12px] font-bold text-white shadow-md shadow-indigo-200 active:scale-95"
+                    className="rounded-full bg-gradient-to-r from-brand-indigo to-brand-violet px-4 py-1.5 text-[12px] font-bold text-white shadow-md shadow-indigo-200 active:scale-95"
                   >
                     + Tham gia
                   </button>

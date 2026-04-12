@@ -5,34 +5,34 @@ import { usePathname } from "next/navigation";
 import { Home, QrCode, Gift, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const tabs = [
-  { href: "/member", icon: Home, label: "Trang chủ" },
-  { href: "/member/rewards", icon: Gift, label: "Quà" },
-  { href: "/member/profile", icon: User, label: "Tôi" },
-] as const;
+const HOME_SUB_ROUTES = ["/member/history", "/member/shops", "/member/vouchers"];
 
 export function BottomNavBar() {
   const pathname = usePathname();
 
+  if (pathname === "/member/qr") {
+    return null;
+  }
+
+  const isHomeActive =
+    pathname === "/member" ||
+    HOME_SUB_ROUTES.some((route) => pathname.startsWith(route));
+  const isRewardsActive = pathname.startsWith("/member/rewards");
+  const isProfileActive = pathname.startsWith("/member/profile");
+  const isQrActive = pathname === "/member/qr";
+
   return (
     <nav className="fixed bottom-0 left-0 z-50 flex w-full items-end justify-around rounded-t-2xl border-t border-slate-100 bg-white/80 px-4 pt-3 pb-6 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] backdrop-blur-md">
-      {/* Trang chủ */}
-      <NavTab
-        href="/member"
-        icon={Home}
-        label="Trang chủ"
-        active={pathname === "/member"}
-      />
+      <NavTab href="/member" icon={Home} label="Trang chủ" active={isHomeActive} />
 
-      {/* QR center, nổi lên */}
       <Link href="/member/qr" className="flex flex-col items-center -mt-8">
-        <div className="rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-4 shadow-lg shadow-indigo-200 transition-transform active:scale-90">
+        <div className="rounded-full bg-gradient-to-tr from-brand-indigo to-brand-violet p-4 shadow-lg shadow-indigo-200 transition-transform active:scale-90">
           <QrCode className="h-7 w-7 text-white" strokeWidth={2.5} />
         </div>
         <span
           className={cn(
             "mt-1 text-[12px] font-medium",
-            pathname === "/member/qr" ? "text-indigo-600" : "text-slate-400"
+            isQrActive ? "text-brand-indigo" : "text-slate-400"
           )}
         >
           QR
@@ -43,13 +43,13 @@ export function BottomNavBar() {
         href="/member/rewards"
         icon={Gift}
         label="Quà"
-        active={pathname.startsWith("/member/rewards")}
+        active={isRewardsActive}
       />
       <NavTab
         href="/member/profile"
         icon={User}
         label="Tôi"
-        active={pathname.startsWith("/member/profile")}
+        active={isProfileActive}
       />
     </nav>
   );
@@ -72,14 +72,14 @@ function NavTab({
       className={cn(
         "flex flex-col items-center gap-1 cursor-pointer transition-colors",
         active
-          ? "font-semibold text-indigo-600"
-          : "text-slate-400 hover:text-indigo-500"
+          ? "font-semibold text-brand-indigo"
+          : "text-slate-400 hover:text-brand-indigo"
       )}
     >
       <Icon
         className="h-6 w-6"
         fill={active ? "currentColor" : "none"}
-        strokeWidth={active ? 0 : 2}
+        strokeWidth={active ? 1.5 : 2}
       />
       <span className="text-[12px] font-medium">{label}</span>
     </Link>

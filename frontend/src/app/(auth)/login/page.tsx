@@ -50,8 +50,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-body text-slate-800">
-      <div className="mx-auto max-w-md">
-        <header className="fixed top-0 z-50 flex h-16 w-full max-w-md items-center justify-between bg-transparent px-4">
+      <div className="relative mx-auto max-w-md">
+        <header className="absolute top-0 left-0 z-50 flex h-16 w-full items-center justify-between bg-transparent px-4">
           <Link
             href="/"
             className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
@@ -65,9 +65,9 @@ export default function LoginPage() {
           <div className="w-10" />
         </header>
 
-        <section className="flex h-[353px] w-full flex-col items-center justify-center bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] px-6 pt-16 text-center">
+        <section className="flex h-[353px] w-full flex-col items-center justify-center bg-gradient-to-br from-brand-indigo to-brand-violet px-6 pt-16 text-center">
           <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl">
-            <span className="font-headline text-4xl font-bold text-[#6366F1]">
+            <span className="font-headline text-4xl font-bold text-brand-indigo">
               L
             </span>
           </div>
@@ -82,14 +82,14 @@ export default function LoginPage() {
         <main className="relative z-10 -mt-10 mb-12 px-5">
           <div className="rounded-3xl bg-white p-6 shadow-2xl">
             <div className="mb-8 flex items-center border-b border-slate-200">
-              <div className="flex-1 border-b-2 border-[#6366F1] pb-3 text-center">
-                <span className="font-headline font-bold text-[#6366F1]">
+              <div className="flex-1 border-b-2 border-brand-indigo pb-3 text-center">
+                <span className="font-headline font-bold text-brand-indigo">
                   Đăng nhập
                 </span>
               </div>
               <Link
                 href="/register"
-                className="flex-1 pb-3 text-center transition-colors hover:text-[#6366F1]"
+                className="flex-1 pb-3 text-center transition-colors hover:text-brand-indigo"
               >
                 <span className="font-headline font-medium text-slate-500">
                   Đăng ký
@@ -111,7 +111,7 @@ export default function LoginPage() {
                     type="email"
                     placeholder="email@example.com"
                     autoComplete="email"
-                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-3 outline-none transition-all placeholder:text-slate-400 focus:border-[#6366F1] focus:ring-2 focus:ring-[#6366F1]"
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-3 outline-none transition-all placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
                     {...register("email")}
                   />
                 </div>
@@ -129,7 +129,7 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     autoComplete="current-password"
-                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-10 outline-none transition-all placeholder:text-slate-400 focus:border-[#6366F1] focus:ring-2 focus:ring-[#6366F1]"
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-10 outline-none transition-all placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
                     {...register("password")}
                   />
                   <button
@@ -153,7 +153,7 @@ export default function LoginPage() {
                 <div className="flex justify-end">
                   <a
                     href="#"
-                    className="text-sm font-medium text-[#6366F1] hover:underline"
+                    className="text-sm font-medium text-brand-indigo hover:underline"
                   >
                     Quên mật khẩu?
                   </a>
@@ -169,7 +169,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-xl bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] py-4 font-headline text-base font-bold text-white shadow-lg shadow-indigo-200 transition-transform active:scale-[0.98] disabled:opacity-60"
+                className="w-full rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet py-4 font-headline text-base font-bold text-white shadow-lg shadow-indigo-200 transition-transform active:scale-[0.98] disabled:opacity-60"
               >
                 {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
               </button>
@@ -184,7 +184,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#6366F1] bg-white px-4 py-3.5 font-medium text-[#6366F1] transition-all hover:bg-[#6366F1]/5 active:scale-[0.98]"
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-brand-indigo bg-white px-4 py-3.5 font-medium text-brand-indigo transition-all hover:bg-brand-indigo/5 active:scale-[0.98]"
               >
                 <svg viewBox="0 0 24 24" className="h-5 w-5">
                   <path
@@ -214,7 +214,7 @@ export default function LoginPage() {
               Chưa có tài khoản?{" "}
               <Link
                 href="/register"
-                className="ml-1 font-bold text-[#6366F1] hover:underline"
+                className="ml-1 font-bold text-brand-indigo hover:underline"
               >
                 Đăng ký ngay
               </Link>

@@ -91,7 +91,7 @@ export default function MemberDashboardPage() {
 
       <main className="space-y-6 px-4 pt-2">
         {/* Hero Points Card */}
-        <section className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] p-6 shadow-xl shadow-indigo-200">
+        <section className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-brand-indigo to-brand-violet p-6 shadow-xl shadow-indigo-200">
           <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
           <div className="relative z-10 space-y-4">
             <div className="flex items-start justify-between">
@@ -106,7 +106,7 @@ export default function MemberDashboardPage() {
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-headline text-glow-orange text-[64px] font-bold leading-none text-[#FB923C]">
+              <span className="font-headline text-glow-orange text-[64px] font-bold leading-none text-brand-orange">
                 2.450
               </span>
               <span className="font-medium text-indigo-100">điểm</span>
@@ -118,7 +118,7 @@ export default function MemberDashboardPage() {
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-white/20">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#FB923C] to-orange-300"
+                  className="h-full rounded-full bg-gradient-to-r from-brand-orange to-orange-300"
                   style={{ width: "80%" }}
                 />
               </div>
@@ -139,7 +139,7 @@ export default function MemberDashboardPage() {
                   className={
                     color === "indigo"
                       ? "h-6 w-6 text-indigo-600"
-                      : "h-6 w-6 text-[#FB923C]"
+                      : "h-6 w-6 text-brand-orange"
                   }
                 />
               </div>
@@ -190,7 +190,7 @@ export default function MemberDashboardPage() {
                   >
                     {shop.tier}
                   </span>
-                  <span className="text-[14px] font-bold text-[#FB923C]">
+                  <span className="text-[14px] font-bold text-brand-orange">
                     {shop.points} đ
                   </span>
                 </div>
@@ -205,7 +205,7 @@ export default function MemberDashboardPage() {
             <h3 className="font-headline text-[18px] font-bold text-slate-800">
               Voucher khả dụng
             </h3>
-            <span className="rounded-full bg-[#FB923C]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#FB923C]">
+            <span className="rounded-full bg-brand-orange/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-orange">
               2 voucher mới
             </span>
           </div>
@@ -213,7 +213,7 @@ export default function MemberDashboardPage() {
             {availableVouchers.map((voucher) => (
               <article
                 key={voucher.id}
-                className="relative flex items-center overflow-hidden rounded-2xl border-l-4 border-[#FB923C] bg-white shadow-sm"
+                className="relative flex items-center overflow-hidden rounded-2xl border-l-4 border-brand-orange bg-white shadow-sm"
               >
                 <span className="absolute -top-1 left-24 h-4 w-4 rounded-full border border-slate-100 bg-[#f8fafc]" />
                 <span className="absolute -bottom-1 left-24 h-4 w-4 rounded-full border border-slate-100 bg-[#f8fafc]" />
@@ -230,7 +230,7 @@ export default function MemberDashboardPage() {
                   </p>
                 </div>
                 <div className="flex min-w-[100px] flex-col items-center justify-center border-l border-dashed border-slate-200 bg-slate-50/50 p-4">
-                  <span className="text-[28px] font-bold text-[#FB923C]">
+                  <span className="text-[28px] font-bold text-brand-orange">
                     {voucher.valueLabel}
                   </span>
                   <button

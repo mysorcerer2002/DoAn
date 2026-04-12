@@ -113,7 +113,7 @@ export default function HistoryPage() {
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between bg-slate-50/95 px-4 backdrop-blur">
         <Link
           href="/member"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6366F1] hover:bg-indigo-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
           aria-label="Quay lại"
         >
           <ArrowLeft className="h-6 w-6" />
@@ -123,7 +123,7 @@ export default function HistoryPage() {
         </h1>
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6366F1] hover:bg-indigo-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
           aria-label="Lọc"
         >
           <Filter className="h-6 w-6" />
@@ -131,13 +131,13 @@ export default function HistoryPage() {
       </header>
 
       <main className="space-y-5 px-4 pt-2">
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] p-5 shadow-xl shadow-indigo-200">
+        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-indigo to-brand-violet p-5 shadow-xl shadow-indigo-200">
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
           <div className="relative z-10 space-y-2">
             <p className="text-[12px] font-medium text-indigo-100">
               Tổng điểm tích lũy 30 ngày qua
             </p>
-            <p className="font-headline text-[36px] font-bold text-[#FB923C] text-glow-orange leading-none">
+            <p className="font-headline text-[36px] font-bold text-brand-orange text-glow-orange leading-none">
               +450 điểm
             </p>
             <p className="text-[12px] text-indigo-50/80">
@@ -161,8 +161,8 @@ export default function HistoryPage() {
               type="button"
               className={
                 idx === 0
-                  ? "shrink-0 rounded-full bg-[#6366F1] px-4 py-1.5 text-[12px] font-bold text-white"
-                  : "shrink-0 rounded-full border border-[#6366F1]/30 bg-white px-4 py-1.5 text-[12px] font-medium text-[#6366F1]"
+                  ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
+                  : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
               }
             >
               {tab.label}
@@ -207,7 +207,7 @@ export default function HistoryPage() {
                     <p
                       className={
                         tx.points >= 0
-                          ? "font-headline text-[16px] font-bold text-[#FB923C]"
+                          ? "font-headline text-[16px] font-bold text-brand-orange"
                           : "font-headline text-[16px] font-bold text-red-500"
                       }
                     >
@@ -226,7 +226,7 @@ export default function HistoryPage() {
         <div className="pt-2 text-center">
           <button
             type="button"
-            className="text-[14px] font-semibold text-[#6366F1] hover:underline"
+            className="text-[14px] font-semibold text-brand-indigo hover:underline"
           >
             Tải thêm giao dịch ↓
           </button>

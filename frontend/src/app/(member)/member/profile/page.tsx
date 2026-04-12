@@ -50,7 +50,7 @@ const otherItems = [
 export default function ProfilePage() {
   return (
     <>
-      <header className="relative h-[260px] overflow-hidden bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] px-4 pt-4">
+      <header className="relative h-[260px] overflow-hidden bg-gradient-to-br from-brand-indigo to-brand-violet px-4 pt-4">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
 
@@ -81,7 +81,7 @@ export default function ProfilePage() {
             </div>
             <button
               type="button"
-              className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#FB923C] text-white shadow-md"
+              className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-brand-orange text-white shadow-md"
               aria-label="Đổi ảnh đại diện"
             >
               <Pencil className="h-3.5 w-3.5" />
@@ -116,7 +116,7 @@ export default function ProfilePage() {
             </h3>
             <button
               type="button"
-              className="flex items-center gap-1 text-[13px] font-semibold text-[#6366F1]"
+              className="flex items-center gap-1 text-[13px] font-semibold text-brand-indigo"
             >
               <Pencil className="h-3.5 w-3.5" />
               Chỉnh sửa
@@ -135,7 +135,7 @@ export default function ProfilePage() {
                 }
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-                  <item.icon className="h-5 w-5 text-[#6366F1]" />
+                  <item.icon className="h-5 w-5 text-brand-indigo" />
                 </div>
                 <div className="flex-1">
                   <p className="text-[11px] text-slate-400">{item.label}</p>
@@ -165,13 +165,13 @@ export default function ProfilePage() {
                 }
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-                  <item.icon className="h-5 w-5 text-[#6366F1]" />
+                  <item.icon className="h-5 w-5 text-brand-indigo" />
                 </div>
                 <p className="flex-1 text-[14px] font-medium text-slate-800">
                   {item.label}
                 </p>
                 {item.trailing === "toggle" && (
-                  <span className="inline-flex h-6 w-11 items-center rounded-full bg-[#6366F1] p-0.5">
+                  <span className="inline-flex h-6 w-11 items-center rounded-full bg-brand-indigo p-0.5">
                     <span className="ml-auto h-5 w-5 rounded-full bg-white shadow" />
                   </span>
                 )}
@@ -205,7 +205,7 @@ export default function ProfilePage() {
                 }
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-                  <item.icon className="h-5 w-5 text-[#6366F1]" />
+                  <item.icon className="h-5 w-5 text-brand-indigo" />
                 </div>
                 <p className="flex-1 text-[14px] font-medium text-slate-800">
                   {item.label}
@@ -253,8 +253,8 @@ function Stat({
       <span
         className={
           valueColor === "orange"
-            ? "font-headline text-[24px] font-bold text-[#FB923C]"
-            : "font-headline text-[24px] font-bold text-[#6366F1]"
+            ? "font-headline text-[24px] font-bold text-brand-orange"
+            : "font-headline text-[24px] font-bold text-brand-indigo"
         }
       >
         {value}

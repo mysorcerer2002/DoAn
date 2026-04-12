@@ -82,7 +82,7 @@ export default function RewardsPage() {
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between bg-slate-50/95 px-4 backdrop-blur">
         <Link
           href="/member"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6366F1] hover:bg-indigo-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
           aria-label="Quay lại"
         >
           <ArrowLeft className="h-6 w-6" />
@@ -92,7 +92,7 @@ export default function RewardsPage() {
         </h1>
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6366F1] hover:bg-indigo-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
           aria-label="Tìm kiếm"
         >
           <Search className="h-6 w-6" />
@@ -100,7 +100,7 @@ export default function RewardsPage() {
       </header>
 
       <main className="space-y-4 px-4 pt-2">
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] p-4 shadow-xl shadow-indigo-200">
+        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-indigo to-brand-violet p-4 shadow-xl shadow-indigo-200">
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
           <div className="relative z-10 flex items-center justify-between">
             <div>
@@ -108,7 +108,7 @@ export default function RewardsPage() {
                 Điểm hiện có
               </p>
               <div className="flex items-baseline gap-2">
-                <span className="font-headline text-[32px] font-bold text-[#FB923C] leading-none">
+                <span className="font-headline text-[32px] font-bold text-brand-orange leading-none">
                   2.450
                 </span>
                 <span className="text-[12px] text-indigo-100">điểm</span>
@@ -130,8 +130,8 @@ export default function RewardsPage() {
               type="button"
               className={
                 idx === 0
-                  ? "shrink-0 rounded-full bg-[#6366F1] px-4 py-1.5 text-[12px] font-bold text-white"
-                  : "shrink-0 rounded-full border border-[#6366F1]/30 bg-white px-4 py-1.5 text-[12px] font-medium text-[#6366F1]"
+                  ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
+                  : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
               }
             >
               {f.emoji ? `${f.emoji} ${f.label}` : f.label}
@@ -143,7 +143,7 @@ export default function RewardsPage() {
           <h2 className="font-headline text-[18px] font-bold text-slate-800">
             Đề xuất cho bạn
           </h2>
-          <article className="relative flex items-center gap-4 overflow-hidden rounded-2xl bg-gradient-to-r from-[#FB923C] to-amber-400 p-4 shadow-lg">
+          <article className="relative flex items-center gap-4 overflow-hidden rounded-2xl bg-gradient-to-r from-brand-orange to-amber-400 p-4 shadow-lg">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-white/20 text-5xl backdrop-blur">
               🎁
             </div>
@@ -163,7 +163,7 @@ export default function RewardsPage() {
                 </span>
                 <button
                   type="button"
-                  className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-[#FB923C]"
+                  className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-brand-orange"
                 >
                   Đổi ngay
                 </button>
@@ -183,7 +183,7 @@ export default function RewardsPage() {
               }
             >
               {reward.badge && (
-                <span className="absolute right-2 top-2 z-10 rounded-full bg-[#FB923C] px-2 py-0.5 text-[9px] font-bold text-white">
+                <span className="absolute right-2 top-2 z-10 rounded-full bg-brand-orange px-2 py-0.5 text-[9px] font-bold text-white">
                   {reward.badge}
                 </span>
               )}
@@ -198,7 +198,7 @@ export default function RewardsPage() {
                 </h4>
                 <p className="text-[11px] text-slate-400">{reward.shop}</p>
                 <div className="flex items-center justify-between pt-1">
-                  <span className="font-headline text-[14px] font-bold text-[#FB923C]">
+                  <span className="font-headline text-[14px] font-bold text-brand-orange">
                     {reward.points} điểm
                   </span>
                   {reward.locked ? (
@@ -208,7 +208,7 @@ export default function RewardsPage() {
                   ) : (
                     <button
                       type="button"
-                      className="rounded-full bg-[#6366F1] px-3 py-1 text-[11px] font-bold text-white shadow-sm active:scale-95"
+                      className="rounded-full bg-brand-indigo px-3 py-1 text-[11px] font-bold text-white shadow-sm active:scale-95"
                     >
                       Đổi
                     </button>

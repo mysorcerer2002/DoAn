@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default function MemberQrPage() {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] font-body">
+    <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-gradient-to-br from-brand-indigo to-brand-violet font-body">
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 pb-10">
         <header className="flex h-16 items-center justify-between">
           <Link
@@ -45,7 +45,7 @@ export default function MemberQrPage() {
               <p className="text-[12px] text-white/70">•••• •• 8876</p>
             </div>
             <div className="text-right">
-              <p className="font-headline text-[22px] font-bold text-[#FB923C] leading-none">
+              <p className="font-headline text-[22px] font-bold text-brand-orange leading-none">
                 2.450
               </p>
               <p className="text-[10px] text-white/80">điểm</p>
@@ -66,7 +66,7 @@ export default function MemberQrPage() {
                     backgroundBlendMode: "difference",
                   }}
                 />
-                <div className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#6366F1] text-2xl font-bold text-white shadow-lg">
+                <div className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brand-indigo text-2xl font-bold text-white shadow-lg">
                   L
                 </div>
                 {/* Corner finder squares */}
@@ -83,7 +83,7 @@ export default function MemberQrPage() {
           <div className="mt-6 flex flex-col items-center">
             <p className="text-[12px] text-white/80">Tự động làm mới sau</p>
             <div className="mt-1 flex items-baseline gap-1">
-              <span className="font-headline text-[34px] font-bold text-[#FB923C] leading-none">
+              <span className="font-headline text-[34px] font-bold text-brand-orange leading-none">
                 00:42
               </span>
             </div>
@@ -100,7 +100,7 @@ export default function MemberQrPage() {
         <div className="mt-4 space-y-2.5">
           <button
             type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 font-headline font-bold text-[#6366F1] shadow-lg active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 font-headline font-bold text-brand-indigo shadow-lg active:scale-[0.98]"
           >
             <RefreshCw className="h-5 w-5" />
             Làm mới mã

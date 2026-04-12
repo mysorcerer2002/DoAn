@@ -71,7 +71,7 @@ export default function VouchersPage() {
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between bg-slate-50/95 px-4 backdrop-blur">
         <Link
           href="/member"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6366F1] hover:bg-indigo-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
           aria-label="Quay lại"
         >
           <ArrowLeft className="h-6 w-6" />
@@ -81,7 +81,7 @@ export default function VouchersPage() {
         </h1>
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6366F1] hover:bg-indigo-50"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
           aria-label="Tìm kiếm"
         >
           <Search className="h-6 w-6" />
@@ -89,13 +89,13 @@ export default function VouchersPage() {
       </header>
 
       <main className="space-y-4 px-4 pt-2">
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] p-4 shadow-xl shadow-indigo-200">
+        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-indigo to-brand-violet p-4 shadow-xl shadow-indigo-200">
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
           <div className="relative z-10 space-y-1">
             <p className="text-[14px] font-bold text-white">
               Bạn có 12 voucher khả dụng
             </p>
-            <p className="text-[12px] font-bold text-[#FB923C]">
+            <p className="text-[12px] font-bold text-brand-orange">
               Tiết kiệm tới 850.000₫
             </p>
           </div>
@@ -108,7 +108,7 @@ export default function VouchersPage() {
               type="button"
               className={
                 idx === 0
-                  ? "shrink-0 rounded-full bg-[#6366F1]/10 px-4 py-2 text-[12px] font-bold text-[#6366F1]"
+                  ? "shrink-0 rounded-full bg-brand-indigo/10 px-4 py-2 text-[12px] font-bold text-brand-indigo"
                   : "shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-[12px] font-medium text-slate-500"
               }
             >
@@ -131,7 +131,7 @@ export default function VouchersPage() {
       {/* Floating action button */}
       <button
         type="button"
-        className="fixed bottom-28 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-[#6366F1] to-[#8B5CF6] text-white shadow-xl shadow-indigo-300 active:scale-95"
+        className="fixed bottom-28 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-brand-indigo to-brand-violet text-white shadow-xl shadow-indigo-300 active:scale-95"
         aria-label="Khám phá chiến dịch"
       >
         <Plus className="h-7 w-7" />
@@ -144,9 +144,9 @@ function StandardVoucher({ voucher }: { voucher: Voucher }) {
   const Icon =
     voucher.icon === "coffee" ? Coffee : voucher.icon === "gift" ? Gift : Ticket;
   return (
-    <article className="relative flex items-stretch overflow-hidden rounded-2xl border-l-4 border-[#FB923C] bg-white shadow-sm">
+    <article className="relative flex items-stretch overflow-hidden rounded-2xl border-l-4 border-brand-orange bg-white shadow-sm">
       {voucher.badge && (
-        <span className="absolute right-2 top-2 z-10 rounded-full bg-[#FB923C] px-2 py-0.5 text-[9px] font-bold uppercase text-white">
+        <span className="absolute right-2 top-2 z-10 rounded-full bg-brand-orange px-2 py-0.5 text-[9px] font-bold uppercase text-white">
           {voucher.badge}
         </span>
       )}
@@ -155,7 +155,7 @@ function StandardVoucher({ voucher }: { voucher: Voucher }) {
       <span className="absolute -bottom-1 left-[100px] h-3 w-3 rounded-full border border-slate-100 bg-[#f8fafc]" />
 
       <div className="flex w-[100px] shrink-0 items-center justify-center bg-orange-50">
-        <Icon className="h-9 w-9 text-[#FB923C]" />
+        <Icon className="h-9 w-9 text-brand-orange" />
       </div>
 
       <div className="flex-1 p-4">
@@ -163,7 +163,7 @@ function StandardVoucher({ voucher }: { voucher: Voucher }) {
           {voucher.title}
         </h3>
         <p className="text-[12px] text-slate-500">{voucher.description}</p>
-        <p className="mt-1 text-[11px] font-medium text-[#6366F1]">
+        <p className="mt-1 text-[11px] font-medium text-brand-indigo">
           {voucher.shop}
         </p>
         <div className="mt-2 flex items-center justify-between">
@@ -173,7 +173,7 @@ function StandardVoucher({ voucher }: { voucher: Voucher }) {
           </span>
           <button
             type="button"
-            className="rounded-full bg-[#6366F1] px-3 py-1 text-[11px] font-bold text-white shadow-sm active:scale-95"
+            className="rounded-full bg-brand-indigo px-3 py-1 text-[11px] font-bold text-white shadow-sm active:scale-95"
           >
             Dùng ngay
           </button>
@@ -185,7 +185,7 @@ function StandardVoucher({ voucher }: { voucher: Voucher }) {
 
 function PremiumVoucher({ voucher }: { voucher: Voucher }) {
   return (
-    <article className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#FB923C] to-amber-500 p-4 shadow-lg">
+    <article className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-orange to-amber-500 p-4 shadow-lg">
       <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10 blur-xl" />
       <div className="relative z-10 flex items-center justify-between">
         <div className="space-y-1">
@@ -203,7 +203,7 @@ function PremiumVoucher({ voucher }: { voucher: Voucher }) {
         </div>
         <button
           type="button"
-          className="rounded-full bg-white px-4 py-2 text-[12px] font-bold text-[#FB923C] shadow active:scale-95"
+          className="rounded-full bg-white px-4 py-2 text-[12px] font-bold text-brand-orange shadow active:scale-95"
         >
           Dùng
         </button>

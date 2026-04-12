@@ -1,0 +1,81 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - link "Quay lại" [ref=e5] [cursor=pointer]:
+        - /url: /member
+        - img [ref=e6]
+      - heading "Voucher của tôi" [level=1] [ref=e8]
+      - button "Tìm kiếm" [ref=e9]:
+        - img [ref=e10]
+    - main [ref=e13]:
+      - generic [ref=e16]:
+        - paragraph [ref=e17]: Bạn có 12 voucher khả dụng
+        - paragraph [ref=e18]: Tiết kiệm tới 850.000₫
+      - generic [ref=e19]:
+        - button "Khả dụng (12)" [ref=e20]
+        - button "Đã dùng (5)" [ref=e21]
+        - button "Hết hạn (3)" [ref=e22]
+      - generic [ref=e23]:
+        - article [ref=e24]:
+          - generic [ref=e25]: MỚI
+          - img [ref=e29]
+          - generic [ref=e31]:
+            - heading "Giảm 50.000₫" [level=3] [ref=e32]
+            - paragraph [ref=e33]: Áp dụng cho hóa đơn từ 200K
+            - paragraph [ref=e34]: Cafe Cộng - Bà Triệu
+            - generic [ref=e35]:
+              - generic [ref=e36]:
+                - img [ref=e37]
+                - text: Còn 5 ngày
+              - button "Dùng ngay" [ref=e40]
+        - article [ref=e41]:
+          - img [ref=e45]
+          - generic [ref=e47]:
+            - heading "Free Cafe Latte size M" [level=3] [ref=e48]
+            - paragraph [ref=e49]: Áp dụng mọi món Latte
+            - paragraph [ref=e50]: Cafe Cộng
+            - generic [ref=e51]:
+              - generic [ref=e52]:
+                - img [ref=e53]
+                - text: Còn 12 ngày
+              - button "Dùng ngay" [ref=e56]
+        - article [ref=e57]:
+          - generic [ref=e59]:
+            - generic [ref=e60]:
+              - heading "Giảm 20%" [level=3] [ref=e61]
+              - paragraph [ref=e62]: Toàn bộ menu
+              - paragraph [ref=e63]: Trà sữa Toko
+              - generic [ref=e64]:
+                - img [ref=e65]
+                - text: Còn 30 ngày
+            - button "Dùng" [ref=e68]
+        - article [ref=e69]:
+          - img [ref=e73]
+          - generic [ref=e77]:
+            - 'heading "Quà sinh nhật: Bánh ngọt" [level=3] [ref=e78]'
+            - paragraph [ref=e79]: Miễn phí khi check-in
+            - paragraph [ref=e80]: BBQ Hàn Quốc
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - img [ref=e83]
+                - text: Còn 7 ngày
+              - button "Dùng ngay" [ref=e86]
+    - button "Khám phá chiến dịch" [ref=e87]:
+      - img [ref=e88]
+  - navigation [ref=e89]:
+    - link "Trang chủ" [ref=e90] [cursor=pointer]:
+      - /url: /member
+      - img [ref=e91]
+      - generic [ref=e94]: Trang chủ
+    - link "QR" [ref=e95] [cursor=pointer]:
+      - /url: /member/qr
+      - img [ref=e97]
+      - generic [ref=e103]: QR
+    - link "Quà" [ref=e104] [cursor=pointer]:
+      - /url: /member/rewards
+      - img [ref=e105]
+      - generic [ref=e109]: Quà
+    - link "Tôi" [ref=e110] [cursor=pointer]:
+      - /url: /member/profile
+      - img [ref=e111]
+      - generic [ref=e114]: Tôi

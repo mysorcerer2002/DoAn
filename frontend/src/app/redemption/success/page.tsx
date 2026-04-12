@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default function RedemptionSuccessPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] font-body">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-brand-indigo to-brand-violet font-body">
       {/* Decorative confetti dots */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[10%] top-[15%] h-2 w-2 rounded-full bg-white/40" />
@@ -38,7 +38,7 @@ export default function RedemptionSuccessPage() {
             <div className="absolute inset-0 -m-2 rounded-full bg-white/20 blur-xl" />
             <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-white shadow-2xl">
               <Check
-                className="h-14 w-14 text-[#6366F1]"
+                className="h-14 w-14 text-brand-indigo"
                 strokeWidth={3.5}
               />
             </div>
@@ -73,7 +73,7 @@ export default function RedemptionSuccessPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-slate-500">Số điểm đã dùng</span>
-              <span className="font-headline font-bold text-[#FB923C]">
+              <span className="font-headline font-bold text-brand-orange">
                 150 điểm
               </span>
             </div>
@@ -96,7 +96,7 @@ export default function RedemptionSuccessPage() {
                   backgroundBlendMode: "difference",
                 }}
               />
-              <div className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#6366F1] text-xl font-bold text-white shadow-lg">
+              <div className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brand-indigo text-xl font-bold text-white shadow-lg">
                 L
               </div>
             </div>
@@ -113,7 +113,7 @@ export default function RedemptionSuccessPage() {
         <div className="space-y-3">
           <button
             type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-4 font-headline font-bold text-[#6366F1] shadow-lg active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-4 font-headline font-bold text-brand-indigo shadow-lg active:scale-[0.98]"
           >
             <Download className="h-5 w-5" />
             Lưu ảnh QR
