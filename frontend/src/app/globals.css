@@ -2,7 +2,30 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap");
+
 @custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-headline: "Be Vietnam Pro", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --color-brand-indigo: #6366f1;
+  --color-brand-violet: #8b5cf6;
+  --color-brand-orange: #fb923c;
+  --color-brand-amber: #f59e0b;
+  --color-brand-slate: #f8fafc;
+}
+
+@utility text-glow-orange {
+  text-shadow: 0 0 20px rgba(251, 146, 60, 0.4);
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
 
 @theme inline {
   --color-background: var(--background);

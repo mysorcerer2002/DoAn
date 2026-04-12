@@ -59,8 +59,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Tenant-Id"],
 )
 
 app.include_router(auth_router.router)
@@ -80,6 +80,18 @@ app.include_router(campaigns_router)
 app.include_router(vouchers_router)
 app.include_router(notifications_router)
 app.include_router(analytics_router)
+
+
+@app.exception_handler(Exception)
+async def _global_exception_handler(request, exc: Exception):
+    """Catch-all để tránh leak stack trace ra client."""
+    import logging
+
+    logging.getLogger("app").exception("Unhandled exception")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 @app.get("/health")

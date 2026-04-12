@@ -33,8 +33,9 @@ def generate_unique_slug(name: str, existing_slugs: set[str]) -> str:
         return base
 
     alphabet = string.ascii_lowercase + string.digits
-    while True:
+    for _ in range(100):
         suffix = "".join(secrets.choice(alphabet) for _ in range(4))
         candidate = f"{base}-{suffix}"
         if candidate not in existing_slugs:
             return candidate
+    raise ValueError("Could not generate unique slug after 100 attempts")

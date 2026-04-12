@@ -98,7 +98,7 @@ def generate_fallback_code(user_id: int, hour_bucket: int | None = None) -> str:
         hour_bucket = _hour_bucket()
 
     msg = f"{user_id}|{hour_bucket}".encode()
-    digest = hmac.new(settings.jwt_secret.encode(), msg, hashlib.sha256).digest()
+    digest = hmac.new(settings.qr_secret.encode(), msg, hashlib.sha256).digest()
     chars = []
     for b in digest[:_FALLBACK_CODE_LENGTH]:
         chars.append(_FALLBACK_ALPHABET[b % len(_FALLBACK_ALPHABET)])
@@ -142,7 +142,7 @@ def sign_shop_token(tenant_id: int) -> str:
     """
     settings = get_settings()
     msg = f"shop|{tenant_id}".encode()
-    digest = hmac.new(settings.jwt_secret.encode(), msg, hashlib.sha256).digest()
+    digest = hmac.new(settings.qr_secret.encode(), msg, hashlib.sha256).digest()
     return digest.hex()[:16]
 
 

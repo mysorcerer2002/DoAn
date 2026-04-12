@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
 
     app_name: str = "loyalty-platform"
     environment: str = "development"
-    debug: bool = True
+    debug: bool = False
 
     database_url: str
 
@@ -21,9 +22,33 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    qr_hmac_secret: str = ""
+
+    @property
+    def qr_secret(self) -> str:
+        """Secret riêng cho QR/HMAC. Bắt buộc cấu hình riêng trong production."""
+        return self.qr_hmac_secret or self.jwt_secret
 
     enable_scheduler: bool = False
     frontend_origins: str = "http://localhost:3000"
+
+    @model_validator(mode="after")
+    def _validate_secrets(self) -> "Settings":
+        """Kiểm tra secrets đủ mạnh trong production."""
+        if self.environment not in ("development", "test", "testing"):
+            if len(self.jwt_secret) < 32:
+                raise ValueError(
+                    "JWT_SECRET phải >= 32 ký tự trong production"
+                )
+            if not self.qr_hmac_secret:
+                raise ValueError(
+                    "QR_HMAC_SECRET phải được cấu hình riêng trong production"
+                )
+            if self.qr_hmac_secret == self.jwt_secret:
+                raise ValueError(
+                    "QR_HMAC_SECRET phải khác JWT_SECRET"
+                )
+        return self
 
     @property
     def cors_origins(self) -> list[str]:

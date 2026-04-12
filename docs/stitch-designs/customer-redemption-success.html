@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Đổi quà thành công</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#f4f1ff",
+                        "surface": "#f5f7f9",
+                        "background": "#f5f7f9",
+                        "on-surface-variant": "#595c5e",
+                        "tertiary-container": "#ff9742",
+                        "inverse-on-surface": "#9a9d9f",
+                        "surface-container-highest": "#d9dde0",
+                        "surface-variant": "#d9dde0",
+                        "surface-container-high": "#dfe3e6",
+                        "on-error": "#ffefef",
+                        "on-tertiary-fixed": "#2b1100",
+                        "on-secondary": "#f8f0ff",
+                        "surface-tint": "#4647d3",
+                        "secondary-dim": "#5e26c7",
+                        "on-primary-fixed": "#000000",
+                        "on-secondary-fixed-variant": "#5f28c8",
+                        "error-dim": "#a70138",
+                        "secondary-container": "#dac9ff",
+                        "on-tertiary": "#fff0e8",
+                        "surface-dim": "#d0d5d8",
+                        "tertiary-fixed-dim": "#f08934",
+                        "on-surface": "#2c2f31",
+                        "on-secondary-fixed": "#40009b",
+                        "primary-fixed-dim": "#8387ff",
+                        "tertiary-dim": "#7e3e00",
+                        "tertiary": "#904800",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#6a37d4",
+                        "on-tertiary-fixed-variant": "#5d2c00",
+                        "tertiary-fixed": "#ff9742",
+                        "primary-dim": "#3939c7",
+                        "inverse-primary": "#8083ff",
+                        "inverse-surface": "#0b0f10",
+                        "primary": "#4647d3",
+                        "primary-container": "#9396ff",
+                        "on-tertiary-container": "#4f2500",
+                        "surface-container": "#e5e9eb",
+                        "on-primary-container": "#0a0081",
+                        "outline": "#747779",
+                        "outline-variant": "#abadaf",
+                        "surface-container-low": "#eef1f3",
+                        "error-container": "#f74b6d",
+                        "error": "#b41340",
+                        "on-background": "#2c2f31",
+                        "primary-fixed": "#9396ff",
+                        "surface-bright": "#f5f7f9",
+                        "on-error-container": "#510017",
+                        "secondary-fixed": "#dac9ff",
+                        "on-secondary-container": "#5517bf",
+                        "on-primary-fixed-variant": "#0e009d",
+                        "secondary-fixed-dim": "#ceb9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Be Vietnam Pro"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .confetti-overlay {
+            background-image: radial-gradient(circle, #ffffff 1px, transparent 1px), radial-gradient(circle, #fb923c 1px, transparent 1px);
+            background-size: 40px 40px, 60px 60px;
+            background-position: 0 0, 30px 30px;
+            opacity: 0.2;
+        }
+        .notch-edge::before, .notch-edge::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #6366F1; /* Matches Indigo primary */
+            border-radius: 50%;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .notch-edge::before { left: -10px; }
+        .notch-edge::after { right: -10px; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body bg-slate-900 text-on-background min-h-screen overflow-x-hidden">
+<!-- Full-screen Background Gradient & Confetti Overlay -->
+<div class="fixed inset-0 bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] z-0"></div>
+<div class="fixed inset-0 confetti-overlay z-0"></div>
+<div class="relative z-10 flex flex-col min-h-screen">
+<!-- TopAppBar (Shared Component Execution) -->
+<header class="flex justify-between items-center w-full px-4 h-16 docked full-width top-0">
+<button aria-label="Go back" class="w-10 h-10 flex items-center justify-center rounded-full text-white hover:bg-white/20 transition-colors active:scale-95 transition-transform">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-['Be_Vietnam_Pro'] font-semibold text-lg text-white">Đổi quà thành công</h1>
+<button aria-label="Share" class="w-10 h-10 flex items-center justify-center rounded-full text-white hover:bg-white/20 transition-colors active:scale-95 transition-transform">
+<span class="material-symbols-outlined">share</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col items-center justify-center px-6 py-8">
+<!-- Success Icon Section -->
+<div class="relative mb-6">
+<div class="absolute inset-0 bg-primary-container/30 rounded-full blur-xl scale-125"></div>
+<div class="relative w-[120px] h-[120px] bg-white rounded-full flex items-center justify-center shadow-lg ring-8 ring-white/10">
+<span class="material-symbols-outlined text-primary text-6xl font-bold" style="font-variation-settings: 'wght' 700;">check</span>
+</div>
+</div>
+<!-- Header Text -->
+<div class="text-center mb-8 space-y-2">
+<h2 class="text-2xl font-headline font-bold text-white tracking-tight">Đổi quà thành công!</h2>
+<p class="text-sm text-white/80 max-w-[280px] mx-auto">Hãy đưa mã QR cho nhân viên để nhận quà</p>
+</div>
+<!-- Reward Card (Bento/Premium Hybrid) -->
+<div class="w-full max-w-sm bg-white rounded-[24px] shadow-2xl relative overflow-hidden flex flex-col p-6 notch-edge">
+<!-- Merchant & Gift Info -->
+<div class="flex gap-4 items-center mb-6">
+<div class="w-20 h-20 bg-[#fff7ed] rounded-xl flex items-center justify-center border border-tertiary/10">
+<span aria-label="coffee" class="text-4xl" role="img">☕</span>
+</div>
+<div class="flex-1">
+<h3 class="text-lg font-headline font-bold text-slate-800 leading-tight">Cafe Latte size M Free</h3>
+<div class="flex items-center gap-1 mt-1 text-slate-500">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+<span class="text-xs">Cafe Cộng - Bà Triệu</span>
+</div>
+</div>
+</div>
+<!-- Divider with subtle notch aesthetic -->
+<div class="border-t border-dashed border-slate-200 my-2 relative"></div>
+<!-- Transaction Details -->
+<div class="space-y-3 py-4">
+<div class="flex justify-between items-center">
+<span class="text-sm text-slate-500 font-medium">Số điểm đã dùng</span>
+<span class="text-base font-bold text-tertiary-fixed">150 điểm</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-slate-500 font-medium">Mã đổi quà</span>
+<span class="text-sm font-mono font-bold text-slate-800 tracking-wider">RDM-A8K9-2026</span>
+</div>
+</div>
+<!-- QR Code Section -->
+<div class="flex flex-col items-center justify-center pt-4 pb-2">
+<div class="relative p-3 bg-white border-2 border-slate-50 rounded-xl">
+<img alt="Mã QR đổi quà" class="w-[200px] h-[200px]" data-alt="Black and indigo QR code on white background with a clean professional minimalist border" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDoutrdsznA7YtU0PiorsGM27DVEeZP9MitBln4Gs6RqEz5pxFVCBajbRuuJ1HxJyyqGJFsIal5HX3PkrWskN1TfRTHsukdA7rvrQ7er4NKgaYlEvQxyltj6VXT3AY70GjgrQhKnderYNhswm2zJLEVxnw7sK-XD9f1xVoaLiN_JzjH1WOwYghhEWzi-eMgf7O1wrCB5XsNn3lv0gXMo-wDSrmIV1Yvg991j2H_B0AEk0LD0-_UOB96-bihwjKSQX-dhgVJVJkCbBg"/>
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<div class="w-10 h-10 bg-white rounded-lg shadow-md flex items-center justify-center p-1">
+<div class="bg-primary w-full h-full rounded flex items-center justify-center">
+<span class="text-white font-bold text-xs">L</span>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-4 flex items-center gap-1.5 px-3 py-1 bg-amber-50 rounded-full border border-amber-100">
+<span class="material-symbols-outlined text-amber-600 text-sm">schedule</span>
+<span class="text-[12px] font-semibold text-amber-700">Có hiệu lực trong 24 giờ</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Fixed Action Buttons -->
+<footer class="mt-auto px-6 pb-10 pt-4 space-y-4">
+<button class="w-full bg-white text-primary font-headline font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined">download</span>
+                Lưu ảnh QR
+            </button>
+<button class="w-full bg-transparent border-2 border-white/40 text-white font-headline font-bold py-4 rounded-xl hover:bg-white/10 active:scale-[0.98] transition-all">
+                Xem voucher của tôi
+            </button>
+</footer>
+</div>
+</body></html>

@@ -38,9 +38,9 @@ def test_create_access_token_returns_string():
 def test_decode_valid_access_token():
     token = create_access_token(user_id=42)
     payload = decode_token(token)
-    assert payload["sub"] == "42"
-    assert payload["type"] == "access"
-    assert "exp" in payload
+    assert payload.sub == "42"
+    assert payload.type == "access"
+    assert payload.exp > 0
 
 
 def test_decode_invalid_token_raises():

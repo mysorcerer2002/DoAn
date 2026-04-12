@@ -68,13 +68,13 @@ async def refresh(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         ) from e
 
-    if payload.get("type") != "refresh":
+    if payload.type != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is not a refresh token"
         )
 
     try:
-        user_id = int(payload["sub"])
+        user_id = int(payload.sub)
     except (ValueError, KeyError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"

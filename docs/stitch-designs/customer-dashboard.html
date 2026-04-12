@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Trang chủ thành viên</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary": "#4647d3",
+                    "outline": "#747779",
+                    "surface-container-high": "#dfe3e6",
+                    "on-error": "#ffefef",
+                    "secondary-fixed": "#dac9ff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-highest": "#d9dde0",
+                    "on-primary-fixed-variant": "#0e009d",
+                    "surface-container-low": "#eef1f3",
+                    "surface-bright": "#f5f7f9",
+                    "tertiary": "#FB923C", // Overridden as per Design System (Orange for points/vouchers)
+                    "on-tertiary-container": "#4f2500",
+                    "surface-tint": "#4647d3",
+                    "on-tertiary-fixed-variant": "#5d2c00",
+                    "tertiary-fixed-dim": "#f08934",
+                    "secondary-fixed-dim": "#ceb9ff",
+                    "surface": "#f5f7f9",
+                    "on-surface-variant": "#595c5e",
+                    "on-secondary": "#f8f0ff",
+                    "on-secondary-fixed-variant": "#5f28c8",
+                    "secondary": "#6a37d4",
+                    "on-background": "#2c2f31",
+                    "on-primary-container": "#0a0081",
+                    "on-primary": "#f4f1ff",
+                    "error-dim": "#a70138",
+                    "surface-dim": "#d0d5d8",
+                    "surface-container": "#e5e9eb",
+                    "secondary-dim": "#5e26c7",
+                    "inverse-surface": "#0b0f10",
+                    "error-container": "#f74b6d",
+                    "on-secondary-fixed": "#40009b",
+                    "tertiary-fixed": "#ff9742",
+                    "on-tertiary": "#fff0e8",
+                    "on-primary-fixed": "#000000",
+                    "surface-variant": "#d9dde0",
+                    "primary-fixed": "#9396ff",
+                    "inverse-on-surface": "#9a9d9f",
+                    "on-error-container": "#510017",
+                    "secondary-container": "#dac9ff",
+                    "primary-fixed-dim": "#8387ff",
+                    "error": "#b41340",
+                    "outline-variant": "#abadaf",
+                    "inverse-primary": "#8083ff",
+                    "on-surface": "#2c2f31",
+                    "background": "#f8fafc",
+                    "primary-dim": "#3939c7",
+                    "tertiary-container": "#ff9742",
+                    "primary-container": "#9396ff",
+                    "on-secondary-container": "#5517bf",
+                    "on-tertiary-fixed": "#2b1100",
+                    "tertiary-dim": "#7e3e00"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "2xl": "1rem",
+                    "3xl": "1.25rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Be Vietnam Pro"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .notch-top {
+            mask-image: radial-gradient(circle at top, transparent 8px, black 8px);
+        }
+        .text-glow-orange {
+            text-shadow: 0 0 20px rgba(251, 146, 60, 0.4);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#f8fafc] font-body text-on-surface min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-4 h-16 bg-slate-50 sticky top-0 z-50">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-indigo-100">
+<img alt="Minh Anh's avatar" class="w-full h-full object-cover" data-alt="portrait of a young Vietnamese woman smiling warmly in soft natural lighting, high-end photography style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFJSQiJwyb-oLLjZR2_M-VBbQzhM-IE7OCkusEpjWiejMjo-P9UIG_1g7QxLXBRF33jZJkSNy3fY8n53XinBQvIgdbCJjY6P_9yvU-ugD2KZC7_BNGMeBFvuCFWfrqCwGVs8u2vEoNjQju_ZSy-3wf5v05R--tj51E9zkZJ0IGtr74jE75dnWlQ80_sKwAo5tvbTnswrDvHJY2BFStnDbVxDit7Kb_TFFJB4Ccq_kSOmP0XHyKUK-vBmyiEj0e7SFw0zJF3ndhAQY"/>
+</div>
+<h1 class="text-[16px] font-headline font-bold text-slate-800">Chào, Minh Anh ☀️</h1>
+</div>
+<div class="relative group cursor-pointer hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined text-indigo-600 text-2xl" data-icon="notifications">notifications</span>
+<span class="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-slate-50">3</span>
+</div>
+</header>
+<main class="px-4 pt-2 space-y-6">
+<!-- Hero Points Card -->
+<section class="relative bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] rounded-[20px] p-6 shadow-xl shadow-indigo-200 overflow-hidden">
+<!-- Decorative circle -->
+<div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+<div class="relative z-10 space-y-4">
+<div class="flex justify-between items-start">
+<p class="text-[12px] font-headline font-extrabold tracking-widest text-indigo-100 opacity-80 uppercase">TỔNG ĐIỂM TÍCH LŨY</p>
+<div class="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-400 rounded-full shadow-lg">
+<span class="material-symbols-outlined text-white text-sm" style="font-variation-settings: 'FILL' 1;">crown</span>
+<span class="text-white text-[12px] font-bold font-headline">Hạng Vàng</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-[64px] font-headline font-bold text-[#FB923C] text-glow-orange leading-none">2.450</span>
+<span class="text-indigo-100 font-medium">điểm</span>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-[12px] text-indigo-50 font-medium">
+<span>Còn 550 điểm để lên Bạch Kim</span>
+<span>80%</span>
+</div>
+<div class="h-2 w-full bg-white/20 rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-[#FB923C] to-orange-300 rounded-full" style="width: 80%"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Quick Actions -->
+<section class="grid grid-cols-4 gap-3">
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-full aspect-square bg-white rounded-2xl shadow-sm flex items-center justify-center group-active:scale-95 transition-transform border border-slate-100">
+<span class="material-symbols-outlined text-indigo-600 text-2xl" data-icon="qr_code_scanner">qr_code_scanner</span>
+</div>
+<span class="text-[11px] font-medium text-slate-600">Mã QR</span>
+</button>
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-full aspect-square bg-white rounded-2xl shadow-sm flex items-center justify-center group-active:scale-95 transition-transform border border-slate-100">
+<span class="material-symbols-outlined text-[#FB923C] text-2xl" data-icon="redeem">redeem</span>
+</div>
+<span class="text-[11px] font-medium text-slate-600">Đổi quà</span>
+</button>
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-full aspect-square bg-white rounded-2xl shadow-sm flex items-center justify-center group-active:scale-95 transition-transform border border-slate-100">
+<span class="material-symbols-outlined text-[#FB923C] text-2xl" data-icon="confirmation_number">confirmation_number</span>
+</div>
+<span class="text-[11px] font-medium text-slate-600">Voucher</span>
+</button>
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-full aspect-square bg-white rounded-2xl shadow-sm flex items-center justify-center group-active:scale-95 transition-transform border border-slate-100">
+<span class="material-symbols-outlined text-indigo-600 text-2xl" data-icon="history">history</span>
+</div>
+<span class="text-[11px] font-medium text-slate-600">Lịch sử</span>
+</button>
+</section>
+<!-- Favorite Stores -->
+<section class="space-y-4">
+<div class="flex justify-between items-center">
+<h3 class="text-[18px] font-headline font-bold text-slate-800">Cửa hàng yêu thích</h3>
+<a class="text-indigo-600 text-[14px] font-semibold" href="#">Xem tất cả</a>
+</div>
+<div class="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 no-scrollbar">
+<!-- Card 1 -->
+<div class="min-w-[180px] bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3 shrink-0">
+<div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-2xl shadow-inner">☕</div>
+<div class="space-y-1">
+<h4 class="text-[14px] font-bold text-slate-800 truncate">Cafe Cộng Bà Triệu</h4>
+<p class="text-[12px] text-slate-400 truncate">Hai Bà Trưng, HN</p>
+</div>
+<div class="flex justify-between items-center pt-2 border-t border-slate-50">
+<span class="px-2 py-0.5 bg-slate-100 rounded-full text-[10px] font-bold text-slate-500 uppercase">Hạng Bạc</span>
+<span class="text-[14px] font-bold text-[#FB923C]">320 đ</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="min-w-[180px] bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3 shrink-0">
+<div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-2xl shadow-inner">🍜</div>
+<div class="space-y-1">
+<h4 class="text-[14px] font-bold text-slate-800 truncate">Phở Thìn Lò Đúc</h4>
+<p class="text-[12px] text-slate-400 truncate">Hai Bà Trưng, HN</p>
+</div>
+<div class="flex justify-between items-center pt-2 border-t border-slate-50">
+<span class="px-2 py-0.5 bg-slate-100 rounded-full text-[10px] font-bold text-slate-500 uppercase">Hạng Đồng</span>
+<span class="text-[14px] font-bold text-[#FB923C]">150 đ</span>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="min-w-[180px] bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3 shrink-0">
+<div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-2xl shadow-inner">🛍️</div>
+<div class="space-y-1">
+<h4 class="text-[14px] font-bold text-slate-800 truncate">Coolmate Pop-up</h4>
+<p class="text-[12px] text-slate-400 truncate">Hoàn Kiếm, HN</p>
+</div>
+<div class="flex justify-between items-center pt-2 border-t border-slate-50">
+<span class="px-2 py-0.5 bg-indigo-50 rounded-full text-[10px] font-bold text-indigo-500 uppercase">Hạng Vàng</span>
+<span class="text-[14px] font-bold text-[#FB923C]">890 đ</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Available Vouchers -->
+<section class="space-y-4">
+<div class="flex items-center gap-3">
+<h3 class="text-[18px] font-headline font-bold text-slate-800">Voucher khả dụng</h3>
+<span class="px-2 py-0.5 bg-[#FB923C]/10 text-[#FB923C] text-[10px] font-bold rounded-full uppercase tracking-wider">2 voucher mới</span>
+</div>
+<div class="space-y-4">
+<!-- Voucher 1 -->
+<div class="flex items-center bg-white rounded-2xl shadow-sm border-l-4 border-[#FB923C] overflow-hidden relative">
+<!-- Semi-circle cutout -->
+<div class="absolute -top-1 left-24 w-4 h-4 bg-[#f8fafc] rounded-full border border-slate-100"></div>
+<div class="absolute -bottom-1 left-24 w-4 h-4 bg-[#f8fafc] rounded-full border border-slate-100"></div>
+<div class="p-4 flex-1">
+<h4 class="text-[16px] font-bold text-slate-800">Giảm 20% Coffee</h4>
+<p class="text-[12px] text-slate-500">Áp dụng cho mọi món</p>
+<p class="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="schedule">schedule</span>
+                            Hết hạn 20/04/2026
+                        </p>
+</div>
+<div class="p-4 border-l border-dashed border-slate-200 flex flex-col items-center justify-center min-w-[100px] bg-slate-50/50">
+<span class="text-[28px] font-bold text-[#FB923C]">20%</span>
+<button class="mt-2 px-3 py-1.5 bg-indigo-600 text-white text-[11px] font-bold rounded-lg hover:bg-indigo-700 transition-colors">Áp dụng</button>
+</div>
+</div>
+<!-- Voucher 2 -->
+<div class="flex items-center bg-white rounded-2xl shadow-sm border-l-4 border-[#FB923C] overflow-hidden relative">
+<!-- Semi-circle cutout -->
+<div class="absolute -top-1 left-24 w-4 h-4 bg-[#f8fafc] rounded-full border border-slate-100"></div>
+<div class="absolute -bottom-1 left-24 w-4 h-4 bg-[#f8fafc] rounded-full border border-slate-100"></div>
+<div class="p-4 flex-1">
+<h4 class="text-[16px] font-bold text-slate-800">Free Upsize</h4>
+<p class="text-[12px] text-slate-500">Cho trà trái cây size L</p>
+<p class="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="schedule">schedule</span>
+                            Hết hạn 15/05/2026
+                        </p>
+</div>
+<div class="p-4 border-l border-dashed border-slate-200 flex flex-col items-center justify-center min-w-[100px] bg-slate-50/50">
+<span class="text-[28px] font-bold text-[#FB923C]">0đ</span>
+<button class="mt-2 px-3 py-1.5 bg-indigo-600 text-white text-[11px] font-bold rounded-lg hover:bg-indigo-700 transition-colors">Áp dụng</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-end px-4 pb-6 pt-3 bg-white/80 backdrop-blur-md border-t border-slate-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] rounded-t-2xl">
+<!-- Trang chủ -->
+<div class="flex flex-col items-center gap-1 text-indigo-600 font-semibold cursor-pointer">
+<span class="material-symbols-outlined text-2xl" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-[12px] font-medium font-body">Trang chủ</span>
+</div>
+<!-- QR (Center Out) -->
+<div class="flex flex-col items-center -mt-8">
+<div class="bg-gradient-to-tr from-indigo-500 to-violet-500 rounded-full p-4 shadow-lg shadow-indigo-200 scale-100 active:scale-90 transition-transform cursor-pointer">
+<span class="material-symbols-outlined text-white text-3xl" data-icon="qr_code_scanner">qr_code_scanner</span>
+</div>
+<span class="text-[12px] font-medium font-body text-slate-400 mt-1">QR</span>
+</div>
+<!-- Quà -->
+<div class="flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-500 cursor-pointer">
+<span class="material-symbols-outlined text-2xl" data-icon="redeem">redeem</span>
+<span class="text-[12px] font-medium font-body">Quà</span>
+</div>
+<!-- Tôi -->
+<div class="flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-500 cursor-pointer">
+<span class="material-symbols-outlined text-2xl" data-icon="person">person</span>
+<span class="text-[12px] font-medium font-body">Tôi</span>
+</div>
+</nav>
+</body></html>

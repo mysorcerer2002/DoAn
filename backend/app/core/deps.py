@@ -30,14 +30,14 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
 
-    if payload.get("type") != "access":
+    if payload.type != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is not an access token",
         )
 
     try:
-        user_id = int(payload["sub"])
+        user_id = int(payload.sub)
     except (ValueError, KeyError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -87,6 +87,24 @@ async def get_tenant_id(
     return extract_tenant_id_from_header(x_tenant_id)
 
 
+async def get_verified_tenant_id(
+    tenant_id: int = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> int:
+    """Dependency: verify tenant tồn tại và đang active trong DB.
+
+    Dùng thay get_tenant_id cho public/member endpoints không qua role check.
+    """
+    from app.models.tenant import Tenant
+
+    tenant = await db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    if not tenant.is_active:
+        raise HTTPException(status_code=403, detail="Tenant is suspended")
+    return tenant_id
+
+
 async def require_super_admin(
     user: User = Depends(get_current_user),
 ) -> User:
@@ -103,7 +121,7 @@ async def get_current_tenant_role(
     user: User = Depends(get_current_user),
     tenant_id: int = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
-):
+) -> "TenantStaffRole":
     """Lấy role của current user trong current tenant.
 
     1. Lookup cache (TTL 60s)
@@ -128,22 +146,22 @@ async def get_current_tenant_role(
     if staff is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"User not in tenant {tenant_id}",
+            detail="Access denied for this tenant",
         )
     tenant_role_cache.set(user_id=user.id, tenant_id=tenant_id, role=staff.role.value)
     return staff.role
 
 
 async def require_staff_in_tenant(
-    role=Depends(get_current_tenant_role),
-):
+    role: "TenantStaffRole" = Depends(get_current_tenant_role),
+) -> "TenantStaffRole":
     """Dependency: user phải là staff hoặc owner của tenant."""
     return role
 
 
 async def require_owner_in_tenant(
-    role=Depends(get_current_tenant_role),
-):
+    role: "TenantStaffRole" = Depends(get_current_tenant_role),
+) -> "TenantStaffRole":
     """Dependency: user phải là owner của tenant."""
     from app.models.tenant_staff import TenantStaffRole
 
@@ -166,10 +184,10 @@ async def get_optional_user(
         payload = decode_token(credentials.credentials)
     except JWTError:
         return None
-    if payload.get("type") != "access":
+    if payload.type != "access":
         return None
     try:
-        user_id = int(payload["sub"])
+        user_id = int(payload.sub)
     except (ValueError, KeyError):
         return None
     user = await db.get(User, user_id)
