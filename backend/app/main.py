@@ -6,8 +6,11 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.api import auth as auth_router
 from app.api.admin import router as admin_router
+from app.api.point_rules import router as point_rules_router
+from app.api.settings import router as settings_router
 from app.api.tenant_staff import router as tenant_staff_router
 from app.api.tenants import merchant_router, tenants_router
+from app.api.tiers import router as tiers_router
 from app.core.config import get_settings
 from app.core.limiter import limiter
 
@@ -43,6 +46,9 @@ app.include_router(merchant_router)
 app.include_router(tenants_router)
 app.include_router(admin_router)
 app.include_router(tenant_staff_router)
+app.include_router(tiers_router)
+app.include_router(point_rules_router)
+app.include_router(settings_router)
 
 
 @app.get("/health")
