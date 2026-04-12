@@ -1,4 +1,6 @@
-# Nền tảng Tích điểm Thành viên & Quản lý Chương trình Khuyến mãi
+# Xây dựng Website tích điểm thành viên và quản lý khuyến mãi cho SME
+
+*(Building a Member Loyalty and Promotion Management Website for SMEs)*
 
 **Ngày:** 2026-04-12
 **Loại:** Đề tài thực tập tốt nghiệp (8 tuần) — có khả năng scale lên luận văn tốt nghiệp
@@ -9,7 +11,9 @@
 ## 1. Tổng quan
 
 ### 1.1. Tên đề tài
-**Nền tảng Tích điểm Thành viên và Quản lý Chương trình Khuyến mãi cho Doanh nghiệp vừa và nhỏ** (multi-tenant loyalty platform).
+**Xây dựng Website tích điểm thành viên và quản lý khuyến mãi cho SME** — nền tảng đa người thuê (multi-tenant) phục vụ doanh nghiệp vừa và nhỏ.
+
+*English:* Building a Member Loyalty and Promotion Management Website for SMEs (multi-tenant platform).
 
 ### 1.2. Mục tiêu
 Xây dựng một platform **multi-tenant** cho phép nhiều doanh nghiệp vừa và nhỏ (quán cà phê, nhà hàng, shop bán lẻ) tự vận hành chương trình khách hàng thân thiết mà không cần tự phát triển hệ thống riêng. Hệ thống hỗ trợ quản lý thành viên, tích/đổi điểm, phát hành voucher khuyến mãi, và phân hạng thành viên.

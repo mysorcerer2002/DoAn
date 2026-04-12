@@ -47,9 +47,7 @@ async def login(
     try:
         user = await service.authenticate(email=body.email, password=body.password)
     except InvalidCredentialsError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
 
     return TokenResponse(
         access_token=create_access_token(user_id=user.id),
@@ -74,10 +72,15 @@ async def refresh(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is not a refresh token"
         )
 
-    user_id = int(payload["sub"])
+    try:
+        user_id = int(payload["sub"])
+    except (ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
+        ) from e
     return TokenResponse(
         access_token=create_access_token(user_id=user_id),
-        refresh_token=request.refresh_token,
+        refresh_token=create_refresh_token(user_id=user_id),
     )
 
 

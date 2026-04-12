@@ -19,7 +19,11 @@ const schema = z.object({
   email: z.string().email("Email không hợp lệ"),
   password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự"),
   full_name: z.string().min(1, "Họ tên không được để trống"),
-  birthday: z.string().optional(),
+  birthday: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày sinh phải có dạng YYYY-MM-DD")
+    .optional()
+    .or(z.literal("")),
 });
 
 type FormData = z.infer<typeof schema>;

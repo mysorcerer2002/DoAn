@@ -1,6 +1,5 @@
 import pytest
 
-from app.models.user import User
 from app.schemas.auth import RegisterRequest
 from app.services.auth_service import AuthService, EmailAlreadyExistsError, InvalidCredentialsError
 

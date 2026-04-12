@@ -23,6 +23,8 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
       sessionStorage.removeItem("access_token");
+      sessionStorage.removeItem("refresh_token");
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   }

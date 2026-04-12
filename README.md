@@ -15,7 +15,14 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env.local
 
-# 2. Start all services
+# 2. Tạo JWT secret (bắt buộc cho production)
+# Linux/Mac:
+openssl rand -hex 32
+# Windows PowerShell:
+# -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) })
+# Gán giá trị vào JWT_SECRET trong backend/.env
+
+# 3. Start all services
 docker compose up -d --build
 
 # 3. Verify

@@ -36,7 +36,13 @@ async def get_current_user(
             detail="Token is not an access token",
         )
 
-    user_id = int(payload["sub"])
+    try:
+        user_id = int(payload["sub"])
+    except (ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        ) from e
     user = await db.get(User, user_id)
     if user is None or not user.is_active:
         raise HTTPException(

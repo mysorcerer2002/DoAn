@@ -1,6 +1,7 @@
 # DANH SÁCH TÍNH NĂNG
 
-**Đề tài:** Nền tảng Tích điểm Thành viên và Quản lý Chương trình Khuyến mãi cho Doanh nghiệp vừa và nhỏ
+**Đề tài:** Xây dựng Website tích điểm thành viên và quản lý khuyến mãi cho SME
+*(Building a Member Loyalty and Promotion Management Website for SMEs)*
 
 **Loại đề tài:** Đồ án thực tập tốt nghiệp (8 tuần) — có khả năng mở rộng thành luận văn tốt nghiệp
 

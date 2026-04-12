@@ -94,7 +94,9 @@ async def test_refresh_token_returns_new_access_token(client):
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
-    assert data["refresh_token"] == refresh_token
+    assert "refresh_token" in data
+    # Refresh token phải được trả về (rotated — có thể giống nếu cùng giây do same iat)
+    assert len(data["refresh_token"]) > 0
 
 
 @pytest.mark.asyncio

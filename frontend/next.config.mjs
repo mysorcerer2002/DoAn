@@ -7,6 +7,8 @@ const withSerwist = withSerwistInit({
 });
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  output: "standalone",
+};
 
 export default withSerwist(nextConfig);
