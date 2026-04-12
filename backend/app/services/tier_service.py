@@ -65,3 +65,38 @@ class TierService:
         tier.deleted_at = datetime.now(timezone.utc)
         tier.is_active = False
         await self.db.flush()
+
+    async def recompute_tier(
+        self, *, tenant_id: int, membership_id: int
+    ) -> Tier | None:
+        """Luồng G — tính lại tier theo total_points_earned."""
+        from app.models.membership import Membership
+
+        membership = await self.db.get(Membership, membership_id)
+        if membership is None or membership.tenant_id != tenant_id:
+            raise ValueError(
+                f"Membership {membership_id} not found in tenant {tenant_id}"
+            )
+
+        new_tier = await self.db.scalar(
+            select(Tier)
+            .where(
+                Tier.tenant_id == tenant_id,
+                Tier.is_active.is_(True),
+                Tier.deleted_at.is_(None),
+                Tier.min_points <= membership.total_points_earned,
+            )
+            .order_by(Tier.min_points.desc())
+            .limit(1)
+        )
+
+        if new_tier is None:
+            membership.current_tier_id = None
+            await self.db.flush()
+            return None
+
+        if membership.current_tier_id != new_tier.id:
+            membership.current_tier_id = new_tier.id
+            await self.db.flush()
+
+        return new_tier

@@ -1,0 +1,108 @@
+from datetime import datetime, timezone
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
+
+from app.core.phone import normalize_phone
+from app.models.membership import Membership
+from app.models.user import User
+from app.schemas.member import MemberResponse
+
+
+class MemberService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def find_or_create_member(
+        self, *, tenant_id: int, phone: str
+    ) -> MemberResponse:
+        """Atomic upsert user theo phone + upsert membership.
+
+        Handles 3 cases:
+        - Case 1: User hoàn toàn mới → tạo shadow user + membership
+        - Case 2: User đã có (shadow tenant khác) → tạo membership
+        - Case 3: User đã có (regular) → tạo membership
+        """
+        normalized = normalize_phone(phone)
+
+        existing_user = await self.db.scalar(
+            select(User).where(User.phone == normalized)
+        )
+
+        if existing_user is None:
+            existing_user = User(
+                phone=normalized,
+                is_active=True,
+                is_shadow=True,
+                system_role="regular",
+            )
+            self.db.add(existing_user)
+            await self.db.flush()
+
+        existing_membership = await self.db.scalar(
+            select(Membership)
+            .options(joinedload(Membership.current_tier))
+            .where(
+                Membership.tenant_id == tenant_id,
+                Membership.user_id == existing_user.id,
+            )
+        )
+
+        is_membership_new = False
+        if existing_membership is None:
+            existing_membership = Membership(
+                tenant_id=tenant_id,
+                user_id=existing_user.id,
+                current_tier_id=None,
+                points_balance=0,
+                total_points_earned=0,
+                joined_at=datetime.now(timezone.utc),
+            )
+            self.db.add(existing_membership)
+            await self.db.flush()
+            await self.db.refresh(existing_membership, attribute_names=["current_tier"])
+            is_membership_new = True
+
+        return MemberResponse(
+            membership_id=existing_membership.id,
+            tenant_id=tenant_id,
+            user_id=existing_user.id,
+            user_phone=existing_user.phone,
+            user_full_name=existing_user.full_name,
+            user_email=existing_user.email,
+            points_balance=existing_membership.points_balance,
+            total_points_earned=existing_membership.total_points_earned,
+            current_tier_id=existing_membership.current_tier_id,
+            current_tier_name=existing_membership.current_tier.name
+            if existing_membership.current_tier
+            else None,
+            joined_at=existing_membership.joined_at,
+            last_activity_at=existing_membership.last_activity_at,
+            is_new=is_membership_new,
+        )
+
+    async def get_member_by_id(
+        self, *, tenant_id: int, membership_id: int
+    ) -> Membership | None:
+        return await self.db.scalar(
+            select(Membership)
+            .options(joinedload(Membership.user), joinedload(Membership.current_tier))
+            .where(
+                Membership.id == membership_id,
+                Membership.tenant_id == tenant_id,
+            )
+        )
+
+    async def list_members(
+        self, *, tenant_id: int, limit: int = 50, offset: int = 0
+    ) -> list[Membership]:
+        rows = await self.db.scalars(
+            select(Membership)
+            .options(joinedload(Membership.user), joinedload(Membership.current_tier))
+            .where(Membership.tenant_id == tenant_id)
+            .order_by(Membership.last_activity_at.desc().nullslast())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(rows.unique().all())

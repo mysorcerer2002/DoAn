@@ -101,3 +101,105 @@ async def test_update_tier_wrong_tenant_raises(db_session, active_tenant):
             tier_id=tier.id,
             request=TierUpdateRequest(name="hacked"),
         )
+
+
+@pytest.mark.asyncio
+async def test_recompute_tier_first_assignment(db_session, active_tenant):
+    """Membership chưa có tier → assign tier lowest matching."""
+    from app.models.membership import Membership
+    from datetime import datetime, timezone
+
+    user = User(email="m@example.com", password_hash="x", is_active=True)
+    db_session.add(user)
+    await db_session.flush()
+
+    bronze = await TierService(db_session).create_tier(
+        tenant_id=active_tenant.id, request=TierCreateRequest(name="Bronze", min_points=0)
+    )
+    await TierService(db_session).create_tier(
+        tenant_id=active_tenant.id, request=TierCreateRequest(name="Silver", min_points=500)
+    )
+    await db_session.flush()
+
+    membership = Membership(
+        tenant_id=active_tenant.id, user_id=user.id,
+        current_tier_id=None, points_balance=0, total_points_earned=0,
+        joined_at=datetime.now(timezone.utc),
+    )
+    db_session.add(membership)
+    await db_session.flush()
+
+    new_tier = await TierService(db_session).recompute_tier(
+        tenant_id=active_tenant.id, membership_id=membership.id
+    )
+    assert new_tier is not None
+    assert new_tier.id == bronze.id
+
+
+@pytest.mark.asyncio
+async def test_recompute_tier_upgrades_when_enough_points(db_session, active_tenant):
+    from app.models.membership import Membership
+    from datetime import datetime, timezone
+
+    user = User(email="m@example.com", password_hash="x", is_active=True)
+    db_session.add(user)
+    await db_session.flush()
+
+    service = TierService(db_session)
+    await service.create_tier(
+        tenant_id=active_tenant.id, request=TierCreateRequest(name="Bronze", min_points=0)
+    )
+    silver = await service.create_tier(
+        tenant_id=active_tenant.id, request=TierCreateRequest(name="Silver", min_points=500)
+    )
+    await service.create_tier(
+        tenant_id=active_tenant.id, request=TierCreateRequest(name="Gold", min_points=2000)
+    )
+    await db_session.flush()
+
+    membership = Membership(
+        tenant_id=active_tenant.id, user_id=user.id,
+        current_tier_id=None, points_balance=600, total_points_earned=600,
+        joined_at=datetime.now(timezone.utc),
+    )
+    db_session.add(membership)
+    await db_session.flush()
+
+    new_tier = await service.recompute_tier(
+        tenant_id=active_tenant.id, membership_id=membership.id
+    )
+    assert new_tier.id == silver.id
+
+
+@pytest.mark.asyncio
+async def test_recompute_tier_excludes_soft_deleted(db_session, active_tenant):
+    from app.models.membership import Membership
+    from datetime import datetime, timezone
+
+    user = User(email="m@example.com", password_hash="x", is_active=True)
+    db_session.add(user)
+    await db_session.flush()
+
+    service = TierService(db_session)
+    bronze = await service.create_tier(
+        tenant_id=active_tenant.id, request=TierCreateRequest(name="Bronze", min_points=0)
+    )
+    silver_deleted = await service.create_tier(
+        tenant_id=active_tenant.id, request=TierCreateRequest(name="Silver", min_points=500)
+    )
+    await db_session.flush()
+    await service.delete_tier(tenant_id=active_tenant.id, tier_id=silver_deleted.id)
+    await db_session.flush()
+
+    membership = Membership(
+        tenant_id=active_tenant.id, user_id=user.id,
+        current_tier_id=None, points_balance=600, total_points_earned=600,
+        joined_at=datetime.now(timezone.utc),
+    )
+    db_session.add(membership)
+    await db_session.flush()
+
+    new_tier = await service.recompute_tier(
+        tenant_id=active_tenant.id, membership_id=membership.id
+    )
+    assert new_tier.id == bronze.id

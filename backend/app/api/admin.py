@@ -5,7 +5,9 @@ from app.core.db import get_db
 from app.core.deps import require_super_admin
 from app.models.tenant import TenantStatus
 from app.models.user import User
+from app.schemas.ledger import ReconcileResponse
 from app.schemas.tenant import TenantApprovalRequest, TenantResponse
+from app.services.ledger_service import LedgerService
 from app.services.tenant_service import TenantNotFoundError, TenantService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -40,3 +42,21 @@ async def approve_tenant(
     except TenantNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return TenantResponse.model_validate(tenant)
+
+
+@router.post(
+    "/reconcile/{membership_id}",
+    response_model=ReconcileResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def reconcile_member_balance(
+    membership_id: int,
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> ReconcileResponse:
+    """Super Admin kiểm tra tính nhất quán giữa points_balance và ledger."""
+    service = LedgerService(db)
+    result = await service.reconcile(membership_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Membership không tồn tại")
+    return result

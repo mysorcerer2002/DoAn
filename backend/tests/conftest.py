@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
@@ -32,6 +33,24 @@ async def db_session(database_url) -> AsyncGenerator[AsyncSession, None]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+
+        # Apply append-only trigger cho point_ledger (Base.metadata.create_all không biết DDL trigger)
+        await conn.execute(text("""
+            CREATE OR REPLACE FUNCTION prevent_point_ledger_mutation()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                RAISE EXCEPTION 'point_ledger is append-only — UPDATE/DELETE not allowed';
+            END;
+            $$ LANGUAGE plpgsql;
+        """))
+        await conn.execute(text(
+            "DROP TRIGGER IF EXISTS no_update_or_delete_point_ledger ON point_ledger;"
+        ))
+        await conn.execute(text("""
+            CREATE TRIGGER no_update_or_delete_point_ledger
+            BEFORE UPDATE OR DELETE ON point_ledger
+            FOR EACH ROW EXECUTE FUNCTION prevent_point_ledger_mutation();
+        """))
 
     session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
