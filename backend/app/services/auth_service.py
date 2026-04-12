@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password, verify_password
@@ -40,7 +41,10 @@ class AuthService:
             system_role="regular",
         )
         self.db.add(user)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError:
+            raise EmailAlreadyExistsError(f"Email {request.email} already registered")
         await self.db.refresh(user)
         return user
 

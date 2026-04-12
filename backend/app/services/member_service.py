@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -38,7 +39,15 @@ class MemberService:
                 system_role="regular",
             )
             self.db.add(existing_user)
-            await self.db.flush()
+            try:
+                await self.db.flush()
+            except IntegrityError:
+                await self.db.rollback()
+                existing_user = await self.db.scalar(
+                    select(User).where(User.phone == normalized)
+                )
+                if existing_user is None:
+                    raise
 
         existing_membership = await self.db.scalar(
             select(Membership)

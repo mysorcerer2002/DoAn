@@ -191,7 +191,7 @@ async def test_mark_used(db_session):
         campaign_id=campaign.id,
     )
 
-    await svc.mark_used(voucher_id=voucher.id)
+    await svc.mark_used(tenant_id=tenant.id, voucher_id=voucher.id)
     await db_session.flush()
 
     updated = await svc.find_by_code(tenant_id=tenant.id, code=voucher.code)
@@ -227,7 +227,7 @@ async def test_reclaim_after_used(db_session):
         membership_id=membership.id,
         campaign_id=campaign.id,
     )
-    await svc.mark_used(voucher_id=voucher.id)
+    await svc.mark_used(tenant_id=tenant.id, voucher_id=voucher.id)
     await db_session.flush()
 
     # Partial unique index chỉ ngăn active vouchers, used thì claim lại OK

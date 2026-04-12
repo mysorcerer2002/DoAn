@@ -1,4 +1,5 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -73,7 +74,12 @@ class TenantStaffService:
             role=request.role,
         )
         self.db.add(staff)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError:
+            raise StaffAlreadyInTenantError(
+                f"User {request.email} already in tenant {tenant_id}"
+            )
         await self.db.refresh(staff)
 
         return StaffAddResponse(
@@ -93,6 +99,15 @@ class TenantStaffService:
         staff = await self.db.get(TenantStaff, staff_id)
         if staff is None or staff.tenant_id != tenant_id:
             raise StaffNotFoundError(f"Staff {staff_id} not in tenant {tenant_id}")
+        if staff.role == TenantStaffRole.OWNER:
+            owner_count = await self.db.scalar(
+                select(func.count()).select_from(TenantStaff).where(
+                    TenantStaff.tenant_id == tenant_id,
+                    TenantStaff.role == TenantStaffRole.OWNER,
+                )
+            )
+            if owner_count <= 1:
+                raise ValueError("Cannot remove the last owner of a tenant")
         await self.db.delete(staff)
         await self.db.flush()
 

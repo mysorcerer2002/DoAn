@@ -154,7 +154,7 @@ class RedemptionService:
                 Redemption.tenant_id == tenant_id,
                 Redemption.redemption_code == code,
                 Redemption.status == RedemptionStatus.PENDING,
-            )
+            ).with_for_update()
         )
         if redemption is None:
             raise RedemptionNotFoundError(f"Code {code} not found or already used")

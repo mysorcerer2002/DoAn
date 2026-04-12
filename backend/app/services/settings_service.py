@@ -23,7 +23,9 @@ class SettingsService:
         user_id: int,
         request: SettingsUpdateRequest,
     ) -> TenantSettings:
-        tenant = await self.db.get(Tenant, tenant_id)
+        tenant = await self.db.scalar(
+            select(Tenant).where(Tenant.id == tenant_id).with_for_update()
+        )
         if tenant is None:
             raise ValueError(f"Tenant {tenant_id} not found")
 

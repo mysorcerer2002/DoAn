@@ -96,6 +96,7 @@ class CampaignService:
             tenant_id=tenant_id, campaign_id=campaign_id
         )
         campaign.deleted_at = datetime.now(timezone.utc)
+        campaign.is_active = False
         await self.db.flush()
         return campaign
 

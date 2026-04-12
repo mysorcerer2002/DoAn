@@ -204,10 +204,15 @@ class VoucherService:
             )
         )
 
-    async def mark_used(self, *, voucher_id: int) -> Voucher:
-        voucher = await self.db.get(Voucher, voucher_id)
+    async def mark_used(self, *, tenant_id: int, voucher_id: int) -> Voucher:
+        voucher = await self.db.scalar(
+            select(Voucher).where(
+                Voucher.id == voucher_id,
+                Voucher.tenant_id == tenant_id,
+            )
+        )
         if voucher is None:
-            raise ValueError(f"Voucher {voucher_id} not found")
+            raise ValueError(f"Voucher {voucher_id} not found in tenant {tenant_id}")
         voucher.status = VoucherStatus.USED
         voucher.used_at = datetime.now(timezone.utc)
         await self.db.flush()
