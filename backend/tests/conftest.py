@@ -53,3 +53,12 @@ async def client(db_session) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def clear_tenant_cache():
+    from app.core.tenant_cache import tenant_role_cache
+
+    tenant_role_cache.clear()
+    yield
+    tenant_role_cache.clear()

@@ -97,3 +97,59 @@ async def require_super_admin(
             detail="Super admin access required",
         )
     return user
+
+
+async def get_current_tenant_role(
+    user: User = Depends(get_current_user),
+    tenant_id: int = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lấy role của current user trong current tenant.
+
+    1. Lookup cache (TTL 60s)
+    2. Cache miss → query DB tenant_staff
+    3. Không có row → raise 403
+    """
+    from sqlalchemy import select as sa_select
+
+    from app.core.tenant_cache import tenant_role_cache
+    from app.models.tenant_staff import TenantStaff, TenantStaffRole
+
+    cached = tenant_role_cache.get(user_id=user.id, tenant_id=tenant_id)
+    if cached is not None:
+        return TenantStaffRole(cached)
+
+    staff = await db.scalar(
+        sa_select(TenantStaff).where(
+            TenantStaff.tenant_id == tenant_id,
+            TenantStaff.user_id == user.id,
+        )
+    )
+    if staff is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"User not in tenant {tenant_id}",
+        )
+    tenant_role_cache.set(user_id=user.id, tenant_id=tenant_id, role=staff.role.value)
+    return staff.role
+
+
+async def require_staff_in_tenant(
+    role=Depends(get_current_tenant_role),
+):
+    """Dependency: user phải là staff hoặc owner của tenant."""
+    return role
+
+
+async def require_owner_in_tenant(
+    role=Depends(get_current_tenant_role),
+):
+    """Dependency: user phải là owner của tenant."""
+    from app.models.tenant_staff import TenantStaffRole
+
+    if role != TenantStaffRole.OWNER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner access required",
+        )
+    return role
