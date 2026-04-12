@@ -2,9 +2,12 @@ from collections.abc import AsyncGenerator
 
 import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
+from app.core.db import get_db
+from app.main import app
 from app.models.base import Base
 
 
@@ -37,3 +40,17 @@ async def db_session(database_url) -> AsyncGenerator[AsyncSession, None]:
         await session.rollback()
 
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def client(db_session) -> AsyncGenerator[AsyncClient, None]:
+    """HTTP test client sử dụng db_session fixture để override get_db."""
+
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    app.dependency_overrides.clear()
