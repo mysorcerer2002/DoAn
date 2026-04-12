@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,5 +48,52 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
+        )
+    return user
+
+
+def extract_tenant_id_from_header(x_tenant_id: str | None) -> int:
+    """Đọc và validate header X-Tenant-Id thành int.
+
+    Raises HTTPException(400) nếu thiếu hoặc không phải int dương.
+    """
+    if x_tenant_id is None or x_tenant_id.strip() == "":
+        raise HTTPException(
+            status_code=400,
+            detail="Missing X-Tenant-Id header",
+        )
+    try:
+        tenant_id = int(x_tenant_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail="X-Tenant-Id must be a positive integer",
+        ) from e
+    if tenant_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="X-Tenant-Id must be a positive integer",
+        )
+    return tenant_id
+
+
+async def get_tenant_id(
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> int:
+    """FastAPI dependency: đọc X-Tenant-Id header và return int.
+
+    Dùng cho endpoints /merchant/* và /pos/* cần biết tenant context.
+    """
+    return extract_tenant_id_from_header(x_tenant_id)
+
+
+async def require_super_admin(
+    user: User = Depends(get_current_user),
+) -> User:
+    """Yêu cầu quyền super_admin để truy cập."""
+    if user.system_role != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin access required",
         )
     return user
