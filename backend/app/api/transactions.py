@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,8 +50,8 @@ async def create_manual_transaction(
 async def list_transactions(
     tenant_id: int = Depends(get_tenant_id),
     _role: TenantStaffRole = Depends(require_staff_in_tenant),
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
     service = TransactionService(db)

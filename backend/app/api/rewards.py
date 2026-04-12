@@ -1,6 +1,6 @@
 """Rewards API — CRUD cho merchant."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -17,8 +17,8 @@ async def list_rewards(
     tenant_id: int = Depends(get_tenant_id),
     _role: TenantStaffRole = Depends(require_staff_in_tenant),
     active_only: bool = False,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[RewardResponse]:
     service = RewardService(db)

@@ -1,6 +1,6 @@
 """Redemptions API — đổi quà + xác nhận sử dụng."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -109,8 +109,8 @@ async def use_redemption(
 async def list_redemptions(
     tenant_id: int = Depends(get_tenant_id),
     _role: TenantStaffRole = Depends(require_staff_in_tenant),
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[RedemptionResponse]:
     service = RedemptionService(db)

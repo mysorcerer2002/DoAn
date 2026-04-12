@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -16,8 +16,8 @@ router = APIRouter(prefix="/merchant/members", tags=["merchant-members"])
 async def list_members(
     tenant_id: int = Depends(get_tenant_id),
     _role: TenantStaffRole = Depends(require_staff_in_tenant),
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[MemberResponse]:
     service = MemberService(db)
@@ -79,7 +79,7 @@ async def get_member_ledger(
     membership_id: int,
     tenant_id: int = Depends(get_tenant_id),
     _role: TenantStaffRole = Depends(require_staff_in_tenant),
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ) -> list[LedgerEntryResponse]:
     service = LedgerService(db)

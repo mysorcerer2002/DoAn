@@ -21,13 +21,15 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 async def register(
-    request: RegisterRequest,
+    request: Request,
+    body: RegisterRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     service = AuthService(db)
     try:
-        user = await service.register(request)
+        user = await service.register(body)
     except EmailAlreadyExistsError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
@@ -79,6 +81,13 @@ async def refresh(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
         ) from e
+
+    user = await db.get(User, user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive"
+        )
+
     return TokenResponse(
         access_token=create_access_token(user_id=user_id),
         refresh_token=create_refresh_token(user_id=user_id),
@@ -91,7 +100,9 @@ async def me(current_user: User = Depends(get_current_user)) -> User:
 
 
 @router.post("/request-claim", status_code=202)
+@limiter.limit("3/minute")
 async def request_claim(
+    request: Request,
     body: RequestClaimRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:

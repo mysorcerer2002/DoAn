@@ -2,7 +2,7 @@
 
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -27,6 +27,11 @@ async def get_dashboard(
         to_date = date.today()
     if from_date is None:
         from_date = to_date - timedelta(days=30)
+    if from_date > to_date:
+        raise HTTPException(
+            status_code=422,
+            detail="from_date must be before or equal to to_date",
+        )
 
     service = AnalyticsService(db)
     return await service.get_dashboard(
