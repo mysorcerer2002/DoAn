@@ -81,7 +81,7 @@ async def test_redeem_success(db_session):
     assert redemption.points_spent == 100
     assert redemption.redemption_code is not None
     assert len(redemption.redemption_code) == 8
-    assert redemption.status.value == "pending"
+    assert redemption.status == "pending"
 
     # Balance giảm
     assert membership.points_balance == 400
@@ -151,7 +151,7 @@ async def test_use_redemption(db_session):
     used = await svc.use_redemption(
         tenant_id=tenant.id, code=code, staff_id=owner.id
     )
-    assert used.status.value == "used"
+    assert used.status == "used"
     assert used.used_by_staff_id == owner.id
     assert used.used_at is not None
 

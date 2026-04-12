@@ -54,7 +54,7 @@ async def get_my_tenant(
     if tenant.status != TenantStatus.ACTIVE:
         raise HTTPException(
             status_code=403,
-            detail=f"Tenant is {tenant.status.value}, not active",
+            detail=f"Tenant is {tenant.status}, not active",
         )
 
     return TenantResponse.model_validate(tenant)

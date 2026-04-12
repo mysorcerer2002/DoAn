@@ -63,7 +63,7 @@ async def list_available_campaigns(
             campaign_id=c.id,
             name=c.name,
             description=c.description,
-            discount_type=c.discount_type.value,
+            discount_type=c.discount_type,
             discount_value=c.discount_value,
             min_order=c.min_order,
             max_discount=c.max_discount,

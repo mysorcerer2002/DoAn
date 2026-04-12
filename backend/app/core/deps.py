@@ -148,7 +148,7 @@ async def get_current_tenant_role(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied for this tenant",
         )
-    tenant_role_cache.set(user_id=user.id, tenant_id=tenant_id, role=staff.role.value)
+    tenant_role_cache.set(user_id=user.id, tenant_id=tenant_id, role=staff.role)
     return staff.role
 
 

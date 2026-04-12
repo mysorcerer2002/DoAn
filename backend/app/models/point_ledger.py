@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Enum, ForeignKey, Index, Integer, String
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -28,6 +28,7 @@ class PointLedger(Base, TimestampMixin):
     """
     __tablename__ = "point_ledger"
     __table_args__ = (
+        CheckConstraint("balance_after >= 0", name="ck_point_ledger_balance_nonneg"),
         Index("ix_point_ledger_membership_created", "membership_id", "created_at"),
         Index("ix_point_ledger_tenant_created", "tenant_id", "created_at"),
     )
@@ -41,10 +42,10 @@ class PointLedger(Base, TimestampMixin):
     )
     delta: Mapped[int] = mapped_column(Integer, nullable=False)
     reason: Mapped[LedgerReason] = mapped_column(
-        Enum(LedgerReason, name="ledger_reason"), nullable=False
+        String(20), nullable=False
     )
     ref_type: Mapped[LedgerRefType] = mapped_column(
-        Enum(LedgerRefType, name="ledger_ref_type"), nullable=False
+        String(20), nullable=False
     )
     ref_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     balance_after: Mapped[int] = mapped_column(Integer, nullable=False)

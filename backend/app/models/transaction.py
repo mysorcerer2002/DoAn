@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, Integer, String
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -33,14 +33,16 @@ class Transaction(Base, TimestampMixin):
         ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False
     )
     staff_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     gross_amount: Mapped[int] = mapped_column(Integer, nullable=False)
-    voucher_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    voucher_id: Mapped[int | None] = mapped_column(
+        ForeignKey("vouchers.id", ondelete="SET NULL"), nullable=True
+    )
     voucher_discount_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
     net_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     points_earned: Mapped[int] = mapped_column(Integer, nullable=False)
     method: Mapped[TransactionMethod] = mapped_column(
-        Enum(TransactionMethod, name="transaction_method"), nullable=False
+        String(20), nullable=False
     )
     note: Mapped[str | None] = mapped_column(String(1000), nullable=True)

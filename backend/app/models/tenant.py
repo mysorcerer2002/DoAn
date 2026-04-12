@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, String
+from sqlalchemy import JSON, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -24,10 +24,10 @@ class Tenant(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     owner_user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     status: Mapped[TenantStatus] = mapped_column(
-        Enum(TenantStatus, name="tenant_status"),
+        String(20),
         default=TenantStatus.PENDING,
         nullable=False,
     )

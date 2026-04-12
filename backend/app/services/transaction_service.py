@@ -187,7 +187,7 @@ class TransactionService:
         if voucher.membership_id != membership_id:
             raise InvalidVoucherError("Voucher does not belong to this member")
         if voucher.status != VoucherStatus.ISSUED:
-            raise InvalidVoucherError(f"Voucher status is {voucher.status.value}, expected issued")
+            raise InvalidVoucherError(f"Voucher status is {voucher.status}, expected issued")
         if voucher.expires_at and voucher.expires_at < datetime.now(timezone.utc):
             raise InvalidVoucherError("Voucher expired")
 

@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -21,7 +21,7 @@ class VerificationCode(Base, TimestampMixin):
     )
     code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     purpose: Mapped[VerificationCodePurpose] = mapped_column(
-        Enum(VerificationCodePurpose, name="verification_code_purpose"), nullable=False
+        String(20), nullable=False
     )
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True

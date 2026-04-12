@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
 
 from app.models.base import Base, TimestampMixin
 
@@ -28,12 +29,12 @@ class Membership(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     current_tier_id: Mapped[int | None] = mapped_column(
-        ForeignKey("tiers.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("tiers.id", ondelete="SET NULL"), nullable=True, index=True
     )
     points_balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_points_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     joined_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     last_activity_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

@@ -102,7 +102,7 @@ async def get_tenant_detail(
         id=tenant.id,
         name=tenant.name,
         slug=tenant.slug,
-        status=tenant.status.value,
+        status=tenant.status,
         member_count=member_count,
         transaction_count=int(txn_count),
         total_revenue=int(total_revenue),

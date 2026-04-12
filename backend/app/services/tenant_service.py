@@ -108,7 +108,7 @@ class TenantService:
                 "name": row.tenant.name,
                 "slug": row.tenant.slug,
                 "status": row.tenant.status,
-                "role": row.role.value,
+                "role": row.role,
                 "logo_url": row.tenant.logo_url,
             }
             for row in rows

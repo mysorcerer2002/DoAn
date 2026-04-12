@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Index, String
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -9,6 +9,14 @@ from app.models.base import Base, TimestampMixin
 class User(Base, TimestampMixin):
     __tablename__ = "users"
     __table_args__ = (
+        CheckConstraint(
+            "system_role IN ('regular', 'admin', 'super_admin')",
+            name="ck_users_valid_role",
+        ),
+        CheckConstraint(
+            "is_shadow = true OR email IS NOT NULL OR phone IS NOT NULL",
+            name="ck_users_login_identifier",
+        ),
         Index("ix_users_email_unique", "email", unique=True, postgresql_where="email IS NOT NULL"),
         Index("ix_users_phone_unique", "phone", unique=True, postgresql_where="phone IS NOT NULL"),
     )

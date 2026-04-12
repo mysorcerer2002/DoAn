@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -32,7 +32,7 @@ class TenantStaff(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[TenantStaffRole] = mapped_column(
-        Enum(TenantStaffRole, name="tenant_staff_role"), nullable=False
+        String(20), nullable=False
     )
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
