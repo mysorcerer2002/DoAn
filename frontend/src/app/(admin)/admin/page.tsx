@@ -1,16 +1,17 @@
 "use client";
 
 import {
+  Activity,
   ArrowRight,
   CreditCard,
   Loader2,
+  Shield,
   Store,
   TrendingUp,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 
-import { StatCard } from "@/components/ui/stat-card";
 import { usePlatformStats } from "@/lib/hooks/use-merchant";
 
 export default function AdminDashboardPage() {
@@ -44,65 +45,203 @@ export default function AdminDashboardPage() {
         </p>
       </header>
 
+      {/* Hero metric card — tổng giao dịch nổi bật gradient */}
+      <section className="mt-6 overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-brand-indigo to-brand-violet p-6 text-white shadow-xl shadow-indigo-200 md:p-8">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest backdrop-blur">
+              <Shield className="h-3 w-3" />
+              Super Admin
+            </div>
+            <p className="mt-4 font-headline text-[16px] font-medium text-indigo-100">
+              Tổng giao dịch toàn platform
+            </p>
+            <p className="mt-1 font-headline text-[56px] font-bold leading-none text-white">
+              {data.total_transactions.toLocaleString("vi-VN")}
+            </p>
+            <div className="mt-3 flex items-center gap-2 text-[13px] text-indigo-100">
+              <Activity className="h-4 w-4" />
+              Dữ liệu real-time từ database
+            </div>
+          </div>
+          <div className="grid flex-shrink-0 grid-cols-2 gap-3 md:min-w-[260px]">
+            <HeroStat
+              icon={Store}
+              label="Đối tác"
+              value={data.total_tenants.toLocaleString("vi-VN")}
+            />
+            <HeroStat
+              icon={Users}
+              label="Người dùng"
+              value={data.total_users.toLocaleString("vi-VN")}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Secondary metrics + growth bars */}
       <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
+        <SecondaryStat
           icon={Store}
-          label="Tổng đối tác"
-          value={data.total_tenants.toLocaleString("vi-VN")}
+          label="Đối tác đang hoạt động"
+          value={data.total_tenants}
           tone="indigo"
+          sub={`${data.total_tenants} tenants tổng cộng`}
         />
-        <StatCard
+        <SecondaryStat
           icon={Users}
-          label="Tổng người dùng"
-          value={data.total_users.toLocaleString("vi-VN")}
-          tone="indigo"
+          label="Tài khoản người dùng"
+          value={data.total_users}
+          tone="violet"
+          sub="Bao gồm cả owner và customer"
         />
-        <StatCard
+        <SecondaryStat
           icon={CreditCard}
-          label="Tổng giao dịch"
-          value={data.total_transactions.toLocaleString("vi-VN")}
+          label="Giao dịch đã xử lý"
+          value={data.total_transactions}
           tone="orange"
-          highlightValue
+          sub="Lifetime count"
         />
       </section>
 
+      {/* Quick actions */}
       <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Link
+        <ActionCard
           href="/admin/tenants"
-          className="group flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:border-brand-indigo hover:shadow-lg"
-        >
-          <div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-brand-indigo">
-              <Store className="h-6 w-6" />
-            </div>
-            <h3 className="mt-3 font-headline text-[18px] font-bold text-slate-800">
-              Quản lý đối tác
-            </h3>
-            <p className="mt-1 text-[13px] text-slate-500">
-              Duyệt đăng ký, suspend, xem chi tiết
-            </p>
-          </div>
-          <ArrowRight className="h-6 w-6 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-brand-indigo" />
-        </Link>
-
-        <Link
+          icon={Store}
+          iconBg="bg-indigo-50 text-brand-indigo"
+          title="Quản lý đối tác"
+          desc="Duyệt đăng ký, suspend, xem chi tiết từng tenant"
+        />
+        <ActionCard
           href="/admin/stats"
-          className="group flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:border-brand-indigo hover:shadow-lg"
-        >
-          <div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-brand-orange">
-              <TrendingUp className="h-6 w-6" />
-            </div>
-            <h3 className="mt-3 font-headline text-[18px] font-bold text-slate-800">
-              Thống kê chi tiết
-            </h3>
-            <p className="mt-1 text-[13px] text-slate-500">
-              Xem báo cáo toàn hệ thống
-            </p>
-          </div>
-          <ArrowRight className="h-6 w-6 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-brand-indigo" />
-        </Link>
+          icon={TrendingUp}
+          iconBg="bg-orange-50 text-brand-orange"
+          title="Thống kê chi tiết"
+          desc="Biểu đồ tăng trưởng toàn hệ thống"
+        />
+        <ActionCard
+          href="/admin/users"
+          icon={Users}
+          iconBg="bg-violet-50 text-brand-violet"
+          title="Người dùng platform"
+          desc="Tìm kiếm theo email/SĐT, filter role"
+        />
+        <ActionCard
+          href="/admin/audit"
+          icon={Activity}
+          iconBg="bg-green-50 text-green-600"
+          title="Nhật ký hoạt động"
+          desc="Timeline sự kiện gần đây trên platform"
+        />
       </section>
     </main>
+  );
+}
+
+function HeroStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Store;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+        <Icon className="h-4 w-4" />
+      </div>
+      <p className="mt-3 font-headline text-[24px] font-bold leading-none">
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] text-indigo-100">{label}</p>
+    </div>
+  );
+}
+
+function SecondaryStat({
+  icon: Icon,
+  label,
+  value,
+  tone,
+  sub,
+}: {
+  icon: typeof Store;
+  label: string;
+  value: number;
+  tone: "indigo" | "violet" | "orange";
+  sub: string;
+}) {
+  const toneClass: Record<string, string> = {
+    indigo: "bg-indigo-50 text-brand-indigo",
+    violet: "bg-violet-50 text-brand-violet",
+    orange: "bg-orange-50 text-brand-orange",
+  };
+  const barClass: Record<string, string> = {
+    indigo: "bg-brand-indigo",
+    violet: "bg-brand-violet",
+    orange: "bg-brand-orange",
+  };
+  // Visual only — width based on value (log scale)
+  const width = Math.min(100, Math.max(5, Math.log10(value + 1) * 30));
+  return (
+    <article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between">
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-xl ${toneClass[tone]}`}
+        >
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+      <p className="mt-4 text-[12px] font-medium text-slate-400">{label}</p>
+      <p className="mt-1 font-headline text-[28px] font-bold text-slate-800">
+        {value.toLocaleString("vi-VN")}
+      </p>
+      <p className="mt-1 text-[11px] text-slate-400">{sub}</p>
+      <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full ${barClass[tone]}`}
+          style={{ width: `${width}%` }}
+        />
+      </div>
+    </article>
+  );
+}
+
+function ActionCard({
+  href,
+  icon: Icon,
+  iconBg,
+  title,
+  desc,
+}: {
+  href: string;
+  icon: typeof Store;
+  iconBg: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:border-brand-indigo hover:shadow-lg"
+    >
+      <div className="flex items-center gap-4">
+        <div
+          className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconBg}`}
+        >
+          <Icon className="h-6 w-6" />
+        </div>
+        <div>
+          <h3 className="font-headline text-[16px] font-bold text-slate-800">
+            {title}
+          </h3>
+          <p className="mt-0.5 text-[12px] text-slate-500">{desc}</p>
+        </div>
+      </div>
+      <ArrowRight className="h-5 w-5 flex-shrink-0 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-brand-indigo" />
+    </Link>
   );
 }

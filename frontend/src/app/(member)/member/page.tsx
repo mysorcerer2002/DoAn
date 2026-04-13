@@ -12,27 +12,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
+import { useMyVouchers } from "@/lib/hooks/use-merchant";
 import { useMe, useMyMemberships } from "@/lib/hooks/use-me";
 import type { Membership } from "@/types/auth";
-
-const availableVouchers = [
-  {
-    id: 1,
-    title: "Giảm 20% Coffee",
-    description: "Áp dụng cho mọi món",
-    expiry: "20/04/2026",
-    valueLabel: "20%",
-  },
-  {
-    id: 2,
-    title: "Free Upsize",
-    description: "Cho trà trái cây size L",
-    expiry: "15/05/2026",
-    valueLabel: "0đ",
-  },
-] as const;
 
 const quickActions = [
   { id: "qr", icon: QrCode, label: "Mã QR", href: "/member/qr", color: "indigo" },
@@ -85,17 +69,23 @@ const TIER_EMOJI: Record<string, string> = {
 
 export default function MemberDashboardPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const { data: user, isLoading: isLoadingUser, isError: isErrorUser } = useMe();
   const { data: memberships, isLoading: isLoadingMemberships } =
     useMyMemberships();
+  const { data: vouchers } = useMyVouchers({ status: "issued" });
 
   useEffect(() => {
-    if (isErrorUser) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && isErrorUser) {
       router.replace("/login");
     }
-  }, [isErrorUser, router]);
+  }, [mounted, isErrorUser, router]);
 
-  if (isLoadingUser || isLoadingMemberships) {
+  if (!mounted || isLoadingUser || isLoadingMemberships) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-brand-indigo" />
@@ -244,43 +234,72 @@ export default function MemberDashboardPage() {
           )}
         </section>
 
-        {/* Available Vouchers (placeholder — chưa wire) */}
+        {/* Voucher khả dụng (real data) */}
         <section className="space-y-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between">
             <h3 className="font-headline text-[18px] font-bold text-slate-800">
               Voucher khả dụng
             </h3>
-          </div>
-          <div className="space-y-4">
-            {availableVouchers.map((voucher) => (
-              <article
-                key={voucher.id}
-                className="relative flex items-center overflow-hidden rounded-2xl border-l-4 border-brand-orange bg-white shadow-sm"
+            {vouchers && vouchers.length > 0 && (
+              <Link
+                href="/member/vouchers"
+                className="text-[13px] font-semibold text-brand-indigo hover:underline"
               >
-                <span className="absolute -top-1 left-24 h-4 w-4 rounded-full border border-slate-100 bg-[#f8fafc]" />
-                <span className="absolute -bottom-1 left-24 h-4 w-4 rounded-full border border-slate-100 bg-[#f8fafc]" />
-                <div className="flex-1 p-4">
-                  <h4 className="text-[16px] font-bold text-slate-800">{voucher.title}</h4>
-                  <p className="text-[12px] text-slate-500">{voucher.description}</p>
-                  <p className="mt-2 flex items-center gap-1 text-[11px] text-slate-400">
-                    <Clock className="h-3.5 w-3.5" />
-                    Hết hạn {voucher.expiry}
-                  </p>
-                </div>
-                <div className="flex min-w-[100px] flex-col items-center justify-center border-l border-dashed border-slate-200 bg-slate-50/50 p-4">
-                  <span className="text-[28px] font-bold text-brand-orange">
-                    {voucher.valueLabel}
-                  </span>
-                  <button
-                    type="button"
-                    className="mt-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-indigo-700"
-                  >
-                    Áp dụng
-                  </button>
-                </div>
-              </article>
-            ))}
+                Xem tất cả
+              </Link>
+            )}
           </div>
+          {!vouchers || vouchers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
+              <Ticket className="mx-auto h-10 w-10 text-slate-300" />
+              <p className="mt-3 text-[13px] text-slate-500">
+                Chưa có voucher nào. Tích điểm để nhận voucher từ cửa hàng.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {vouchers.slice(0, 3).map((v) => {
+                const valueLabel =
+                  v.discount_type === "percent"
+                    ? `${v.discount_value}%`
+                    : `${(v.discount_value ?? 0).toLocaleString("vi-VN")}₫`;
+                return (
+                  <article
+                    key={v.id}
+                    className="relative flex items-center overflow-hidden rounded-2xl border-l-4 border-brand-orange bg-white shadow-sm"
+                  >
+                    <span className="absolute -top-1 left-24 h-4 w-4 rounded-full border border-slate-100 bg-[#f8fafc]" />
+                    <span className="absolute -bottom-1 left-24 h-4 w-4 rounded-full border border-slate-100 bg-[#f8fafc]" />
+                    <div className="flex-1 p-4">
+                      <h4 className="text-[15px] font-bold text-slate-800">
+                        {v.campaign_name ?? `Voucher ${v.code}`}
+                      </h4>
+                      <p className="font-mono text-[11px] text-slate-500">
+                        Mã: {v.code}
+                      </p>
+                      <p className="mt-2 flex items-center gap-1 text-[11px] text-slate-400">
+                        <Clock className="h-3.5 w-3.5" />
+                        Hết hạn{" "}
+                        {new Date(v.expires_at).toLocaleDateString("vi-VN", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex min-w-[100px] flex-col items-center justify-center border-l border-dashed border-slate-200 bg-slate-50/50 p-4">
+                      <span className="text-glow-orange text-[24px] font-bold text-brand-orange">
+                        -{valueLabel}
+                      </span>
+                      <span className="mt-1 text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                        {v.discount_type === "percent" ? "giảm" : "off"}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
       </main>
     </>

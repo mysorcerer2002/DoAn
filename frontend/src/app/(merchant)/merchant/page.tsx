@@ -2,13 +2,11 @@
 
 import {
   Calendar,
-  Coins,
-  CreditCard,
   Download,
   Loader2,
   Sparkles,
+  TrendingDown,
   TrendingUp,
-  UserPlus,
 } from "lucide-react";
 
 import { useDashboard } from "@/lib/hooks/use-merchant";
@@ -25,6 +23,16 @@ function formatVnd(n: number): string {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+}
+
+/** Tính % thay đổi giữa nửa sau và nửa đầu của chuỗi số. */
+function periodTrend(values: number[]): number | null {
+  if (values.length < 4) return null;
+  const half = Math.floor(values.length / 2);
+  const first = values.slice(0, half).reduce((a, b) => a + b, 0);
+  const second = values.slice(half).reduce((a, b) => a + b, 0);
+  if (first === 0) return second > 0 ? 100 : null;
+  return ((second - first) / first) * 100;
 }
 
 export default function MerchantDashboardPage() {
@@ -60,6 +68,31 @@ export default function MerchantDashboardPage() {
     0
   );
 
+  // Compute trends từ daily_transactions (nửa cuối vs nửa đầu period)
+  const revenueTrend = periodTrend(
+    data.daily_transactions.map((d) => d.total_revenue)
+  );
+  const txnTrend = periodTrend(
+    data.daily_transactions.map((d) => d.transaction_count)
+  );
+  const pointsTrend = periodTrend(
+    data.daily_transactions.map((d) => d.total_points_earned)
+  );
+
+  const avgRevenuePerDay =
+    data.daily_transactions.length > 0
+      ? data.total_revenue / data.daily_transactions.length
+      : 0;
+  const revenueProgress = Math.min(
+    100,
+    (avgRevenuePerDay / Math.max(1, maxRevenue)) * 100
+  );
+
+  const totalPointsIssued = data.daily_transactions.reduce(
+    (sum, d) => sum + d.total_points_earned,
+    0
+  );
+
   return (
     <main className="px-4 py-5 md:px-8 md:py-6">
       <header className="flex flex-col items-start gap-4 md:flex-row md:justify-between">
@@ -81,7 +114,7 @@ export default function MerchantDashboardPage() {
           </button>
           <button
             type="button"
-            className="flex items-center gap-2 rounded-xl border border-brand-indigo bg-white px-4 py-2.5 text-[13px] font-bold text-brand-indigo hover:bg-brand-indigo/5"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-200 hover:opacity-95"
           >
             <Download className="h-4 w-4" />
             Xuất báo cáo
@@ -89,38 +122,42 @@ export default function MerchantDashboardPage() {
         </div>
       </header>
 
-      {/* KPI cards */}
-      <section className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+      {/* KPI cards với trend badge + progress bar */}
+      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
-          icon={TrendingUp}
           label="Doanh thu"
           value={formatVnd(data.total_revenue)}
-          tone="indigo"
+          trend={revenueTrend}
+          progress={revenueProgress}
+          progressColor="bg-brand-indigo"
         />
         <KpiCard
-          icon={CreditCard}
           label="Giao dịch"
           value={data.transaction_count.toLocaleString("vi-VN")}
-          tone="indigo"
+          trend={txnTrend}
+          progress={Math.min(100, (data.transaction_count / 1000) * 100)}
+          progressColor="bg-brand-violet"
         />
         <KpiCard
-          icon={UserPlus}
           label="Thành viên"
-          value={data.member_count.toLocaleString("vi-VN")}
-          tone="indigo"
+          value={totalMembers.toLocaleString("vi-VN")}
+          trend={null}
+          progress={Math.min(100, (totalMembers / 500) * 100)}
+          progressColor="bg-brand-indigo"
         />
         <KpiCard
-          icon={Coins}
-          label="Đổi quà"
-          value={data.total_redemption_count.toLocaleString("vi-VN")}
-          tone="orange"
-          sub={`Tỉ lệ: ${(data.redemption_rate * 100).toFixed(1)}%`}
+          label="Điểm phát hành"
+          value={totalPointsIssued.toLocaleString("vi-VN")}
+          trend={pointsTrend}
+          progress={Math.min(100, (totalPointsIssued / 20000) * 100)}
+          progressColor="bg-brand-orange"
+          highlight
         />
       </section>
 
-      {/* Charts row */}
-      <section className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <article className="col-span-2 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+      {/* Charts row: Line chart (2/3) + Donut tier (1/3) */}
+      <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm lg:col-span-2">
           <header className="flex items-center justify-between">
             <div>
               <h2 className="font-headline text-[18px] font-bold text-slate-800">
@@ -129,6 +166,10 @@ export default function MerchantDashboardPage() {
               <p className="text-[12px] text-slate-400">
                 {data.daily_transactions.length} ngày
               </p>
+            </div>
+            <div className="hidden items-center gap-4 md:flex">
+              <LegendDot color="bg-brand-indigo" label="Doanh thu" />
+              <LegendDot color="bg-brand-orange" label="Điểm tích" />
             </div>
           </header>
           {data.daily_transactions.length === 0 ? (
@@ -152,60 +193,85 @@ export default function MerchantDashboardPage() {
               {totalMembers} thành viên
             </p>
           </header>
-          <TierDistributionList
-            data={data.tier_distribution}
-            total={totalMembers}
-          />
+          <TierDonutChart data={data.tier_distribution} total={totalMembers} />
         </article>
       </section>
 
       {/* Campaign ROI */}
-      <section className="mt-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+      <section className="mt-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
         <header className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-brand-orange" />
-          <h2 className="font-headline text-[18px] font-bold text-slate-800">
-            Top chiến dịch
-          </h2>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-brand-orange">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="font-headline text-[18px] font-bold text-slate-800">
+              Top chiến dịch
+            </h2>
+            <p className="text-[12px] text-slate-400">
+              Hiệu quả voucher theo chiến dịch
+            </p>
+          </div>
         </header>
         <div className="mt-4">
           {data.campaign_roi.length === 0 ? (
-            <p className="text-[13px] text-slate-400">
-              Chưa có chiến dịch nào.
-            </p>
+            <p className="text-[13px] text-slate-400">Chưa có chiến dịch nào.</p>
           ) : (
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px]">
-              <thead>
-                <tr className="text-left text-[11px] font-bold uppercase text-slate-400">
-                  <th className="pb-3">Chiến dịch</th>
-                  <th className="pb-3 text-right">Đã phát</th>
-                  <th className="pb-3 text-right">Đã dùng</th>
-                  <th className="pb-3 text-right">Tổng giảm</th>
-                  <th className="pb-3 text-right">Doanh thu</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.campaign_roi.map((c: CampaignRoiPoint) => (
-                  <tr key={c.campaign_id} className="border-t border-slate-100">
-                    <td className="py-3 text-[13px] font-bold text-slate-800">
-                      {c.campaign_name}
-                    </td>
-                    <td className="py-3 text-right text-[13px]">
-                      {c.vouchers_issued}
-                    </td>
-                    <td className="py-3 text-right text-[13px] font-bold text-emerald-600">
-                      {c.vouchers_used}
-                    </td>
-                    <td className="py-3 text-right text-[13px] text-brand-orange">
-                      {formatVnd(c.total_discount)}
-                    </td>
-                    <td className="py-3 text-right text-[13px] font-bold text-slate-800">
-                      {formatVnd(c.total_revenue_from_voucher_txns)}
-                    </td>
+              <table className="w-full min-w-[700px]">
+                <thead>
+                  <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    <th className="pb-3">Chiến dịch</th>
+                    <th className="pb-3 text-right">Đã phát</th>
+                    <th className="pb-3 text-right">Đã dùng</th>
+                    <th className="pb-3 text-right">Tỷ lệ</th>
+                    <th className="pb-3 text-right">Tổng giảm</th>
+                    <th className="pb-3 text-right">Doanh thu</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.campaign_roi.map((c: CampaignRoiPoint) => {
+                    const useRate =
+                      c.vouchers_issued > 0
+                        ? (c.vouchers_used / c.vouchers_issued) * 100
+                        : 0;
+                    return (
+                      <tr
+                        key={c.campaign_id}
+                        className="border-t border-slate-100"
+                      >
+                        <td className="py-3 text-[13px] font-bold text-slate-800">
+                          {c.campaign_name}
+                        </td>
+                        <td className="py-3 text-right text-[13px]">
+                          {c.vouchers_issued}
+                        </td>
+                        <td className="py-3 text-right text-[13px] font-bold text-emerald-600">
+                          {c.vouchers_used}
+                        </td>
+                        <td className="py-3 text-right text-[13px]">
+                          <div className="inline-flex items-center gap-2">
+                            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-brand-indigo to-brand-violet"
+                                style={{ width: `${useRate}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-medium text-slate-600">
+                              {useRate.toFixed(0)}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-right text-[13px] text-brand-orange">
+                          {formatVnd(c.total_discount)}
+                        </td>
+                        <td className="py-3 text-right text-[13px] font-bold text-slate-800">
+                          {formatVnd(c.total_revenue_from_voucher_txns)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -214,45 +280,68 @@ export default function MerchantDashboardPage() {
   );
 }
 
-type KpiTone = "indigo" | "orange";
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-[11px] text-slate-500">
+      <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+      {label}
+    </div>
+  );
+}
 
 function KpiCard({
-  icon: Icon,
   label,
   value,
-  tone,
-  sub,
+  trend,
+  progress,
+  progressColor,
+  highlight = false,
 }: {
-  icon: typeof TrendingUp;
   label: string;
   value: string;
-  tone: KpiTone;
-  sub?: string;
+  trend: number | null;
+  progress: number;
+  progressColor: string;
+  highlight?: boolean;
 }) {
+  const trendPositive = trend != null && trend >= 0;
   return (
-    <article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div
-          className={
-            tone === "orange"
-              ? "flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-brand-orange"
-              : "flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-brand-indigo"
-          }
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-        <p className="text-[12px] font-medium text-slate-400">{label}</p>
+    <article className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between">
+        <span className="text-[13px] font-medium text-slate-500">{label}</span>
+        {trend != null && (
+          <span
+            className={
+              trendPositive
+                ? "flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600"
+                : "flex items-center gap-0.5 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600"
+            }
+          >
+            {trendPositive ? (
+              <TrendingUp className="h-3 w-3" />
+            ) : (
+              <TrendingDown className="h-3 w-3" />
+            )}
+            {trendPositive ? "+" : ""}
+            {trend.toFixed(1)}%
+          </span>
+        )}
       </div>
-      <p
+      <div
         className={
-          tone === "orange"
-            ? "mt-3 font-headline text-[26px] font-bold text-brand-orange"
-            : "mt-3 font-headline text-[26px] font-bold text-slate-800"
+          highlight
+            ? "mt-3 font-headline text-[24px] font-bold leading-tight text-brand-orange"
+            : "mt-3 font-headline text-[24px] font-bold leading-tight text-slate-800"
         }
       >
         {value}
-      </p>
-      {sub && <p className="mt-1 text-[11px] text-slate-500">{sub}</p>}
+      </div>
+      <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full ${progressColor}`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </article>
   );
 }
@@ -273,8 +362,7 @@ function RevenueLineChart({
   const yScale = (H - padY * 2) / maxRevenue;
   const points = data
     .map(
-      (d, i) =>
-        `${padX + i * xStep},${H - padY - d.total_revenue * yScale}`
+      (d, i) => `${padX + i * xStep},${H - padY - d.total_revenue * yScale}`
     )
     .join(" ");
 
@@ -310,65 +398,143 @@ function RevenueLineChart({
         strokeLinejoin="round"
       />
       {data.map((d, i) => (
-        <text
-          key={d.day}
-          x={padX + i * xStep}
-          y={H - 8}
-          textAnchor="middle"
-          fontSize="9"
-          fill="#94a3b8"
-        >
-          {formatDate(d.day)}
-        </text>
+        <circle
+          key={`dot-${d.day}`}
+          cx={padX + i * xStep}
+          cy={H - padY - d.total_revenue * yScale}
+          r="3"
+          fill="#fff"
+          stroke="#6366f1"
+          strokeWidth="2"
+        />
       ))}
+      {data
+        .filter((_, i) => i % Math.max(1, Math.floor(data.length / 8)) === 0)
+        .map((d, idx) => {
+          const realIdx = data.indexOf(d);
+          return (
+            <text
+              key={`x-${d.day}-${idx}`}
+              x={padX + realIdx * xStep}
+              y={H - 8}
+              textAnchor="middle"
+              fontSize="9"
+              fill="#94a3b8"
+            >
+              {formatDate(d.day)}
+            </text>
+          );
+        })}
     </svg>
   );
 }
 
-function TierDistributionList({
+const TIER_COLORS = [
+  "#B45309", // Bronze — amber-700
+  "#94A3B8", // Silver — slate-400
+  "#F59E0B", // Gold — amber-500
+  "#8B5CF6", // Platinum — violet-500
+  "#6366F1", // Diamond — indigo-500
+];
+
+function TierDonutChart({
   data,
   total,
 }: {
   data: TierDistributionPoint[];
   total: number;
 }) {
-  const colors = [
-    "bg-amber-700",
-    "bg-slate-400",
-    "bg-amber-500",
-    "bg-violet-500",
-    "bg-indigo-500",
-  ];
+  const size = 180;
+  const stroke = 20;
+  const radius = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  if (total === 0) {
+    return (
+      <div className="mt-6 flex h-40 items-center justify-center text-[13px] text-slate-400">
+        Chưa có thành viên nào
+      </div>
+    );
+  }
+
+  let accum = 0;
+  const segments = data.map((tier, idx) => {
+    const percent = tier.member_count / total;
+    const offset = circumference * accum;
+    const length = circumference * percent;
+    accum += percent;
+    return {
+      idx,
+      tier,
+      percent,
+      offset,
+      length,
+      color: TIER_COLORS[idx % TIER_COLORS.length],
+    };
+  });
+
   return (
-    <ul className="mt-4 space-y-2">
-      {data.map((tier, idx) => {
-        const percent = total > 0 ? (tier.member_count / total) * 100 : 0;
-        return (
-          <li key={tier.tier_id ?? `none-${idx}`} className="space-y-1">
-            <div className="flex items-center justify-between text-[12px]">
-              <span className="flex items-center gap-2">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    colors[idx % colors.length]
-                  }`}
-                />
-                <span className="font-medium text-slate-700">
-                  {tier.tier_name}
-                </span>
-              </span>
-              <span className="font-bold text-slate-800">
-                {tier.member_count} · {percent.toFixed(0)}%
-              </span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className={`h-full ${colors[idx % colors.length]}`}
-                style={{ width: `${percent}%` }}
+    <div className="mt-6">
+      <div className="relative mx-auto" style={{ width: size, height: size }}>
+        <svg
+          width={size}
+          height={size}
+          className="-rotate-90"
+          aria-label="Biểu đồ phân bố hạng thành viên"
+        >
+          <circle
+            cx={cx}
+            cy={cy}
+            r={radius}
+            fill="none"
+            stroke="#f1f5f9"
+            strokeWidth={stroke}
+          />
+          {segments.map((s) => (
+            <circle
+              key={s.idx}
+              cx={cx}
+              cy={cy}
+              r={radius}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={stroke}
+              strokeDasharray={`${s.length} ${circumference - s.length}`}
+              strokeDashoffset={-s.offset}
+              strokeLinecap="butt"
+            />
+          ))}
+        </svg>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-headline text-[28px] font-bold text-slate-800">
+            {total}
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            Tổng
+          </span>
+        </div>
+      </div>
+      <ul className="mt-6 space-y-2.5">
+        {segments.map((s) => (
+          <li
+            key={s.idx}
+            className="flex items-center justify-between text-[13px]"
+          >
+            <span className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: s.color }}
               />
-            </div>
+              <span className="text-slate-600">{s.tier.tier_name}</span>
+            </span>
+            <span className="font-bold text-slate-800">
+              {s.tier.member_count} · {(s.percent * 100).toFixed(0)}%
+            </span>
           </li>
-        );
-      })}
-    </ul>
+        ))}
+      </ul>
+    </div>
   );
 }
