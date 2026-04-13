@@ -1,17 +1,15 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { MerchantSidebar } from "@/components/merchant/merchant-sidebar";
-import { TenantPicker } from "@/components/merchant/tenant-picker";
 import { MobileTopbar } from "@/components/shared/mobile-topbar";
-import { useTenantStore } from "@/lib/tenant-store";
+import { StaffSidebar } from "@/components/staff/staff-sidebar";
 import { useMe } from "@/lib/hooks/use-me";
+import { useTenantStore } from "@/lib/tenant-store";
 
-export default function MerchantLayout({ children }: { children: ReactNode }) {
+export default function StaffLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const tenant = useTenantStore((s) => s.tenant);
   const rehydrate = useTenantStore((s) => s.rehydrate);
   const [mounted, setMounted] = useState(false);
@@ -34,10 +32,10 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
     }
   }, [mounted, isLoading, user, isError, router]);
 
-  // Staff không có quyền vào /merchant → redirect /staff
+  // Nếu user là owner, chuyển sang /merchant (không nên ở /staff)
   useEffect(() => {
-    if (mounted && tenant && tenant.role === "staff") {
-      router.replace("/staff");
+    if (mounted && tenant && tenant.role === "owner") {
+      router.replace("/merchant");
     }
   }, [mounted, tenant, router]);
 
@@ -51,20 +49,25 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
 
   if (!user) return null;
 
-  // Chưa chọn tenant → hiển thị picker (ngoại trừ trang picker chính nó)
   if (!tenant) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] font-body text-slate-800">
-        <TenantPicker targetHref={pathname} />
+      <div className="flex min-h-screen items-center justify-center px-4 text-center">
+        <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6">
+          <p className="font-bold text-amber-700">Chưa chọn cửa hàng</p>
+          <p className="mt-2 text-[13px] text-amber-600">
+            Bạn cần được owner thêm vào tenant_staff trước khi sử dụng cổng nhân
+            viên.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-body text-slate-800">
-      <MerchantSidebar />
+      <StaffSidebar />
       <div className="md:ml-60">
-        <MobileTopbar title="Merchant" gradientClass="bg-brand-indigo" />
+        <MobileTopbar title="Staff" gradientClass="bg-emerald-700" />
         {children}
       </div>
     </div>

@@ -62,7 +62,8 @@ export default function LoginPage() {
             slug: t.slug,
             role: t.role,
           });
-          router.push("/merchant");
+          // Phân route theo role: owner → /merchant (full), staff → /staff (rút gọn)
+          router.push(t.role === "owner" ? "/merchant" : "/staff");
           return;
         }
       } catch {

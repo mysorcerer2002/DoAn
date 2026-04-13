@@ -329,6 +329,81 @@ async def update_my_tenant(
     return TenantResponse.model_validate(tenant)
 
 
+@merchant_router.get("/vouchers/check/{code}")
+async def check_voucher_by_code(
+    code: str,
+    gross_amount: int = Query(default=0, ge=0),
+    tenant_id: int = Depends(get_tenant_id),
+    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Staff/owner check voucher code: trả info + tính discount preview cho gross_amount.
+
+    Dùng ở POS form khi nhập mã voucher → hiển thị tên + giảm giá ngay.
+    Không sử dụng (mark used) — chỉ preview.
+    """
+    voucher = (
+        await db.scalars(
+            select(Voucher)
+            .options(joinedload(Voucher.campaign))
+            .where(Voucher.tenant_id == tenant_id, Voucher.code == code.upper())
+        )
+    ).first()
+    if voucher is None:
+        raise HTTPException(status_code=404, detail="Voucher không tồn tại")
+    if voucher.status != VoucherStatus.ISSUED:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Voucher đã {voucher.status.value if hasattr(voucher.status, 'value') else voucher.status}",
+        )
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC)
+    expires_at = voucher.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    if expires_at < now:
+        raise HTTPException(status_code=409, detail="Voucher đã hết hạn")
+
+    campaign = voucher.campaign
+    if campaign is None:
+        raise HTTPException(status_code=500, detail="Voucher không có campaign")
+
+    # Tính discount preview
+    discount = 0
+    if gross_amount >= campaign.min_order:
+        discount_type_str = (
+            campaign.discount_type.value
+            if hasattr(campaign.discount_type, "value")
+            else str(campaign.discount_type)
+        )
+        if discount_type_str == "percent":
+            discount = gross_amount * campaign.discount_value // 100
+        else:
+            discount = campaign.discount_value
+        if campaign.max_discount is not None:
+            discount = min(discount, campaign.max_discount)
+        discount = min(discount, gross_amount)
+
+    return {
+        "valid": True,
+        "code": voucher.code,
+        "campaign_name": campaign.name,
+        "discount_type": (
+            campaign.discount_type.value
+            if hasattr(campaign.discount_type, "value")
+            else str(campaign.discount_type)
+        ),
+        "discount_value": campaign.discount_value,
+        "min_order": campaign.min_order,
+        "max_discount": campaign.max_discount,
+        "expires_at": voucher.expires_at,
+        "preview_discount": discount,
+        "preview_net": max(0, gross_amount - discount),
+        "meets_min_order": gross_amount >= campaign.min_order,
+    }
+
+
 @merchant_router.get("/vouchers", response_model=list[VoucherResponse])
 async def list_tenant_vouchers(
     vstatus: VoucherStatus | None = Query(default=None, alias="status"),
