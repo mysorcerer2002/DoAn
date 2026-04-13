@@ -1,7 +1,9 @@
 import logging
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import JWTError
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -16,6 +18,12 @@ from app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
+
+
+class UpdateMeRequest(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=255)
+    phone: str | None = Field(default=None, pattern=r"^\+?[0-9\s\-()]{8,20}$")
+    birthday: date | None = None
 from app.schemas.claim_shadow import ClaimShadowRequest, RequestClaimRequest
 from app.services.auth_service import AuthService, EmailAlreadyExistsError, InvalidCredentialsError
 
@@ -115,6 +123,24 @@ async def refresh(
 
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)) -> User:
+    return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    body: UpdateMeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """User tự cập nhật họ tên, SĐT, ngày sinh."""
+    if body.full_name is not None:
+        current_user.full_name = body.full_name.strip()
+    if body.phone is not None:
+        current_user.phone = body.phone.strip()
+    if body.birthday is not None:
+        current_user.birthday = body.birthday
+    await db.commit()
+    await db.refresh(current_user)
     return current_user
 
 

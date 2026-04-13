@@ -56,6 +56,11 @@ export const authApi = {
   refresh: (refreshToken: string) =>
     api.post<TokenResponse>("/auth/refresh", { refresh_token: refreshToken }),
   me: () => api.get<User>("/auth/me"),
+  updateMe: (data: {
+    full_name?: string;
+    phone?: string;
+    birthday?: string;
+  }) => api.patch<User>("/auth/me", data),
 };
 
 export const memberApi = {

@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   ArrowLeft,
-  Cake,
   Eye,
   EyeOff,
   Lock,
@@ -23,11 +22,6 @@ const schema = z.object({
   full_name: z.string().min(1, "Họ tên không được để trống"),
   email: z.string().email("Email không hợp lệ"),
   password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự"),
-  birthday: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày sinh phải có dạng YYYY-MM-DD")
-    .optional()
-    .or(z.literal("")),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -50,10 +44,7 @@ export default function RegisterPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await authApi.register({
-        ...data,
-        birthday: data.birthday || undefined,
-      });
+      const res = await authApi.register(data);
       setTokens(res.data.access_token, res.data.refresh_token);
       await fetchMe();
       router.push("/member");
@@ -187,24 +178,10 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              <div className="space-y-1">
-                <div className="relative">
-                  <Cake className="pointer-events-none absolute inset-y-0 left-3 my-auto h-5 w-5 text-slate-400" />
-                  <input
-                    type="date"
-                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-3 outline-none transition-all placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
-                    {...register("birthday")}
-                  />
-                </div>
-                <p className="pl-1 text-xs text-slate-400">
-                  Tuỳ chọn — nhận voucher sinh nhật hàng năm
-                </p>
-                {errors.birthday && (
-                  <p className="pl-1 text-xs text-red-500">
-                    {errors.birthday.message}
-                  </p>
-                )}
-              </div>
+              <p className="rounded-lg bg-indigo-50 px-3 py-2 text-[11px] text-brand-indigo">
+                Bạn có thể cập nhật ngày sinh trong trang Hồ sơ sau khi đăng ký
+                để nhận voucher sinh nhật hàng năm.
+              </p>
 
               {error && (
                 <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">

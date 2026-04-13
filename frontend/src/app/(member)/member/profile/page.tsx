@@ -8,15 +8,22 @@ import {
   Loader2,
   LogOut,
   Mail,
+  Pencil,
   Phone,
   ScrollText,
   Settings,
   Shield,
+  User as UserIcon,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
+import { authApi } from "@/lib/api";
 import { useMe, useMyMemberships } from "@/lib/hooks/use-me";
+import type { User } from "@/types/auth";
 
 function getInitials(fullName: string | null): string {
   if (!fullName) return "M";
@@ -38,8 +45,18 @@ function formatDate(iso: string | null): string {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const qc = useQueryClient();
   const { data: user, isLoading, isError } = useMe();
   const { data: memberships } = useMyMemberships();
+  const [editOpen, setEditOpen] = useState(false);
+
+  const updateMut = useMutation({
+    mutationFn: authApi.updateMe,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["auth", "me"] });
+      setEditOpen(false);
+    },
+  });
 
   if (isLoading) {
     return (
@@ -75,24 +92,28 @@ export default function ProfilePage() {
       icon: Phone,
       label: "Số điện thoại",
       value: user.phone ?? "Chưa cập nhật",
+      editable: true,
     },
     {
       id: "email",
       icon: Mail,
       label: "Email",
       value: user.email ?? "Chưa cập nhật",
+      editable: false,
     },
     {
       id: "birthday",
       icon: Calendar,
       label: "Ngày sinh",
       value: formatDate(user.birthday),
+      editable: true,
     },
     {
       id: "joined",
       icon: Calendar,
       label: "Thành viên từ",
       value: formatDate(user.created_at),
+      editable: false,
     },
   ];
 
@@ -115,8 +136,9 @@ export default function ProfilePage() {
           </h1>
           <button
             type="button"
+            onClick={() => setEditOpen(true)}
             className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
-            aria-label="Cài đặt"
+            aria-label="Chỉnh sửa thông tin"
           >
             <Settings className="h-6 w-6" />
           </button>
@@ -157,16 +179,28 @@ export default function ProfilePage() {
         </section>
 
         <section className="space-y-3">
-          <h3 className="px-1 font-headline text-[16px] font-bold text-slate-800">
-            Thông tin cá nhân
-          </h3>
+          <div className="flex items-center justify-between px-1">
+            <h3 className="font-headline text-[16px] font-bold text-slate-800">
+              Thông tin cá nhân
+            </h3>
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="flex items-center gap-1 text-[12px] font-bold text-brand-indigo hover:underline"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Chỉnh sửa
+            </button>
+          </div>
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             {infoItems.map((item, idx) => (
-              <div
+              <button
                 key={item.id}
-                className={`flex items-center gap-3 px-4 py-3.5 ${
+                type="button"
+                onClick={() => item.editable && setEditOpen(true)}
+                className={`flex w-full items-center gap-3 px-4 py-3.5 text-left ${
                   idx > 0 ? "border-t border-slate-100" : ""
-                }`}
+                } ${item.editable ? "hover:bg-slate-50" : "cursor-default"}`}
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
                   <item.icon className="h-5 w-5 text-brand-indigo" />
@@ -177,8 +211,10 @@ export default function ProfilePage() {
                     {item.value}
                   </p>
                 </div>
-                <ChevronRight className="h-5 w-5 text-slate-300" />
-              </div>
+                {item.editable && (
+                  <ChevronRight className="h-5 w-5 text-slate-300" />
+                )}
+              </button>
             ))}
           </div>
         </section>
@@ -221,7 +257,174 @@ export default function ProfilePage() {
           </div>
         </section>
       </main>
+
+      {editOpen && (
+        <EditProfileModal
+          user={user}
+          onClose={() => setEditOpen(false)}
+          onSubmit={(data) => updateMut.mutate(data)}
+          submitting={updateMut.isPending}
+          error={
+            updateMut.isError
+              ? "Không cập nhật được. Vui lòng kiểm tra dữ liệu."
+              : null
+          }
+        />
+      )}
     </>
+  );
+}
+
+function EditProfileModal({
+  user,
+  onClose,
+  onSubmit,
+  submitting,
+  error,
+}: {
+  user: User;
+  onClose: () => void;
+  onSubmit: (data: {
+    full_name?: string;
+    phone?: string;
+    birthday?: string;
+  }) => void;
+  submitting: boolean;
+  error: string | null;
+}) {
+  const [fullName, setFullName] = useState(user.full_name ?? "");
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [birthday, setBirthday] = useState(user.birthday ?? "");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      full_name: fullName.trim() || undefined,
+      phone: phone.trim() || undefined,
+      birthday: birthday || undefined,
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-sm sm:items-center"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-headline text-[18px] font-bold text-slate-800">
+            Chỉnh sửa thông tin
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100"
+            aria-label="Đóng"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <div className="space-y-1">
+            <label
+              htmlFor="full_name"
+              className="block pl-1 text-[12px] font-medium text-slate-500"
+            >
+              Họ và tên
+            </label>
+            <div className="relative">
+              <UserIcon className="pointer-events-none absolute inset-y-0 left-3 my-auto h-5 w-5 text-slate-400" />
+              <input
+                id="full_name"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-3 outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
+                placeholder="Nguyễn Văn A"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label
+              htmlFor="phone"
+              className="block pl-1 text-[12px] font-medium text-slate-500"
+            >
+              Số điện thoại
+            </label>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute inset-y-0 left-3 my-auto h-5 w-5 text-slate-400" />
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-3 outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
+                placeholder="0901234567"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label
+              htmlFor="birthday"
+              className="block pl-1 text-[12px] font-medium text-slate-500"
+            >
+              Ngày sinh
+            </label>
+            <div className="relative">
+              <Calendar className="pointer-events-none absolute inset-y-0 left-3 my-auto h-5 w-5 text-slate-400" />
+              <input
+                id="birthday"
+                type="date"
+                value={birthday}
+                onChange={(e) => setBirthday(e.target.value)}
+                className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-3 outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
+              />
+            </div>
+            <p className="pl-1 text-[11px] text-slate-400">
+              Dùng để nhận voucher sinh nhật hàng năm
+            </p>
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-600">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-slate-200 bg-white py-3 font-headline text-[14px] font-bold text-slate-600 hover:bg-slate-50"
+          >
+            Huỷ
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex-1 rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet py-3 font-headline text-[14px] font-bold text-white shadow-lg active:scale-[0.98] disabled:opacity-60"
+          >
+            {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
