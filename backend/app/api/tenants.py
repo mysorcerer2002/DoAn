@@ -223,6 +223,7 @@ async def list_shops_for_discovery(
             "id": t.id,
             "name": t.name,
             "slug": t.slug,
+            "category": t.category,
             "description": t.description,
             "logo_url": t.logo_url,
             "is_member": t.id in member_map,

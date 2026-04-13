@@ -48,6 +48,7 @@ class TenantService:
             slug=slug,
             owner_user_id=owner.id,
             status=TenantStatus.PENDING,
+            category=request.category,
             description=request.description,
             logo_url=request.logo_url,
             settings={},

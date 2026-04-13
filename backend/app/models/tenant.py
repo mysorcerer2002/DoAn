@@ -17,6 +17,16 @@ class TenantStatus(str, enum.Enum):
     SUSPENDED = "suspended"
 
 
+class TenantCategory(str, enum.Enum):
+    """Phân loại tenant để customer dễ khám phá + UI accent khác nhau."""
+
+    CAFE = "cafe"  # Cafe/coffee shop
+    FOOD = "food"  # Nhà hàng, fast-food, street food
+    RETAIL = "retail"  # Cửa hàng bán lẻ, thời trang
+    BEAUTY = "beauty"  # Mỹ phẩm, spa, salon
+    OTHER = "other"
+
+
 class Tenant(Base, TimestampMixin):
     __tablename__ = "tenants"
 
@@ -30,6 +40,13 @@ class Tenant(Base, TimestampMixin):
         String(20),
         default=TenantStatus.PENDING,
         nullable=False,
+    )
+    category: Mapped[TenantCategory] = mapped_column(
+        String(20),
+        default=TenantCategory.OTHER,
+        nullable=False,
+        server_default="other",
+        index=True,
     )
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)

@@ -28,7 +28,7 @@ from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
 from app.models.redemption import Redemption, RedemptionStatus
 from app.models.reward import Reward
-from app.models.tenant import Tenant, TenantStatus
+from app.models.tenant import Tenant, TenantCategory, TenantStatus
 from app.models.tenant_staff import TenantStaff, TenantStaffRole
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
@@ -69,6 +69,7 @@ async def _seed_tenant(
     slug: str,
     owner: User,
     description: str,
+    category: TenantCategory,
     tier_names: list[tuple[str, int]],
     rewards: list[tuple[str, int, int | None]],
     campaigns: list[tuple[str, int, int]],  # (name, discount_percent, max_discount)
@@ -82,6 +83,7 @@ async def _seed_tenant(
             slug=slug,
             owner_user_id=owner.id,
             status=TenantStatus.ACTIVE,
+            category=category,
             description=description,
             settings={
                 "points_on_gross": False,
@@ -97,7 +99,13 @@ async def _seed_tenant(
         await db.flush()
         print(f"✓ Tenant: {name} (id={tenant.id})")
     else:
-        print(f"- Tenant đã tồn tại: {name}")
+        # Backfill category cho tenant đã tồn tại trước migration
+        if tenant.category != category:
+            tenant.category = category
+            await db.flush()
+            print(f"  ↻ Cập nhật category cho {name}: {category}")
+        else:
+            print(f"- Tenant đã tồn tại: {name}")
 
     # Point rule
     rule = await db.scalar(
@@ -389,6 +397,7 @@ async def main() -> None:
             slug="cafe-cong",
             owner=owner1,
             description="Quán cafe phong cách Việt Nam",
+            category=TenantCategory.CAFE,
             tier_names=[
                 ("Hạng Đồng", 0),
                 ("Hạng Bạc", 500),
@@ -436,6 +445,7 @@ async def main() -> None:
             slug="tra-sua-lala",
             owner=owner2,
             description="Chuỗi trà sữa hot nhất Sài Gòn",
+            category=TenantCategory.FOOD,
             tier_names=[
                 ("Lala Member", 0),
                 ("Lala Silver", 300),

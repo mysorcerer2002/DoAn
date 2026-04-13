@@ -7,16 +7,63 @@ import { useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
 
+type TenantCategory = "cafe" | "food" | "retail" | "beauty" | "other";
+
 interface ShopItem {
   id: number;
   name: string;
   slug: string;
+  category: TenantCategory;
   description: string | null;
   logo_url: string | null;
   is_member: boolean;
   points_balance: number | null;
   tier_name: string | null;
 }
+
+const CATEGORY_META: Record<
+  TenantCategory,
+  { label: string; emoji: string; bgColor: string; accentColor: string }
+> = {
+  cafe: {
+    label: "Cafe",
+    emoji: "☕",
+    bgColor: "bg-orange-50",
+    accentColor: "text-amber-700",
+  },
+  food: {
+    label: "Ăn uống",
+    emoji: "🍜",
+    bgColor: "bg-red-50",
+    accentColor: "text-red-600",
+  },
+  retail: {
+    label: "Bán lẻ",
+    emoji: "🛍️",
+    bgColor: "bg-indigo-50",
+    accentColor: "text-brand-indigo",
+  },
+  beauty: {
+    label: "Mỹ phẩm",
+    emoji: "💄",
+    bgColor: "bg-pink-50",
+    accentColor: "text-pink-600",
+  },
+  other: {
+    label: "Khác",
+    emoji: "🏪",
+    bgColor: "bg-slate-50",
+    accentColor: "text-slate-600",
+  },
+};
+
+const CATEGORY_PILLS: Array<{ id: "all" | TenantCategory; label: string; emoji: string | null }> = [
+  { id: "all", label: "Tất cả", emoji: null },
+  { id: "cafe", label: "Cafe", emoji: "☕" },
+  { id: "food", label: "Ăn uống", emoji: "🍜" },
+  { id: "retail", label: "Bán lẻ", emoji: "🛍️" },
+  { id: "beauty", label: "Mỹ phẩm", emoji: "💄" },
+];
 
 function useShops() {
   return useQuery<ShopItem[]>({
@@ -25,37 +72,19 @@ function useShops() {
   });
 }
 
-function pickEmoji(name: string): string {
-  const lower = name.toLowerCase();
-  if (lower.includes("cafe") || lower.includes("coffee")) return "☕";
-  if (lower.includes("trà sữa") || lower.includes("lala")) return "🥤";
-  if (lower.includes("bbq") || lower.includes("nướng")) return "🍖";
-  if (lower.includes("pizza")) return "🍕";
-  if (lower.includes("phở")) return "🍲";
-  if (lower.includes("bánh")) return "🥖";
-  if (lower.includes("mỹ phẩm") || lower.includes("beauty")) return "💄";
-  return "🏪";
-}
-
-const FALLBACK_BG = [
-  "bg-orange-50",
-  "bg-violet-50",
-  "bg-amber-50",
-  "bg-pink-50",
-  "bg-red-50",
-  "bg-emerald-50",
-  "bg-indigo-50",
-];
-
 export default function ShopsPage() {
   const { data: shops, isLoading, isError } = useShops();
-  const [filter, setFilter] = useState<"all" | "joined" | "new">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | TenantCategory>("all");
+  const [membershipFilter, setMembershipFilter] = useState<
+    "all" | "joined" | "new"
+  >("all");
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
     return (shops ?? []).filter((s) => {
-      if (filter === "joined" && !s.is_member) return false;
-      if (filter === "new" && s.is_member) return false;
+      if (categoryFilter !== "all" && s.category !== categoryFilter) return false;
+      if (membershipFilter === "joined" && !s.is_member) return false;
+      if (membershipFilter === "new" && s.is_member) return false;
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -65,7 +94,15 @@ export default function ShopsPage() {
       }
       return true;
     });
-  }, [shops, filter, search]);
+  }, [shops, categoryFilter, membershipFilter, search]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (shops ?? []).forEach((s) => {
+      counts[s.category] = (counts[s.category] ?? 0) + 1;
+    });
+    return counts;
+  }, [shops]);
 
   const joinedCount = (shops ?? []).filter((s) => s.is_member).length;
 
@@ -114,7 +151,29 @@ export default function ShopsPage() {
           />
         </section>
 
-        {/* Filter pills */}
+        {/* Category pills */}
+        <section className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+          {CATEGORY_PILLS.map((f) => {
+            const count =
+              f.id === "all" ? shops?.length ?? 0 : categoryCounts[f.id] ?? 0;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setCategoryFilter(f.id)}
+                className={
+                  categoryFilter === f.id
+                    ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
+                    : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
+                }
+              >
+                {f.emoji ? `${f.emoji} ${f.label}` : f.label} ({count})
+              </button>
+            );
+          })}
+        </section>
+
+        {/* Membership filter */}
         <section className="flex gap-2">
           {(
             [
@@ -126,11 +185,11 @@ export default function ShopsPage() {
             <button
               key={f.id}
               type="button"
-              onClick={() => setFilter(f.id)}
+              onClick={() => setMembershipFilter(f.id)}
               className={
-                filter === f.id
-                  ? "rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
-                  : "rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
+                membershipFilter === f.id
+                  ? "rounded-full bg-brand-violet px-4 py-1.5 text-[12px] font-bold text-white"
+                  : "rounded-full border border-brand-violet/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-violet"
               }
             >
               {f.label}
@@ -156,15 +215,17 @@ export default function ShopsPage() {
           </div>
         ) : (
           <section className="space-y-3">
-            {filtered.map((s, idx) => (
+            {filtered.map((s) => {
+              const meta = CATEGORY_META[s.category] ?? CATEGORY_META.other;
+              return (
               <article
                 key={s.id}
                 className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
               >
                 <div
-                  className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl text-4xl ${FALLBACK_BG[idx % FALLBACK_BG.length]}`}
+                  className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl text-4xl ${meta.bgColor}`}
                 >
-                  {pickEmoji(s.name)}
+                  {meta.emoji}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
@@ -178,11 +239,16 @@ export default function ShopsPage() {
                       </span>
                     )}
                   </div>
-                  {s.description && (
-                    <p className="mt-0.5 line-clamp-1 text-[12px] text-slate-500">
-                      {s.description}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-bold ${meta.accentColor}`}>
+                      {meta.label}
+                    </span>
+                    {s.description && (
+                      <span className="truncate text-[11px] text-slate-400">
+                        · {s.description}
+                      </span>
+                    )}
+                  </div>
                   <div className="mt-2 flex items-center justify-between">
                     {s.is_member ? (
                       <span className="font-headline text-[14px] font-bold text-brand-orange">
@@ -207,7 +273,8 @@ export default function ShopsPage() {
                   </div>
                 </div>
               </article>
-            ))}
+              );
+            })}
           </section>
         )}
       </main>

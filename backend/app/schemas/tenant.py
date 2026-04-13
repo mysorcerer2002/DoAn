@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.tenant import TenantStatus
+from app.models.tenant import TenantCategory, TenantStatus
 
 
 class TenantCreateRequest(BaseModel):
@@ -11,6 +11,7 @@ class TenantCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     logo_url: str | None = Field(default=None, max_length=500)
+    category: TenantCategory = Field(default=TenantCategory.OTHER)
 
 
 class TenantUpdateRequest(BaseModel):
@@ -19,6 +20,7 @@ class TenantUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     logo_url: str | None = Field(default=None, max_length=500)
+    category: TenantCategory | None = None
 
 
 class TenantResponse(BaseModel):
@@ -29,6 +31,7 @@ class TenantResponse(BaseModel):
     slug: str
     owner_user_id: int
     status: TenantStatus
+    category: TenantCategory
     logo_url: str | None
     description: str | None
     settings: dict
@@ -44,6 +47,7 @@ class TenantPublicResponse(BaseModel):
     id: int
     name: str
     slug: str
+    category: TenantCategory
     logo_url: str | None
     description: str | None
 
