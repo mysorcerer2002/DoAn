@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.core.db import AsyncSessionLocal
 from app.core.security import hash_password
 from app.models.campaign import Campaign, DiscountType
+from app.models.membership import Membership
 from app.models.point_rule import PointRule
 from app.models.reward import Reward
 from app.models.tenant import Tenant, TenantStatus
@@ -183,12 +184,65 @@ async def main() -> None:
             await db.flush()
             print("✓ Tạo campaign: Giảm 20% Coffee")
 
+        # 8. Customer test accounts với memberships tier đa dạng
+        tiers_map = {
+            t.name: t
+            for t in (
+                await db.scalars(
+                    select(Tier).where(
+                        Tier.tenant_id == tenant.id, Tier.deleted_at.is_(None)
+                    )
+                )
+            ).all()
+        }
+
+        customer_seeds = [
+            ("khach1@gmail.com", "Nguyễn Thị Hoa", "0901234501", 120, "Hạng Đồng"),
+            ("khach2@gmail.com", "Trần Văn Nam", "0901234502", 780, "Hạng Bạc"),
+            ("khach3@gmail.com", "Lê Thị Mai", "0901234503", 2650, "Hạng Vàng"),
+            ("khach4@gmail.com", "Phạm Minh Tuấn", "0901234504", 350, "Hạng Đồng"),
+            ("khach5@gmail.com", "Hoàng Thu Hà", "0901234505", 5200, "Hạng Bạch Kim"),
+        ]
+
+        for email, name, phone, points, tier_name in customer_seeds:
+            existing = await db.scalar(select(User).where(User.email == email))
+            if existing is not None:
+                print(f"- Customer đã tồn tại: {email}")
+                continue
+            customer = User(
+                email=email,
+                phone=phone,
+                password_hash=hash_password("khach1234"),
+                full_name=name,
+                is_active=True,
+                system_role="regular",
+                password_changed_at=datetime.now(UTC),
+            )
+            db.add(customer)
+            await db.flush()
+
+            tier = tiers_map.get(tier_name)
+            membership = Membership(
+                tenant_id=tenant.id,
+                user_id=customer.id,
+                current_tier_id=tier.id if tier else None,
+                points_balance=points,
+                total_points_earned=points,
+                last_activity_at=datetime.now(UTC),
+            )
+            db.add(membership)
+            await db.flush()
+            print(f"✓ Tạo customer: {email} / khach1234 ({tier_name}, {points} điểm)")
+
         await db.commit()
         print("\n✅ Seed completed!")
         print("\n🔑 Accounts:")
-        print("  Admin: admin@loyalty.vn / admin1234")
-        print("  Owner: owner@cafe.vn / owner1234")
-        print(f"  Tenant: {tenant.name} (id={tenant.id}, slug={tenant.slug})")
+        print("  Super Admin: admin@loyalty.vn / admin1234")
+        print("  Merchant Owner: owner@cafe.vn / owner1234")
+        print("  Customers (khach1-5@gmail.com / khach1234):")
+        for email, name, _phone, points, tier in customer_seeds:
+            print(f"    - {email} — {name} ({tier}, {points} điểm)")
+        print(f"\n  Tenant: {tenant.name} (id={tenant.id}, slug={tenant.slug})")
 
 
 if __name__ == "__main__":
