@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.models.campaign import Campaign
 from app.models.tenant import Tenant
@@ -21,6 +22,18 @@ class CampaignFullError(Exception):
 
 
 class CampaignNotEligibleError(Exception):
+    pass
+
+
+class VoucherNotFoundError(Exception):
+    pass
+
+
+class VoucherInvalidStatusError(Exception):
+    """Voucher đã used hoặc expired."""
+
+
+class VoucherExpiredError(Exception):
     pass
 
 
@@ -203,6 +216,87 @@ class VoucherService:
                 Voucher.code == code,
             )
         )
+
+    async def check_voucher_for_use(
+        self,
+        *,
+        tenant_id: int,
+        code: str,
+        gross_amount: int = 0,
+    ) -> dict:
+        """Kiểm tra voucher code + tính discount preview cho POS form.
+
+        Raises:
+            VoucherNotFoundError: code không tồn tại trong tenant
+            VoucherInvalidStatusError: voucher đã used/expired
+            VoucherExpiredError: voucher quá hạn
+
+        Returns: dict với valid, code, campaign_name, discount_*, preview_*, meets_min_order
+        """
+        voucher = await self.db.scalar(
+            select(Voucher)
+            .options(joinedload(Voucher.campaign))
+            .where(
+                Voucher.tenant_id == tenant_id,
+                Voucher.code == code.upper(),
+            )
+        )
+        if voucher is None:
+            raise VoucherNotFoundError(f"Voucher '{code}' không tồn tại")
+
+        if voucher.status != VoucherStatus.ISSUED:
+            status_label = (
+                voucher.status.value
+                if hasattr(voucher.status, "value")
+                else str(voucher.status)
+            )
+            raise VoucherInvalidStatusError(f"Voucher đã {status_label}")
+
+        now = datetime.now(timezone.utc)
+        expires_at = voucher.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < now:
+            raise VoucherExpiredError("Voucher đã hết hạn")
+
+        campaign = voucher.campaign
+        if campaign is None:
+            raise VoucherInvalidStatusError("Voucher không có campaign")
+
+        # Tính discount preview (giống logic transaction_service apply voucher)
+        discount = 0
+        meets_min_order = gross_amount >= campaign.min_order
+        if meets_min_order:
+            discount_type_str = (
+                campaign.discount_type.value
+                if hasattr(campaign.discount_type, "value")
+                else str(campaign.discount_type)
+            )
+            if discount_type_str == "percent":
+                discount = gross_amount * campaign.discount_value // 100
+            else:
+                discount = campaign.discount_value
+            if campaign.max_discount is not None:
+                discount = min(discount, campaign.max_discount)
+            discount = min(discount, gross_amount)
+
+        return {
+            "valid": True,
+            "code": voucher.code,
+            "campaign_name": campaign.name,
+            "discount_type": (
+                campaign.discount_type.value
+                if hasattr(campaign.discount_type, "value")
+                else str(campaign.discount_type)
+            ),
+            "discount_value": campaign.discount_value,
+            "min_order": campaign.min_order,
+            "max_discount": campaign.max_discount,
+            "expires_at": voucher.expires_at,
+            "preview_discount": discount,
+            "preview_net": max(0, gross_amount - discount),
+            "meets_min_order": meets_min_order,
+        }
 
     async def mark_used(self, *, tenant_id: int, voucher_id: int) -> Voucher:
         voucher = await self.db.scalar(
