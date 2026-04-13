@@ -8,8 +8,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, Eye, EyeOff, Lock, Mail } from "lucide-react";
 
-import { authApi } from "@/lib/api";
+import { api, authApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
+import { useTenantStore } from "@/lib/tenant-store";
+import type { TenantStaffSummary } from "@/types/merchant";
 
 const schema = z.object({
   email: z.string().email("Email không hợp lệ"),
@@ -22,6 +24,7 @@ export default function LoginPage() {
   const router = useRouter();
   const setTokens = useAuthStore((s) => s.setTokens);
   const fetchMe = useAuthStore((s) => s.fetchMe);
+  const setTenant = useTenantStore((s) => s.setTenant);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -39,6 +42,32 @@ export default function LoginPage() {
       const res = await authApi.login(data);
       setTokens(res.data.access_token, res.data.refresh_token);
       await fetchMe();
+
+      // Redirect theo role: super_admin → /admin, staff → /merchant, else → /member
+      const user = useAuthStore.getState().user;
+      if (user?.system_role === "super_admin") {
+        router.push("/admin");
+        return;
+      }
+      try {
+        const { data: tenants } = await api.get<TenantStaffSummary[]>(
+          "/users/me/tenants"
+        );
+        if (tenants.length > 0) {
+          // Auto-select tenant đầu tiên để tránh hiển thị picker
+          const t = tenants[0];
+          setTenant({
+            id: t.id,
+            name: t.name,
+            slug: t.slug,
+            role: t.role,
+          });
+          router.push("/merchant");
+          return;
+        }
+      } catch {
+        // Ignore — treat as customer
+      }
       router.push("/member");
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
