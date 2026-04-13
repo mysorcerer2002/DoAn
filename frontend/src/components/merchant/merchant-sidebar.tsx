@@ -18,6 +18,7 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect } from "react";
 
 import { cn } from "@/lib/utils";
+import { useLogout } from "@/lib/hooks/use-logout";
 import { useSidebarStore } from "@/lib/sidebar-store";
 
 type MenuItem = {
@@ -45,6 +46,7 @@ export function MerchantSidebar() {
   const pathname = usePathname();
   const open = useSidebarStore((s) => s.open);
   const close = useSidebarStore((s) => s.close);
+  const logout = useLogout();
 
   // Đóng drawer khi chuyển route
   useEffect(() => {
@@ -146,7 +148,8 @@ export function MerchantSidebar() {
         <div className="border-t border-white/10 px-3 py-4">
           <button
             type="button"
-            className="flex w-full items-center gap-3 rounded-xl border border-white/20 px-3 py-2.5 text-[13px] font-medium text-indigo-100 transition-colors hover:bg-white/10"
+            onClick={logout}
+            className="flex w-full items-center gap-3 rounded-xl border border-white/20 px-3 py-2.5 text-[13px] font-medium text-indigo-100 transition-colors hover:bg-white/10 active:scale-[0.98]"
           >
             <LogOut className="h-5 w-5" />
             Đăng xuất

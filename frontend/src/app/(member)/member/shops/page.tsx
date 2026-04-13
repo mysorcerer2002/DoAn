@@ -1,99 +1,74 @@
-import { ArrowLeft, MapPin, Search, Star } from "lucide-react";
+"use client";
+
+import { ArrowLeft, Crown, Loader2, Search, Store } from "lucide-react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 
-type Shop = {
-  id: string;
+import { api } from "@/lib/api";
+
+interface ShopItem {
+  id: number;
   name: string;
-  address: string;
-  emoji: string;
-  bgColor: string;
-  rating: number;
-  reviews: number;
-  distance: string;
-  pointRate: string;
-  status: "join" | "joined";
-  joinedTier?: { label: string; tone: "indigo" | "slate" };
-  badge?: string;
-  highlight?: string;
-};
+  slug: string;
+  description: string | null;
+  logo_url: string | null;
+  is_member: boolean;
+  points_balance: number | null;
+  tier_name: string | null;
+}
 
-const shops: Shop[] = [
-  {
-    id: "s1",
-    name: "Cafe Cộng - Bà Triệu",
-    address: "12 Bà Triệu, Hai Bà Trưng, HN",
-    emoji: "☕",
-    bgColor: "bg-orange-50",
-    rating: 4.8,
-    reviews: 124,
-    distance: "1.2 km",
-    pointRate: "1₫ = 0.01 điểm",
-    status: "join",
-  },
-  {
-    id: "s2",
-    name: "Trà sữa Toko",
-    address: "45 Cầu Giấy, HN",
-    emoji: "🥤",
-    bgColor: "bg-violet-50",
-    rating: 4.6,
-    reviews: 89,
-    distance: "800 m",
-    pointRate: "1₫ = 0.012 điểm",
-    status: "join",
-    badge: "MỚI",
-  },
-  {
-    id: "s3",
-    name: "BBQ Hàn Quốc",
-    address: "78 Đống Đa, HN",
-    emoji: "🍜",
-    bgColor: "bg-amber-50",
-    rating: 4.9,
-    reviews: 256,
-    distance: "2.5 km",
-    pointRate: "1₫ = 0.01 điểm",
-    status: "join",
-    highlight: "🎁 Có 5 quà tặng mới",
-  },
-  {
-    id: "s4",
-    name: "Mỹ phẩm Cocoon",
-    address: "23 Hoàn Kiếm, HN",
-    emoji: "🛍️",
-    bgColor: "bg-pink-50",
-    rating: 4.7,
-    reviews: 178,
-    distance: "3.0 km",
-    pointRate: "1₫ = 0.015 điểm",
-    status: "joined",
-    joinedTier: { label: "Hạng Bạc", tone: "slate" },
-  },
-  {
-    id: "s5",
-    name: "Pizza Hut",
-    address: "56 Nguyễn Du, HN",
-    emoji: "🍕",
-    bgColor: "bg-red-50",
-    rating: 4.5,
-    reviews: 312,
-    distance: "3.2 km",
-    pointRate: "1₫ = 0.01 điểm",
-    status: "join",
-    highlight: "Khuyến mãi tháng 4",
-  },
+function useShops() {
+  return useQuery<ShopItem[]>({
+    queryKey: ["member", "shops"],
+    queryFn: async () => (await api.get<ShopItem[]>("/users/me/shops")).data,
+  });
+}
+
+function pickEmoji(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes("cafe") || lower.includes("coffee")) return "☕";
+  if (lower.includes("trà sữa") || lower.includes("lala")) return "🥤";
+  if (lower.includes("bbq") || lower.includes("nướng")) return "🍖";
+  if (lower.includes("pizza")) return "🍕";
+  if (lower.includes("phở")) return "🍲";
+  if (lower.includes("bánh")) return "🥖";
+  if (lower.includes("mỹ phẩm") || lower.includes("beauty")) return "💄";
+  return "🏪";
+}
+
+const FALLBACK_BG = [
+  "bg-orange-50",
+  "bg-violet-50",
+  "bg-amber-50",
+  "bg-pink-50",
+  "bg-red-50",
+  "bg-emerald-50",
+  "bg-indigo-50",
 ];
 
-const filters = [
-  { id: "all", label: "Tất cả", emoji: null },
-  { id: "cafe", label: "Cafe", emoji: "☕" },
-  { id: "food", label: "Nhà hàng", emoji: "🍜" },
-  { id: "retail", label: "Bán lẻ", emoji: "🛍️" },
-  { id: "drink", label: "Đồ uống", emoji: "🥤" },
-  { id: "new", label: "Mới", emoji: "✨" },
-] as const;
-
 export default function ShopsPage() {
+  const { data: shops, isLoading, isError } = useShops();
+  const [filter, setFilter] = useState<"all" | "joined" | "new">("all");
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    return (shops ?? []).filter((s) => {
+      if (filter === "joined" && !s.is_member) return false;
+      if (filter === "new" && s.is_member) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return (
+          s.name.toLowerCase().includes(q) ||
+          (s.description ?? "").toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [shops, filter, search]);
+
+  const joinedCount = (shops ?? []).filter((s) => s.is_member).length;
+
   return (
     <>
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between bg-slate-50/95 px-4 backdrop-blur">
@@ -105,142 +80,136 @@ export default function ShopsPage() {
           <ArrowLeft className="h-6 w-6" />
         </Link>
         <h1 className="font-headline text-[18px] font-bold text-slate-800">
-          Khám phá cửa hàng
+          Cửa hàng
         </h1>
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
-          aria-label="Vị trí"
-        >
-          <MapPin className="h-6 w-6" />
-        </button>
+        <div className="w-10" />
       </header>
 
-      <main className="space-y-4 px-4 pt-2">
-        <div className="relative">
-          <Search className="pointer-events-none absolute inset-y-0 left-4 my-auto h-5 w-5 text-slate-400" />
+      <main className="space-y-4 px-4 pt-2 pb-8">
+        {/* Stats mini */}
+        <section className="grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-medium text-slate-400">Đang là thành viên</p>
+            <p className="mt-1 font-headline text-[24px] font-bold text-brand-indigo">
+              {joinedCount}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-medium text-slate-400">Tổng shop</p>
+            <p className="mt-1 font-headline text-[24px] font-bold text-brand-orange">
+              {shops?.length ?? 0}
+            </p>
+          </div>
+        </section>
+
+        {/* Search */}
+        <section className="relative">
+          <Search className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Tìm cửa hàng..."
-            className="block w-full rounded-full border border-slate-200 bg-white py-3 pl-12 pr-4 text-[14px] outline-none placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+            placeholder="Tìm shop theo tên"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-9 pr-3 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
           />
-        </div>
+        </section>
 
-        <section className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-          {filters.map((f, idx) => (
+        {/* Filter pills */}
+        <section className="flex gap-2">
+          {(
+            [
+              { id: "all", label: "Tất cả" },
+              { id: "joined", label: "Đã tham gia" },
+              { id: "new", label: "Chưa tham gia" },
+            ] as const
+          ).map((f) => (
             <button
               key={f.id}
               type="button"
+              onClick={() => setFilter(f.id)}
               className={
-                idx === 0
-                  ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
-                  : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
+                filter === f.id
+                  ? "rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
+                  : "rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
               }
             >
-              {f.emoji ? `${f.emoji} ${f.label}` : f.label}
+              {f.label}
             </button>
           ))}
         </section>
 
-        <section className="flex items-center gap-1 rounded-full bg-slate-100 p-1">
-          <button
-            type="button"
-            className="flex-1 rounded-full bg-white px-4 py-2 text-[13px] font-bold text-slate-400 shadow-sm"
-          >
-            Đã tham gia (3)
-          </button>
-          <button
-            type="button"
-            className="flex-1 rounded-full bg-brand-indigo px-4 py-2 text-[13px] font-bold text-white shadow"
-          >
-            Khám phá (12)
-          </button>
-        </section>
-
-        <div className="space-y-3 pb-4">
-          {shops.map((shop) => (
-            <article
-              key={shop.id}
-              className="relative rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
-            >
-              {shop.badge && (
-                <span className="absolute right-4 top-4 rounded-full bg-brand-orange px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-                  {shop.badge}
-                </span>
-              )}
-              <div className="flex items-start gap-3">
+        {/* Shops list */}
+        {isLoading ? (
+          <div className="flex min-h-[30vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-brand-indigo" />
+          </div>
+        ) : isError ? (
+          <div className="rounded-xl bg-red-50 p-4 text-center text-[13px] text-red-600">
+            Không tải được danh sách cửa hàng
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+            <Store className="mx-auto h-12 w-12 text-slate-300" />
+            <p className="mt-4 font-bold text-slate-700">
+              {search ? "Không tìm thấy cửa hàng" : "Chưa có cửa hàng nào"}
+            </p>
+          </div>
+        ) : (
+          <section className="space-y-3">
+            {filtered.map((s, idx) => (
+              <article
+                key={s.id}
+                className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+              >
                 <div
-                  className={`flex h-14 w-14 items-center justify-center rounded-2xl text-3xl ${shop.bgColor}`}
+                  className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl text-4xl ${FALLBACK_BG[idx % FALLBACK_BG.length]}`}
                 >
-                  {shop.emoji}
+                  {pickEmoji(s.name)}
                 </div>
-                <div className="flex-1 space-y-1">
-                  <h3 className="text-[15px] font-bold text-slate-800">
-                    {shop.name}
-                  </h3>
-                  <p className="flex items-center gap-1 text-[11px] text-slate-400">
-                    <MapPin className="h-3 w-3" />
-                    {shop.address}
-                  </p>
-                  <div className="flex items-center gap-3 text-[11px] text-slate-500">
-                    <span className="flex items-center gap-0.5">
-                      <Star
-                        className="h-3 w-3 text-amber-400"
-                        fill="currentColor"
-                      />
-                      <span className="font-bold text-slate-700">
-                        {shop.rating}
-                      </span>
-                      <span className="text-slate-400">
-                        ({shop.reviews})
-                      </span>
-                    </span>
-                    <span>·</span>
-                    <span>{shop.distance}</span>
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-brand-indigo">
-                      {shop.pointRate}
-                    </span>
-                    {shop.highlight && (
-                      <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-brand-orange">
-                        {shop.highlight}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="truncate font-headline text-[15px] font-bold text-slate-800">
+                      {s.name}
+                    </h3>
+                    {s.is_member && s.tier_name && (
+                      <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-400 px-2 py-0.5 text-[10px] font-bold text-white">
+                        <Crown className="h-2.5 w-2.5" fill="white" />
+                        {s.tier_name}
                       </span>
                     )}
                   </div>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-end gap-2">
-                {shop.status === "joined" && shop.joinedTier ? (
-                  <>
-                    <span
-                      className={
-                        shop.joinedTier.tone === "indigo"
-                          ? "rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-bold uppercase text-brand-indigo"
-                          : "rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase text-slate-500"
-                      }
-                    >
-                      {shop.joinedTier.label}
-                    </span>
+                  {s.description && (
+                    <p className="mt-0.5 line-clamp-1 text-[12px] text-slate-500">
+                      {s.description}
+                    </p>
+                  )}
+                  <div className="mt-2 flex items-center justify-between">
+                    {s.is_member ? (
+                      <span className="font-headline text-[14px] font-bold text-brand-orange">
+                        {s.points_balance?.toLocaleString("vi-VN") ?? 0} điểm
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">
+                        Chưa tham gia
+                      </span>
+                    )}
                     <button
                       type="button"
-                      className="rounded-full border border-brand-indigo px-4 py-1.5 text-[12px] font-bold text-brand-indigo"
+                      disabled={s.is_member}
+                      className={
+                        s.is_member
+                          ? "rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-500"
+                          : "rounded-full bg-brand-indigo px-3 py-1 text-[11px] font-bold text-white active:scale-95"
+                      }
                     >
-                      Xem chi tiết
+                      {s.is_member ? "Đã là thành viên" : "Tham gia"}
                     </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="rounded-full bg-gradient-to-r from-brand-indigo to-brand-violet px-4 py-1.5 text-[12px] font-bold text-white shadow-md shadow-indigo-200 active:scale-95"
-                  >
-                    + Tham gia
-                  </button>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
       </main>
     </>
   );

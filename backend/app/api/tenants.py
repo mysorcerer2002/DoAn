@@ -15,7 +15,8 @@ from app.core.deps import (
 from app.core.limiter import limiter
 from app.models.membership import Membership
 from app.models.point_ledger import PointLedger
-from app.models.tenant import TenantStatus
+from app.models.reward import Reward
+from app.models.tenant import Tenant, TenantStatus
 from app.models.tenant_staff import TenantStaffRole
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
@@ -175,6 +176,117 @@ async def list_my_memberships(
             is_new=False,
         )
         for m in rows
+    ]
+
+
+@users_router.get("/me/shops")
+async def list_shops_for_discovery(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Tất cả shop ACTIVE trên platform + flag is_member/current_tier nếu user đã tham gia.
+
+    Dùng cho trang `/member/shops` để customer khám phá và thấy shop nào đã là thành viên.
+    """
+    # Lấy membership của user map theo tenant_id
+    from app.models.tier import Tier
+
+    user_memberships = (
+        await db.execute(
+            select(Membership, Tier.name.label("tier_name"))
+            .join(Tier, Membership.current_tier_id == Tier.id, isouter=True)
+            .where(
+                Membership.user_id == user.id,
+                Membership.archived_at.is_(None),
+            )
+        )
+    ).all()
+    member_map = {
+        m.tenant_id: {
+            "points_balance": m.points_balance,
+            "tier_name": tier_name,
+        }
+        for m, tier_name in user_memberships
+    }
+
+    # Tất cả tenant active
+    tenants = (
+        await db.scalars(
+            select(Tenant)
+            .where(Tenant.status == TenantStatus.ACTIVE)
+            .order_by(Tenant.name.asc())
+        )
+    ).all()
+
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "slug": t.slug,
+            "description": t.description,
+            "logo_url": t.logo_url,
+            "is_member": t.id in member_map,
+            "points_balance": member_map.get(t.id, {}).get("points_balance"),
+            "tier_name": member_map.get(t.id, {}).get("tier_name"),
+        }
+        for t in tenants
+    ]
+
+
+@users_router.get("/me/rewards")
+async def list_my_rewards(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Rewards active của TẤT CẢ tenant mà current user là member.
+
+    Dùng cho trang `/member/rewards` để customer thấy quà available cross-shop.
+    Trả kèm points_balance của membership để frontend biết đủ điểm hay chưa.
+    """
+    memberships_rows = (
+        await db.execute(
+            select(Membership, Tenant.name, Tenant.slug)
+            .join(Tenant, Membership.tenant_id == Tenant.id)
+            .where(
+                Membership.user_id == user.id,
+                Membership.archived_at.is_(None),
+            )
+        )
+    ).all()
+    if not memberships_rows:
+        return []
+
+    tenant_points = {m.tenant_id: m.points_balance for m, _, _ in memberships_rows}
+    tenant_names = {m.tenant_id: (name, slug) for m, name, slug in memberships_rows}
+    tenant_ids = list(tenant_points.keys())
+
+    rewards = (
+        await db.scalars(
+            select(Reward)
+            .where(
+                Reward.tenant_id.in_(tenant_ids),
+                Reward.deleted_at.is_(None),
+                Reward.is_active.is_(True),
+            )
+            .order_by(Reward.points_cost.asc())
+        )
+    ).all()
+
+    return [
+        {
+            "id": r.id,
+            "tenant_id": r.tenant_id,
+            "tenant_name": tenant_names[r.tenant_id][0],
+            "tenant_slug": tenant_names[r.tenant_id][1],
+            "name": r.name,
+            "description": r.description,
+            "points_cost": r.points_cost,
+            "stock": r.stock,
+            "image_url": r.image_url,
+            "user_points_balance": tenant_points[r.tenant_id],
+            "can_redeem": tenant_points[r.tenant_id] >= r.points_cost,
+        }
+        for r in rewards
     ]
 
 

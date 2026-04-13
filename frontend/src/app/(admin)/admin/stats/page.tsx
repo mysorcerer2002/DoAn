@@ -1,88 +1,84 @@
+"use client";
+
 import {
   Activity,
-  Calendar,
-  Coins,
+  Building2,
+  CheckCircle2,
   CreditCard,
-  Download,
-  Plus,
+  Loader2,
+  Shield,
+  ShieldAlert,
   Store,
-  Ticket,
   TrendingUp,
-  UserCheck,
   Users,
-  XCircle,
 } from "lucide-react";
-import { StatCard } from "@/components/ui/stat-card";
 
-const topMerchants = [
-  { name: "Cafe Cộng", revenue: "45M ₫", percent: 100, emoji: "☕" },
-  { name: "BBQ Hàn Quốc", revenue: "38M ₫", percent: 84, emoji: "🍜" },
-  { name: "Highland Coffee", revenue: "32M ₫", percent: 71, emoji: "☕" },
-  { name: "Pizza Hut", revenue: "28M ₫", percent: 62, emoji: "🍕" },
-  { name: "Trà sữa Toko", revenue: "24M ₫", percent: 53, emoji: "🥤" },
-  { name: "Coolmate Pop-up", revenue: "20M ₫", percent: 44, emoji: "🛍️" },
-  { name: "Cocoon", revenue: "18M ₫", percent: 40, emoji: "💄" },
-  { name: "Bánh mì 25", revenue: "15M ₫", percent: 33, emoji: "🥖" },
-  { name: "Phở Thìn", revenue: "12M ₫", percent: 27, emoji: "🍲" },
-  { name: "Chè Bốn Mùa", revenue: "10M ₫", percent: 22, emoji: "🍧" },
-];
+import {
+  useAdminAuditFeed,
+  useAdminTenants,
+  useAdminUsers,
+  usePlatformStats,
+} from "@/lib/hooks/use-merchant";
+import type { AuditFeedItem } from "@/types/merchant";
 
-const categoryDistribution = [
-  { name: "Cafe & Đồ uống", percent: 35, color: "#6366f1" },
-  { name: "Nhà hàng", percent: 25, color: "#8b5cf6" },
-  { name: "Bán lẻ", percent: 20, color: "#fb923c" },
-  { name: "Mỹ phẩm", percent: 10, color: "#ec4899" },
-  { name: "Khác", percent: 10, color: "#94a3b8" },
-];
-
-const activities = [
-  {
-    id: "a1",
-    icon: UserCheck,
-    title: "Phê duyệt Cafe Cộng",
-    time: "5 phút trước",
-    color: "emerald",
-  },
-  {
-    id: "a2",
-    icon: Plus,
-    title: "Trà sữa Toko đăng ký",
-    time: "1 giờ trước",
-    color: "indigo",
-  },
-  {
-    id: "a3",
-    icon: XCircle,
-    title: "Từ chối Shop ABC",
-    time: "2 giờ trước",
-    color: "red",
-  },
-  {
-    id: "a4",
-    icon: Download,
-    title: "Xuất báo cáo tháng 3",
-    time: "1 ngày trước",
-    color: "slate",
-  },
-  {
-    id: "a5",
-    icon: Users,
-    title: "Tạo admin mới",
-    time: "2 ngày trước",
-    color: "indigo",
-  },
-];
-
-const provinces = [
-  { name: "Hà Nội", count: 45, x: 50, y: 25 },
-  { name: "TP.HCM", count: 60, x: 55, y: 80 },
-  { name: "Đà Nẵng", count: 25, x: 60, y: 50 },
-  { name: "Hải Phòng", count: 12, x: 55, y: 22 },
-  { name: "Cần Thơ", count: 8, x: 45, y: 88 },
-  { name: "Nha Trang", count: 6, x: 65, y: 65 },
-];
+function formatRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Vừa xong";
+  if (mins < 60) return `${mins} phút trước`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  return `${days} ngày trước`;
+}
 
 export default function AdminStatsPage() {
+  const { data: stats, isLoading: isLoadingStats } = usePlatformStats();
+  const { data: tenants, isLoading: isLoadingTenants } = useAdminTenants(undefined);
+  const { data: usersData, isLoading: isLoadingUsers } = useAdminUsers({ limit: 200 });
+  const { data: auditFeed, isLoading: isLoadingFeed } = useAdminAuditFeed(20);
+
+  const isLoading =
+    isLoadingStats || isLoadingTenants || isLoadingUsers || isLoadingFeed;
+
+  if (isLoading) {
+    return (
+      <main className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-indigo" />
+      </main>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <main className="flex min-h-[60vh] items-center justify-center px-8">
+        <p className="text-red-600">Không tải được thống kê platform</p>
+      </main>
+    );
+  }
+
+  const tenantStatusCount = {
+    active: tenants?.filter((t) => t.status === "active").length ?? 0,
+    pending: tenants?.filter((t) => t.status === "pending").length ?? 0,
+    suspended: tenants?.filter((t) => t.status === "suspended").length ?? 0,
+  };
+
+  const roleCount = {
+    super_admin:
+      usersData?.items.filter((u) => u.system_role === "super_admin").length ?? 0,
+    admin: usersData?.items.filter((u) => u.system_role === "admin").length ?? 0,
+    regular:
+      usersData?.items.filter((u) => u.system_role === "regular").length ?? 0,
+  };
+
+  const eventCount = (auditFeed ?? []).reduce(
+    (acc, item) => {
+      acc[item.event_type] = (acc[item.event_type] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   return (
     <main className="px-4 py-5 md:px-8 md:py-6">
       <header className="flex flex-col items-start gap-4 md:flex-row md:justify-between">
@@ -91,433 +87,329 @@ export default function AdminStatsPage() {
           <h1 className="mt-1 font-headline text-[32px] font-bold text-slate-800">
             Thống kê hệ thống
           </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:border-brand-indigo"
-          >
-            <Calendar className="h-4 w-4 text-brand-indigo" />
-            Tháng 4/2026
-          </button>
-          <select
-            aria-label="Phạm vi thống kê"
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px]"
-          >
-            <option>Phạm vi: Toàn hệ thống</option>
-            <option>Theo vùng miền</option>
-            <option>Theo danh mục</option>
-          </select>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl border border-brand-indigo bg-white px-4 py-2.5 text-[13px] font-bold text-brand-indigo hover:bg-brand-indigo/5"
-          >
-            <Download className="h-4 w-4" />
-            Xuất báo cáo
-          </button>
+          <p className="mt-1 text-[14px] text-slate-500">
+            Tất cả số liệu real-time từ database, không mock data
+          </p>
         </div>
       </header>
 
-      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard
+      {/* 3 hero metrics */}
+      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <HeroStatCard
           icon={Store}
           label="Tổng đối tác"
-          value="156"
+          value={stats.total_tenants}
+          sub={`${tenantStatusCount.active} đang hoạt động · ${tenantStatusCount.pending} chờ duyệt`}
           tone="indigo"
-          trend={{ value: "+12 tháng này", direction: "up" }}
         />
-        <StatCard
+        <HeroStatCard
           icon={Users}
-          label="Tổng thành viên"
-          value="12.450"
-          tone="indigo"
-          trend={{ value: "+850 tháng này", direction: "up" }}
+          label="Tổng người dùng"
+          value={stats.total_users}
+          sub={`${roleCount.regular} user · ${roleCount.super_admin} admin`}
+          tone="violet"
         />
-        <StatCard
+        <HeroStatCard
           icon={CreditCard}
           label="Tổng giao dịch"
-          value="45.230"
+          value={stats.total_transactions}
+          sub="Lifetime count toàn platform"
           tone="orange"
-          trend={{ value: "+8.5%", direction: "up" }}
-        />
-        <StatCard
-          icon={Coins}
-          label="Điểm phát hành"
-          value="2.5M"
-          tone="orange"
-          highlightValue
-          trend={{ value: "+12.3%", direction: "up" }}
-        />
-        <StatCard
-          icon={Ticket}
-          label="Voucher đã đổi"
-          value="8.234"
-          tone="orange"
-          trend={{ value: "+5.8%", direction: "up" }}
-        />
-        <StatCard
-          icon={TrendingUp}
-          label="Doanh thu nền tảng"
-          value="245M ₫"
-          tone="indigo"
-          trend={{ value: "+15.2%", direction: "up" }}
         />
       </section>
 
-      <section className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm lg:col-span-2">
-          <header>
+      {/* Tenant status distribution + User role distribution */}
+      <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <header className="mb-5">
             <h2 className="font-headline text-[18px] font-bold text-slate-800">
-              Tăng trưởng đối tác & thành viên
+              Trạng thái đối tác
             </h2>
             <p className="text-[12px] text-slate-400">
-              12 tháng qua · So sánh đối tác mới và thành viên mới
+              Phân bố {stats.total_tenants} đối tác theo trạng thái
             </p>
           </header>
-          <GrowthChart />
-          <div className="mt-3 flex items-center gap-4 text-[11px]">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-brand-indigo" />
-              Đối tác mới
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-brand-orange" />
-              Thành viên mới
-            </span>
-          </div>
+          <DistributionBar
+            items={[
+              {
+                label: "Đang hoạt động",
+                count: tenantStatusCount.active,
+                color: "bg-emerald-500",
+                icon: CheckCircle2,
+              },
+              {
+                label: "Chờ duyệt",
+                count: tenantStatusCount.pending,
+                color: "bg-amber-500",
+                icon: Activity,
+              },
+              {
+                label: "Tạm dừng",
+                count: tenantStatusCount.suspended,
+                color: "bg-red-500",
+                icon: Building2,
+              },
+            ]}
+            total={stats.total_tenants}
+          />
         </article>
 
         <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h2 className="font-headline text-[18px] font-bold text-slate-800">
-            Top 10 đối tác doanh thu
-          </h2>
-          <ul className="mt-4 space-y-2.5">
-            {topMerchants.map((m) => (
-              <li key={m.name} className="space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                    <span className="text-base">{m.emoji}</span>
-                    {m.name}
-                  </span>
-                  <span className="font-bold text-slate-800">{m.revenue}</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-brand-indigo to-brand-violet"
-                    style={{ width: `${m.percent}%` }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <header className="mb-5">
+            <h2 className="font-headline text-[18px] font-bold text-slate-800">
+              Phân bố vai trò
+            </h2>
+            <p className="text-[12px] text-slate-400">
+              {usersData?.total ?? 0} tài khoản platform
+            </p>
+          </header>
+          <DistributionBar
+            items={[
+              {
+                label: "Super Admin",
+                count: roleCount.super_admin,
+                color: "bg-red-500",
+                icon: ShieldAlert,
+              },
+              {
+                label: "Admin",
+                count: roleCount.admin,
+                color: "bg-brand-indigo",
+                icon: Shield,
+              },
+              {
+                label: "Người dùng",
+                count: roleCount.regular,
+                color: "bg-slate-400",
+                icon: Users,
+              },
+            ]}
+            total={usersData?.total ?? 0}
+          />
         </article>
       </section>
 
-      <section className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h2 className="font-headline text-[18px] font-bold text-slate-800">
-            Phân bố theo danh mục
-          </h2>
-          <div className="mt-4 flex items-center gap-6">
-            <CategoryDonut data={categoryDistribution} />
-            <ul className="flex-1 space-y-2.5">
-              {categoryDistribution.map((cat) => (
-                <li
-                  key={cat.name}
-                  className="flex items-center justify-between text-[12px]"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: cat.color }}
-                    />
-                    <span className="font-medium text-slate-700">
-                      {cat.name}
-                    </span>
-                  </span>
-                  <span className="font-bold text-slate-800">{cat.percent}%</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+      {/* Event counts + Recent activity */}
+      <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm lg:col-span-1">
+          <header className="mb-5">
+            <h2 className="font-headline text-[18px] font-bold text-slate-800">
+              Sự kiện gần đây
+            </h2>
+            <p className="text-[12px] text-slate-400">
+              {auditFeed?.length ?? 0} sự kiện trong 20 gần nhất
+            </p>
+          </header>
+          <ul className="space-y-3">
+            <EventRow
+              label="Tenant được duyệt"
+              count={eventCount.tenant_approved ?? 0}
+              color="text-emerald-600"
+            />
+            <EventRow
+              label="Tenant bị đình chỉ"
+              count={eventCount.tenant_suspended ?? 0}
+              color="text-red-600"
+            />
+            <EventRow
+              label="Tenant mới"
+              count={eventCount.tenant_created ?? 0}
+              color="text-brand-indigo"
+            />
+            <EventRow
+              label="Đăng ký user"
+              count={eventCount.user_registered ?? 0}
+              color="text-brand-violet"
+            />
+            <EventRow
+              label="Giao dịch"
+              count={eventCount.transaction ?? 0}
+              color="text-brand-orange"
+            />
+          </ul>
         </article>
 
-        <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h2 className="font-headline text-[18px] font-bold text-slate-800">
-            Hoạt động gần đây
-          </h2>
-          <ol className="mt-4 space-y-3">
-            {activities.map((a, idx) => (
-              <li key={a.id} className="flex items-start gap-3">
-                <div className="relative">
-                  <div
-                    className={
-                      a.color === "emerald"
-                        ? "flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"
-                        : a.color === "red"
-                        ? "flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-600"
-                        : a.color === "slate"
-                        ? "flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600"
-                        : "flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-brand-indigo"
-                    }
-                  >
-                    <a.icon className="h-4 w-4" />
+        <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm lg:col-span-2">
+          <header className="mb-5">
+            <h2 className="font-headline text-[18px] font-bold text-slate-800">
+              Hoạt động gần đây
+            </h2>
+            <p className="text-[12px] text-slate-400">
+              Timeline sự kiện từ audit feed
+            </p>
+          </header>
+          {!auditFeed || auditFeed.length === 0 ? (
+            <div className="flex h-40 items-center justify-center text-[13px] text-slate-400">
+              Chưa có sự kiện nào
+            </div>
+          ) : (
+            <ol className="space-y-3">
+              {auditFeed.slice(0, 8).map((item: AuditFeedItem, idx) => (
+                <li key={idx} className="flex items-start gap-3">
+                  <div className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-brand-indigo" />
+                  <div className="flex-1 border-b border-slate-50 pb-3 last:border-0">
+                    <p className="text-[13px] font-bold text-slate-800">
+                      {item.title}
+                    </p>
+                    {item.description && (
+                      <p className="text-[11px] text-slate-500">
+                        {item.description}
+                      </p>
+                    )}
+                    <p className="mt-0.5 text-[10px] text-slate-400">
+                      {formatRelative(item.at)}
+                    </p>
                   </div>
-                  {idx < activities.length - 1 && (
-                    <div className="absolute left-1/2 top-8 h-3 w-px -translate-x-1/2 bg-slate-200" />
-                  )}
-                </div>
-                <div className="flex-1 pt-1">
-                  <p className="text-[13px] font-medium text-slate-800">
-                    {a.title}
-                  </p>
-                  <p className="text-[11px] text-slate-400">{a.time}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+                </li>
+              ))}
+            </ol>
+          )}
         </article>
       </section>
 
-      <section className="mt-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-        <header className="flex items-center gap-2">
-          <Activity className="h-5 w-5 text-brand-indigo" />
+      {/* Top tenants list */}
+      <section className="mt-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <header className="mb-5">
           <h2 className="font-headline text-[18px] font-bold text-slate-800">
-            Phân bố đối tác theo địa lý
+            Danh sách đối tác
           </h2>
+          <p className="text-[12px] text-slate-400">
+            Tất cả tenant trên platform
+          </p>
         </header>
-        <p className="text-[12px] text-slate-400">
-          Heat map các tỉnh thành có đối tác đăng ký
-        </p>
-        <div className="mt-4 flex items-center gap-6">
-          <VietnamMap provinces={provinces} />
-          <ul className="flex-1 space-y-2">
-            {[...provinces]
-              .sort((a, b) => b.count - a.count)
-              .map((p) => (
-                <li
-                  key={p.name}
-                  className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-[12px]"
+        {!tenants || tenants.length === 0 ? (
+          <div className="flex h-20 items-center justify-center text-[13px] text-slate-400">
+            Chưa có đối tác nào
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {tenants.map((t, idx) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 font-bold text-brand-indigo">
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800">{t.name}</p>
+                    <p className="font-mono text-[11px] text-slate-400">
+                      {t.slug}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={
+                    t.status === "active"
+                      ? "rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600"
+                      : t.status === "pending"
+                        ? "rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700"
+                        : "rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-bold text-red-600"
+                  }
                 >
-                  <span className="font-medium text-slate-700">{p.name}</span>
-                  <span className="rounded-full bg-brand-indigo px-2 py-0.5 text-[11px] font-bold text-white">
-                    {p.count} đối tác
-                  </span>
-                </li>
-              ))}
+                  {t.status}
+                </span>
+              </li>
+            ))}
           </ul>
-        </div>
+        )}
       </section>
     </main>
   );
 }
 
-function GrowthChart() {
-  // 12 month mock data
-  const months = [
-    "T5",
-    "T6",
-    "T7",
-    "T8",
-    "T9",
-    "T10",
-    "T11",
-    "T12",
-    "T1",
-    "T2",
-    "T3",
-    "T4",
-  ];
-  const merchants = [80, 90, 95, 105, 115, 125, 130, 138, 142, 148, 152, 156];
-  const members = [
-    5400, 6100, 6800, 7500, 8200, 9000, 9800, 10500, 11200, 11800, 12200, 12450,
-  ];
+const TONE_CLASS: Record<string, string> = {
+  indigo: "from-brand-indigo to-indigo-700 text-white",
+  violet: "from-brand-violet to-purple-700 text-white",
+  orange: "from-brand-orange to-amber-600 text-white",
+};
 
-  const w = 700;
-  const h = 240;
-  const padX = 40;
-  const padY = 30;
-  const xStep = (w - padX * 2) / (months.length - 1);
-
-  const maxM = Math.max(...merchants);
-  const maxU = Math.max(...members);
-  const yScaleM = (h - padY * 2) / maxM;
-  const yScaleU = (h - padY * 2) / maxU;
-
-  const pointsM = merchants
-    .map((v, i) => `${padX + i * xStep},${h - padY - v * yScaleM}`)
-    .join(" ");
-  const pointsU = members
-    .map((v, i) => `${padX + i * xStep},${h - padY - v * yScaleU}`)
-    .join(" ");
-
+function HeroStatCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  icon: typeof Store;
+  label: string;
+  value: number;
+  sub: string;
+  tone: keyof typeof TONE_CLASS;
+}) {
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="mt-4 h-60 w-full">
-      <defs>
-        <linearGradient id="grad-m" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <line
-          key={i}
-          x1={padX}
-          y1={padY + (i * (h - padY * 2)) / 4}
-          x2={w - padX}
-          y2={padY + (i * (h - padY * 2)) / 4}
-          stroke="#e2e8f0"
-          strokeDasharray="2 4"
-        />
-      ))}
-      <polygon
-        points={`${padX},${h - padY} ${pointsM} ${w - padX},${h - padY}`}
-        fill="url(#grad-m)"
-      />
-      <polyline
-        points={pointsM}
-        fill="none"
-        stroke="#6366f1"
-        strokeWidth="2.5"
-      />
-      <polyline
-        points={pointsU}
-        fill="none"
-        stroke="#fb923c"
-        strokeWidth="2.5"
-        strokeDasharray="4 4"
-      />
-      {months.map((m, i) => (
-        <text
-          key={m}
-          x={padX + i * xStep}
-          y={h - 8}
-          textAnchor="middle"
-          fontSize="9"
-          fill="#94a3b8"
-        >
-          {m}
-        </text>
-      ))}
-    </svg>
+    <article
+      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br p-6 shadow-lg ${TONE_CLASS[tone]}`}
+    >
+      <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+      <div className="relative z-10 flex items-start justify-between">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+          <Icon className="h-6 w-6" />
+        </div>
+      </div>
+      <p className="relative z-10 mt-4 text-[12px] font-medium uppercase tracking-wider text-white/80">
+        {label}
+      </p>
+      <p className="relative z-10 mt-1 font-headline text-[40px] font-bold leading-none">
+        {value.toLocaleString("vi-VN")}
+      </p>
+      <p className="relative z-10 mt-2 text-[11px] text-white/80">{sub}</p>
+    </article>
   );
 }
 
-function CategoryDonut({
-  data,
+function DistributionBar({
+  items,
+  total,
 }: {
-  data: { name: string; percent: number; color: string }[];
+  items: { label: string; count: number; color: string; icon: typeof Store }[];
+  total: number;
 }) {
-  const radius = 50;
-  const stroke = 18;
-  const cx = 70;
-  const cy = 70;
-  const circumference = 2 * Math.PI * radius;
-  let offset = 0;
-
   return (
-    <svg viewBox="0 0 140 140" className="h-36 w-36">
-      <circle
-        cx={cx}
-        cy={cy}
-        r={radius}
-        fill="none"
-        stroke="#f1f5f9"
-        strokeWidth={stroke}
-      />
-      {data.map((slice) => {
-        const length = (slice.percent / 100) * circumference;
-        const dasharray = `${length} ${circumference - length}`;
-        const dashoffset = -offset;
-        offset += length;
+    <div className="space-y-3">
+      {items.map((item) => {
+        const percent = total > 0 ? (item.count / total) * 100 : 0;
+        const Icon = item.icon;
         return (
-          <circle
-            key={slice.name}
-            cx={cx}
-            cy={cy}
-            r={radius}
-            fill="none"
-            stroke={slice.color}
-            strokeWidth={stroke}
-            strokeDasharray={dasharray}
-            strokeDashoffset={dashoffset}
-            transform={`rotate(-90 ${cx} ${cy})`}
-          />
+          <div key={item.label}>
+            <div className="mb-1 flex items-center justify-between text-[13px]">
+              <span className="flex items-center gap-2 font-medium text-slate-700">
+                <Icon className="h-3.5 w-3.5" />
+                {item.label}
+              </span>
+              <span className="font-bold text-slate-800">
+                {item.count} · {percent.toFixed(0)}%
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full ${item.color}`}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
         );
       })}
-      <text
-        x={cx}
-        y={cy - 4}
-        textAnchor="middle"
-        fontSize="22"
-        fontWeight="700"
-        fill="#1e293b"
-      >
-        156
-      </text>
-      <text
-        x={cx}
-        y={cy + 14}
-        textAnchor="middle"
-        fontSize="9"
-        fill="#94a3b8"
-      >
-        Đối tác
-      </text>
-    </svg>
+    </div>
   );
 }
 
-function VietnamMap({
-  provinces,
+function EventRow({
+  label,
+  count,
+  color,
 }: {
-  provinces: { name: string; count: number; x: number; y: number }[];
+  label: string;
+  count: number;
+  color: string;
 }) {
   return (
-    <div className="relative h-72 w-56 shrink-0 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50">
-      <svg viewBox="0 0 100 100" className="h-full w-full">
-        {/* Stylized Vietnam outline */}
-        <path
-          d="M 50 5 Q 55 15 52 25 Q 50 35 55 45 Q 60 55 55 65 Q 50 75 55 85 Q 60 92 50 95 Q 40 92 45 80 Q 50 68 45 58 Q 40 48 45 38 Q 50 28 45 18 Q 47 10 50 5 Z"
-          fill="rgba(99,102,241,0.15)"
-          stroke="#6366f1"
-          strokeWidth="0.5"
-        />
-        {provinces.map((p) => (
-          <g key={p.name}>
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={Math.sqrt(p.count) / 1.2}
-              fill="#fb923c"
-              opacity="0.8"
-            />
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={Math.sqrt(p.count) / 1.2}
-              fill="none"
-              stroke="#fb923c"
-              strokeWidth="0.3"
-            >
-              <animate
-                attributeName="r"
-                from={Math.sqrt(p.count) / 1.2}
-                to={Math.sqrt(p.count) / 1.2 + 3}
-                dur="2s"
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="opacity"
-                from="0.6"
-                to="0"
-                dur="2s"
-                repeatCount="indefinite"
-              />
-            </circle>
-          </g>
-        ))}
-      </svg>
-    </div>
+    <li className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+      <span className="text-[13px] text-slate-600">{label}</span>
+      <span className={`font-headline text-[20px] font-bold ${color}`}>
+        {count}
+      </span>
+    </li>
   );
 }

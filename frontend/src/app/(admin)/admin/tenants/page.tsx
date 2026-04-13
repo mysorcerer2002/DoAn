@@ -37,17 +37,22 @@ const TABS: TabPillItem[] = [
 ];
 
 export default function AdminTenantsPage() {
-  const [activeTab, setActiveTab] = useState<string>("pending");
-  const statusFilter = activeTab === "all" ? undefined : activeTab;
-  const { data: tenants, isLoading, isError } = useAdminTenants(statusFilter);
+  const [activeTab, setActiveTab] = useState<string>("all");
+  // Fetch full list 1 lần để tính stats + filter client-side theo tab
+  const { data: allTenants, isLoading, isError } = useAdminTenants(undefined);
   const approveMutation = useApproveTenant();
 
   const stats = {
-    total: tenants?.length ?? 0,
-    pending: tenants?.filter((t) => t.status === "pending").length ?? 0,
-    active: tenants?.filter((t) => t.status === "active").length ?? 0,
-    suspended: tenants?.filter((t) => t.status === "suspended").length ?? 0,
+    total: allTenants?.length ?? 0,
+    pending: allTenants?.filter((t) => t.status === "pending").length ?? 0,
+    active: allTenants?.filter((t) => t.status === "active").length ?? 0,
+    suspended: allTenants?.filter((t) => t.status === "suspended").length ?? 0,
   };
+
+  const tenants =
+    activeTab === "all"
+      ? allTenants
+      : allTenants?.filter((t) => t.status === activeTab);
 
   const handleApprove = async (id: number, approve: boolean) => {
     const actionText = approve ? "duyệt" : "từ chối";
