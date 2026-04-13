@@ -1,7 +1,10 @@
 """QR JWT service — sign/verify QR cá nhân khách + fallback_code HMAC.
 
-QR cá nhân khách = JWT ký bằng JWT_SECRET, payload {user_id, exp: now+120s}.
-Fallback code = HMAC-SHA256(secret, f"{user_id}|{hour_bucket}") truncate 8 ký tự.
+QR cá nhân khách = JWT ký bằng QR_SECRET (defense-in-depth: tách khỏi JWT_SECRET).
+Payload {user_id, exp: now+120s}.
+Fallback code = HMAC-SHA256(QR_SECRET, f"{user_id}|{bucket}") truncate 8 ký tự.
+
+Bucket fallback dùng 5 phút (giảm window replay từ 1-2h xuống 5-10 phút).
 """
 
 import hashlib
@@ -23,6 +26,7 @@ _QR_TTL_SECONDS = 120
 _QR_JWT_LEEWAY = 5  # Chấp nhận chênh lệch đồng hồ ±5s
 _FALLBACK_CODE_LENGTH = 8
 _FALLBACK_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"  # Loại 0/O/1/I/L
+_FALLBACK_BUCKET_SECONDS = 300  # 5 phút (giảm replay window từ 1h xuống 5 phút)
 
 
 def sign_qr_jwt(
@@ -50,7 +54,7 @@ def sign_qr_jwt(
         "exp": expire_at,
     }
     token = jwt.encode(
-        payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+        payload, settings.qr_secret, algorithm=settings.jwt_algorithm
     )
 
     return {
@@ -66,7 +70,7 @@ def decode_qr_jwt(token: str) -> int:
     try:
         payload = jwt.decode(
             token,
-            settings.jwt_secret,
+            settings.qr_secret,
             algorithms=[settings.jwt_algorithm],
             options={"verify_exp": True, "leeway": _QR_JWT_LEEWAY},
         )
@@ -83,15 +87,20 @@ def decode_qr_jwt(token: str) -> int:
 
 
 def _hour_bucket(now: datetime | None = None) -> int:
-    """Trả về số giờ unix kể từ epoch — dùng làm bucket cho fallback_code."""
+    """Trả về bucket số (mỗi 5 phút) kể từ epoch — dùng cho fallback_code.
+
+    Hàm giữ tên `_hour_bucket` để tương thích với code cũ, nhưng giờ đếm
+    theo bucket 5 phút (`_FALLBACK_BUCKET_SECONDS`).
+    """
     now = now or datetime.now(timezone.utc)
-    return int(now.timestamp() // 3600)
+    return int(now.timestamp() // _FALLBACK_BUCKET_SECONDS)
 
 
 def generate_fallback_code(user_id: int, hour_bucket: int | None = None) -> str:
-    """Sinh fallback code 8 ký tự = HMAC(secret, user_id|hour_bucket).
+    """Sinh fallback code 8 ký tự = HMAC(qr_secret, user_id|bucket).
 
-    Đổi mỗi giờ. Khi mạng yếu/QR camera lỗi, nhân viên có thể nhập tay.
+    Đổi mỗi 5 phút (giảm replay window vs design 1h cũ).
+    Khi mạng yếu/QR camera lỗi, nhân viên có thể nhập tay code này.
     """
     settings = get_settings()
     if hour_bucket is None:
@@ -109,6 +118,9 @@ def verify_fallback_code_with_candidates(
     code: str, candidate_user_ids: list[int]
 ) -> int:
     """Verify fallback code bằng cách check với danh sách user_id ứng cử.
+
+    Chấp nhận bucket hiện tại + 1 bucket trước (10 phút window) để tránh
+    user nhập code cũ ngay khi sang bucket mới.
 
     Args:
         code: Code 8 ký tự khách đưa

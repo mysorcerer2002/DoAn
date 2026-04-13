@@ -6,6 +6,7 @@ from app.core.deps import (
     get_current_user,
     get_tenant_id,
     require_owner_in_tenant,
+    require_staff_in_tenant,
 )
 from app.models.tenant_staff import TenantStaffRole
 from app.models.user import User
@@ -22,9 +23,10 @@ router = APIRouter(prefix="/tenants/me/settings", tags=["tenants-settings"])
 @router.get("", response_model=TenantSettings)
 async def get_settings(
     tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    _role: TenantStaffRole = Depends(require_staff_in_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> TenantSettings:
+    """Đọc shop settings — bất kỳ staff nào của tenant đều có quyền."""
     service = SettingsService(db)
     return await service.get_settings(tenant_id=tenant_id)
 

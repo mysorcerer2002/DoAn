@@ -1,7 +1,11 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import require_super_admin
 from app.models.membership import Membership
@@ -12,7 +16,11 @@ from app.schemas.analytics import PlatformStatsResponse, TenantDetailResponse
 from app.schemas.ledger import ReconcileResponse
 from app.schemas.tenant import TenantApprovalRequest, TenantResponse
 from app.services.ledger_service import LedgerService
-from app.services.tenant_service import TenantNotFoundError, TenantService
+from app.services.tenant_service import (
+    InvalidStatusTransitionError,
+    TenantNotFoundError,
+    TenantService,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -36,7 +44,12 @@ async def approve_tenant(
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ) -> TenantResponse:
-    """Super Admin approve/reject tenant."""
+    """Super Admin approve/reject tenant.
+
+    `approve=true` → ACTIVE (chỉ từ PENDING/SUSPENDED).
+    `approve=false` → SUSPENDED (chỉ từ PENDING/ACTIVE).
+    Trả 409 nếu transition không hợp lệ.
+    """
     service = TenantService(db)
     try:
         if body.approve:
@@ -45,6 +58,8 @@ async def approve_tenant(
             tenant = await service.suspend_tenant(tenant_id=tenant_id)
     except TenantNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except InvalidStatusTransitionError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return TenantResponse.model_validate(tenant)
 
 
@@ -59,11 +74,13 @@ async def reconcile_member_balance(
     db: AsyncSession = Depends(get_db),
 ) -> ReconcileResponse:
     """Super Admin kiểm tra tính nhất quán giữa points_balance và ledger."""
-    service = LedgerService(db)
-    result = await service.reconcile(membership_id)
-    if result is None:
+    membership = await db.get(Membership, membership_id)
+    if membership is None:
         raise HTTPException(status_code=404, detail="Membership không tồn tại")
-    return result
+    service = LedgerService(db)
+    return await service.reconcile(
+        tenant_id=membership.tenant_id, membership_id=membership_id
+    )
 
 
 @router.get("/tenants/{tenant_id}/detail", response_model=TenantDetailResponse)
@@ -121,7 +138,182 @@ async def suspend_tenant(
         tenant = await service.suspend_tenant(tenant_id=tenant_id)
     except TenantNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except InvalidStatusTransitionError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return TenantResponse.model_validate(tenant)
+
+
+class AdminUserRow(BaseModel):
+    id: int
+    email: str | None
+    phone: str | None
+    full_name: str | None
+    system_role: str
+    is_active: bool
+    is_shadow: bool
+    created_at: datetime
+    last_login_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class AdminUserListResponse(BaseModel):
+    total: int
+    items: list[AdminUserRow]
+
+
+class AuditFeedItem(BaseModel):
+    event_type: str  # tenant_approved | transaction | user_registered
+    title: str
+    description: str
+    at: datetime
+    tenant_name: str | None = None
+
+
+class AdminSettingsResponse(BaseModel):
+    environment: str
+    debug: bool
+    jwt_expire_minutes: int
+    refresh_expire_days: int
+    scheduler_enabled: bool
+    allowed_origins: list[str]
+    app_name: str
+
+
+@router.get("/users", response_model=AdminUserListResponse)
+async def list_platform_users(
+    q: str | None = Query(default=None, max_length=100),
+    role: str | None = Query(default=None, pattern="^(regular|admin|super_admin)$"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> AdminUserListResponse:
+    """Super Admin xem danh sách user toàn platform."""
+    stmt = select(User).where(User.is_shadow.is_(False))
+    count_stmt = select(func.count()).select_from(User).where(User.is_shadow.is_(False))
+
+    if role:
+        stmt = stmt.where(User.system_role == role)
+        count_stmt = count_stmt.where(User.system_role == role)
+
+    if q:
+        like = f"%{q.strip().lower()}%"
+        stmt = stmt.where(
+            (func.lower(User.email).like(like))
+            | (func.lower(User.full_name).like(like))
+            | (User.phone.like(f"%{q.strip()}%"))
+        )
+        count_stmt = count_stmt.where(
+            (func.lower(User.email).like(like))
+            | (func.lower(User.full_name).like(like))
+            | (User.phone.like(f"%{q.strip()}%"))
+        )
+
+    total = int(await db.scalar(count_stmt) or 0)
+    stmt = stmt.order_by(User.created_at.desc()).limit(limit).offset(offset)
+    users = (await db.scalars(stmt)).all()
+
+    return AdminUserListResponse(
+        total=total,
+        items=[AdminUserRow.model_validate(u) for u in users],
+    )
+
+
+@router.get("/audit-feed", response_model=list[AuditFeedItem])
+async def get_audit_feed(
+    limit: int = Query(default=30, ge=1, le=100),
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> list[AuditFeedItem]:
+    """Feed hoạt động gần đây trên platform (tenant approval, giao dịch lớn, đăng ký)."""
+    items: list[AuditFeedItem] = []
+
+    # Tenants vừa approved/pending
+    recent_tenants = (
+        await db.execute(
+            select(Tenant)
+            .order_by(Tenant.created_at.desc())
+            .limit(10)
+        )
+    ).scalars().all()
+    for t in recent_tenants:
+        event_type = "tenant_created"
+        title = f"Tenant mới: {t.name}"
+        if t.status == TenantStatus.ACTIVE:
+            event_type = "tenant_approved"
+            title = f"Tenant đã duyệt: {t.name}"
+        elif t.status == TenantStatus.SUSPENDED:
+            event_type = "tenant_suspended"
+            title = f"Tenant bị đình chỉ: {t.name}"
+        items.append(
+            AuditFeedItem(
+                event_type=event_type,
+                title=title,
+                description=(t.description or "")[:120],
+                at=t.activated_at or t.created_at,
+                tenant_name=t.name,
+            )
+        )
+
+    # User đăng ký mới
+    recent_users = (
+        await db.execute(
+            select(User)
+            .where(User.is_shadow.is_(False))
+            .order_by(User.created_at.desc())
+            .limit(10)
+        )
+    ).scalars().all()
+    for u in recent_users:
+        items.append(
+            AuditFeedItem(
+                event_type="user_registered",
+                title=f"Đăng ký: {u.full_name or u.email or u.phone or f'User #{u.id}'}",
+                description=u.email or u.phone or "",
+                at=u.created_at,
+            )
+        )
+
+    # Giao dịch gần đây (join tenant để lấy tên)
+    recent_txns = (
+        await db.execute(
+            select(Transaction, Tenant.name)
+            .join(Tenant, Transaction.tenant_id == Tenant.id)
+            .order_by(Transaction.created_at.desc())
+            .limit(10)
+        )
+    ).all()
+    for txn, tenant_name in recent_txns:
+        items.append(
+            AuditFeedItem(
+                event_type="transaction",
+                title=f"Giao dịch {txn.net_amount:,}₫ tại {tenant_name}",
+                description=f"#{txn.id} — {txn.points_earned} điểm",
+                at=txn.created_at,
+                tenant_name=tenant_name,
+            )
+        )
+
+    items.sort(key=lambda x: x.at, reverse=True)
+    return items[:limit]
+
+
+@router.get("/settings", response_model=AdminSettingsResponse)
+async def get_admin_settings(
+    _admin: User = Depends(require_super_admin),
+) -> AdminSettingsResponse:
+    """Super Admin xem config toàn platform (readonly)."""
+    s = get_settings()
+    return AdminSettingsResponse(
+        environment=s.environment,
+        debug=s.debug,
+        jwt_expire_minutes=s.access_token_expire_minutes,
+        refresh_expire_days=s.refresh_token_expire_days,
+        scheduler_enabled=s.enable_scheduler,
+        allowed_origins=s.cors_origins,
+        app_name=s.app_name,
+    )
 
 
 @router.get("/stats", response_model=PlatformStatsResponse)

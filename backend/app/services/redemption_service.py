@@ -58,14 +58,17 @@ class RedemptionService:
         if membership is None:
             raise ValueError(f"Membership {membership_id} not in tenant {tenant_id}")
 
-        # 2. Get reward
+        # 2. Get reward — FOR UPDATE để khoá points_cost/is_active/deleted_at
+        # khỏi admin edit concurrent (lock order: memberships → rewards, đúng spec 6.1).
         reward = await self.db.scalar(
-            select(Reward).where(
+            select(Reward)
+            .where(
                 Reward.id == reward_id,
                 Reward.tenant_id == tenant_id,
                 Reward.is_active.is_(True),
                 Reward.deleted_at.is_(None),
             )
+            .with_for_update()
         )
         if reward is None:
             raise ValueError(f"Reward {reward_id} not found")

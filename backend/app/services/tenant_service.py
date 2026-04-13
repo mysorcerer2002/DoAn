@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.slug import generate_unique_slug
+from app.core.slug import generate_slug, generate_unique_slug
 from app.models.tenant import Tenant, TenantStatus
 from app.models.user import User
 from app.schemas.tenant import TenantCreateRequest, TenantUpdateRequest
@@ -17,14 +18,28 @@ class SlugConflictError(Exception):
     pass
 
 
+class InvalidStatusTransitionError(Exception):
+    """Raised khi cố thay đổi trạng thái tenant theo hướng không hợp lệ."""
+
+    pass
+
+
 class TenantService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
     async def create_tenant(self, *, owner: User, request: TenantCreateRequest) -> Tenant:
-        """Tạo tenant mới (status=pending) + tự thêm owner vào tenant_staff."""
+        """Tạo tenant mới (status=pending) + tự thêm owner vào tenant_staff.
+
+        Slug query bound theo prefix (LIKE) thay vì load tất cả slugs trong DB.
+        """
+        base = generate_slug(request.name) or "shop"
         existing_slugs = set(
-            (await self.db.scalars(select(Tenant.slug))).all()
+            (
+                await self.db.scalars(
+                    select(Tenant.slug).where(Tenant.slug.like(f"{base}%"))
+                )
+            ).all()
         )
         slug = generate_unique_slug(request.name, existing_slugs)
 
@@ -38,7 +53,12 @@ class TenantService:
             settings={},
         )
         self.db.add(tenant)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError as e:
+            raise SlugConflictError(
+                f"Slug '{slug}' already exists, please retry"
+            ) from e
 
         # Auto-insert owner vào tenant_staff (import tại đây tránh circular)
         from app.models.tenant_staff import TenantStaff, TenantStaffRole
@@ -69,14 +89,25 @@ class TenantService:
         return list((await self.db.scalars(stmt)).all())
 
     async def approve_tenant(self, *, tenant_id: int) -> Tenant:
+        """Approve tenant: chỉ chấp nhận chuyển PENDING/SUSPENDED → ACTIVE."""
         tenant = await self.get_tenant_by_id(tenant_id)
+        if tenant.status not in (TenantStatus.PENDING, TenantStatus.SUSPENDED):
+            raise InvalidStatusTransitionError(
+                f"Cannot approve tenant in status {tenant.status.value}"
+            )
         tenant.status = TenantStatus.ACTIVE
-        tenant.activated_at = datetime.now(timezone.utc)
+        if tenant.activated_at is None:
+            tenant.activated_at = datetime.now(timezone.utc)
         await self.db.flush()
         return tenant
 
     async def suspend_tenant(self, *, tenant_id: int) -> Tenant:
+        """Suspend tenant: chỉ chấp nhận chuyển PENDING/ACTIVE → SUSPENDED."""
         tenant = await self.get_tenant_by_id(tenant_id)
+        if tenant.status not in (TenantStatus.PENDING, TenantStatus.ACTIVE):
+            raise InvalidStatusTransitionError(
+                f"Cannot suspend tenant in status {tenant.status.value}"
+            )
         tenant.status = TenantStatus.SUSPENDED
         await self.db.flush()
         return tenant
@@ -91,15 +122,17 @@ class TenantService:
         return tenant
 
     async def list_tenants_for_user(self, *, user_id: int) -> list[dict]:
-        """List tenant mà user là staff/owner."""
-        from app.models.tenant_staff import TenantStaff
+        """List tenant mà user là staff/owner. Output match TenantStaffSummary schema."""
         from sqlalchemy.orm import joinedload
+
+        from app.models.tenant_staff import TenantStaff
 
         rows = (
             await self.db.scalars(
                 select(TenantStaff)
                 .options(joinedload(TenantStaff.tenant))
                 .where(TenantStaff.user_id == user_id)
+                .order_by(TenantStaff.added_at)
             )
         ).all()
         return [
@@ -107,9 +140,9 @@ class TenantService:
                 "id": row.tenant.id,
                 "name": row.tenant.name,
                 "slug": row.tenant.slug,
-                "status": row.tenant.status,
-                "role": row.role,
                 "logo_url": row.tenant.logo_url,
+                "status": row.tenant.status,
+                "role": str(row.role),
             }
             for row in rows
         ]

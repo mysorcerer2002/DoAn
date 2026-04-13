@@ -55,3 +55,14 @@ class TenantApprovalRequest(BaseModel):
 
     approve: bool
     reason: str | None = Field(default=None, max_length=500)
+
+
+class TenantStaffSummary(BaseModel):
+    """Tenant snapshot mà current user là staff. Frontend dùng để pick shop."""
+
+    id: int
+    name: str
+    slug: str
+    logo_url: str | None = None
+    status: TenantStatus
+    role: str  # owner | staff (TenantStaffRole.value)

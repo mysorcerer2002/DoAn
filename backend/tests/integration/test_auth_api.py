@@ -203,3 +203,94 @@ async def test_register_rate_limit_429(client):
             got_429 = True
             break
     assert got_429, "Expected 429 rate limit response"
+
+
+@pytest.mark.asyncio
+async def test_register_email_case_insensitive_duplicate(client):
+    """Email được normalize lowercase: Alice@X.com trùng alice@x.com → 409."""
+    r1 = await client.post(
+        "/auth/register",
+        json={"email": "Alice@Example.com", "password": "pass12345", "full_name": "Alice"},
+    )
+    assert r1.status_code == 201
+    r2 = await client.post(
+        "/auth/register",
+        json={"email": "alice@example.com", "password": "pass12345", "full_name": "Alice2"},
+    )
+    assert r2.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_register_email_normalized_for_login(client):
+    """Có thể login bằng email viết hoa khác với register."""
+    await client.post(
+        "/auth/register",
+        json={"email": "Bob@Example.com", "password": "pass12345", "full_name": "Bob"},
+    )
+    response = await client.post(
+        "/auth/login",
+        json={"email": "BOB@example.COM", "password": "pass12345"},
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_register_long_unicode_password_rejected(client):
+    """bcrypt 72-byte limit: emoji password vượt 72 byte → 422."""
+    response = await client.post(
+        "/auth/register",
+        json={
+            "email": "emoji@example.com",
+            "password": "🦄" * 20,  # 80 bytes
+            "full_name": "Emoji",
+        },
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_refresh_endpoint_rate_limit_429(client):
+    """Endpoint /auth/refresh có rate limit 10/phút."""
+    reg = await client.post(
+        "/auth/register",
+        json={
+            "email": "refreshrl@example.com",
+            "password": "pass12345",
+            "full_name": "RR",
+        },
+    )
+    refresh_token = reg.json()["refresh_token"]
+
+    got_429 = False
+    for _ in range(15):
+        response = await client.post(
+            "/auth/refresh", json={"refresh_token": refresh_token}
+        )
+        if response.status_code == 429:
+            got_429 = True
+            break
+    assert got_429, "Expected 429 rate limit on /auth/refresh"
+
+
+@pytest.mark.asyncio
+async def test_me_endpoint_with_token_missing_sub_returns_401(client):
+    """Token JWT hợp lệ nhưng thiếu claim 'sub' → 401, không 500."""
+    from datetime import UTC, datetime, timedelta
+
+    from jose import jwt
+
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    now = datetime.now(UTC)
+    payload = {
+        "type": "access",
+        "exp": now + timedelta(minutes=15),
+        "iat": now,
+        # NO sub
+    }
+    token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    response = await client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 401

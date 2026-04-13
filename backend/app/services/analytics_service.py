@@ -124,7 +124,9 @@ class AnalyticsService:
     async def _redemption_count(
         self, tenant_id: int, from_date: date, to_date: date
     ) -> int:
-        """Đếm lượt đổi quà trong khoảng thời gian."""
+        """Đếm lượt đổi quà trong khoảng thời gian (loại EXPIRED — voucher hết hạn không tính)."""
+        from app.models.redemption import RedemptionStatus
+
         from_dt, to_dt_excl = _date_range_to_utc(from_date, to_date)
         return int(
             await self.db.scalar(
@@ -134,6 +136,7 @@ class AnalyticsService:
                     Redemption.tenant_id == tenant_id,
                     Redemption.redeemed_at >= from_dt,
                     Redemption.redeemed_at < to_dt_excl,
+                    Redemption.status != RedemptionStatus.EXPIRED,
                 )
             )
             or 0
@@ -228,7 +231,11 @@ class AnalyticsService:
                     0,
                 ).label("used"),
             )
-            .outerjoin(Voucher, Voucher.campaign_id == Campaign.id)
+            .outerjoin(
+                Voucher,
+                (Voucher.campaign_id == Campaign.id)
+                & (Voucher.tenant_id == tenant_id),  # defense-in-depth
+            )
             .where(
                 Campaign.tenant_id == tenant_id,
                 Campaign.deleted_at.is_(None),

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +20,7 @@ from app.schemas.claim_shadow import ClaimShadowRequest, RequestClaimRequest
 from app.services.auth_service import AuthService, EmailAlreadyExistsError, InvalidCredentialsError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -59,12 +62,14 @@ async def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("10/minute")
 async def refresh(
-    request: RefreshRequest,
+    request: Request,
+    body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     try:
-        payload = decode_token(request.refresh_token)
+        payload = decode_token(body.refresh_token)
     except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
@@ -77,7 +82,7 @@ async def refresh(
 
     try:
         user_id = int(payload.sub)
-    except (ValueError, KeyError) as e:
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
         ) from e
@@ -87,6 +92,20 @@ async def refresh(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive"
         )
+
+    # Reject token nếu issued trước khi user đổi password (ngăn dùng refresh token cũ).
+    # Compare integer timestamps (JWT iat lưu giây nguyên — datetime DB có microseconds).
+    if user.password_changed_at is not None and payload.iat:
+        pwd_changed_ts = int(user.password_changed_at.timestamp())
+        if payload.iat < pwd_changed_ts:
+            logger.warning(
+                "auth.refresh.stale_token",
+                extra={"user_id": user.id, "token_iat": payload.iat},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token is stale (password changed)",
+            )
 
     return TokenResponse(
         access_token=create_access_token(user_id=user_id),
@@ -112,7 +131,9 @@ async def request_claim(
 
 
 @router.post("/claim-shadow", response_model=TokenResponse)
+@limiter.limit("5/minute")
 async def claim_shadow(
+    request: Request,
     body: ClaimShadowRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:

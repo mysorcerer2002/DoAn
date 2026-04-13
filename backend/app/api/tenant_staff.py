@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_tenant_id, require_owner_in_tenant
 from app.core.tenant_cache import tenant_role_cache
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.tenant_staff import TenantStaffRole
 from app.schemas.tenant_staff import (
     StaffAddRequest,
     StaffAddResponse,
@@ -13,6 +12,7 @@ from app.schemas.tenant_staff import (
     StaffUpdateRoleRequest,
 )
 from app.services.tenant_staff_service import (
+    LastOwnerError,
     StaffAlreadyInTenantError,
     StaffNotFoundError,
     TenantStaffService,
@@ -39,10 +39,12 @@ async def add_staff(
 async def list_staff(
     tenant_id: int = Depends(get_tenant_id),
     _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[StaffResponse]:
     service = TenantStaffService(db)
-    return await service.list_staff(tenant_id=tenant_id)
+    return await service.list_staff(tenant_id=tenant_id, limit=limit, offset=offset)
 
 
 @router.patch("/{staff_id}", response_model=StaffResponse)
@@ -60,6 +62,8 @@ async def update_staff_role(
         )
     except StaffNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except LastOwnerError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     tenant_role_cache.invalidate(user_id=result.user_id, tenant_id=tenant_id)
     return result
 
@@ -71,16 +75,13 @@ async def remove_staff(
     _role: TenantStaffRole = Depends(require_owner_in_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    # Lấy user_id trước khi xóa để invalidate cache
-    staff = await db.scalar(
-        select(TenantStaff).where(
-            TenantStaff.id == staff_id, TenantStaff.tenant_id == tenant_id
-        )
-    )
     service = TenantStaffService(db)
     try:
-        await service.remove_staff(tenant_id=tenant_id, staff_id=staff_id)
+        removed_user_id = await service.remove_staff(
+            tenant_id=tenant_id, staff_id=staff_id
+        )
     except StaffNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    if staff is not None:
-        tenant_role_cache.invalidate(user_id=staff.user_id, tenant_id=tenant_id)
+    except LastOwnerError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    tenant_role_cache.invalidate(user_id=removed_user_id, tenant_id=tenant_id)

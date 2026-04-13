@@ -24,11 +24,17 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency: yields an async DB session."""
+    """FastAPI dependency: yields an async DB session.
+
+    Commit chỉ chạy ở `else` branch — nếu yield raise (kể cả HTTPException
+    bubble lên sau khi yield return), rollback và KHÔNG commit. Đây là pattern
+    đúng cho FastAPI dependency.
+    """
     async with AsyncSessionLocal() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise
+        else:
+            await session.commit()

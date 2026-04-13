@@ -125,3 +125,95 @@ async def test_missing_tenant_header_returns_400(client: AsyncClient, db_session
         headers={"Authorization": f"Bearer {owner_token}"},
     )
     assert response.status_code == 400
+
+
+async def test_cannot_remove_last_owner_returns_409(client: AsyncClient, db_session):
+    """C3 fix: xóa owner cuối cùng → 409 LastOwnerError, không 500."""
+    tenant, owner, owner_token = await _make_active_tenant_with_owner(db_session)
+    # Lookup owner staff_id
+    from sqlalchemy import select
+
+    staff_row = await db_session.scalar(
+        select(TenantStaff).where(
+            TenantStaff.tenant_id == tenant.id, TenantStaff.user_id == owner.id
+        )
+    )
+    response = await client.delete(
+        f"/merchant/staff/{staff_row.id}",
+        headers={
+            "Authorization": f"Bearer {owner_token}",
+            "X-Tenant-Id": str(tenant.id),
+        },
+    )
+    assert response.status_code == 409
+    assert "last owner" in response.json()["detail"].lower()
+
+
+async def test_cannot_demote_last_owner_returns_409(client: AsyncClient, db_session):
+    """C2 fix: demote owner cuối cùng → 409 LastOwnerError."""
+    tenant, owner, owner_token = await _make_active_tenant_with_owner(db_session)
+    from sqlalchemy import select
+
+    staff_row = await db_session.scalar(
+        select(TenantStaff).where(
+            TenantStaff.tenant_id == tenant.id, TenantStaff.user_id == owner.id
+        )
+    )
+    response = await client.patch(
+        f"/merchant/staff/{staff_row.id}",
+        json={"role": "staff"},
+        headers={
+            "Authorization": f"Bearer {owner_token}",
+            "X-Tenant-Id": str(tenant.id),
+        },
+    )
+    assert response.status_code == 409
+
+
+async def test_can_demote_owner_when_multiple_owners(client: AsyncClient, db_session):
+    """Demote owner OK khi còn owner khác."""
+    tenant, _owner, owner_token = await _make_active_tenant_with_owner(db_session)
+    add = await client.post(
+        "/merchant/staff",
+        json={"email": "owner2@example.com", "full_name": "Owner2", "role": "owner"},
+        headers={
+            "Authorization": f"Bearer {owner_token}",
+            "X-Tenant-Id": str(tenant.id),
+        },
+    )
+    second_owner_staff_id = add.json()["staff"]["id"]
+
+    response = await client.patch(
+        f"/merchant/staff/{second_owner_staff_id}",
+        json={"role": "staff"},
+        headers={
+            "Authorization": f"Bearer {owner_token}",
+            "X-Tenant-Id": str(tenant.id),
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["role"] == "staff"
+
+
+async def test_staff_can_get_settings(client: AsyncClient, db_session):
+    """I1 fix: STAFF role có thể GET settings (không phải owner-only)."""
+    tenant, _owner, owner_token = await _make_active_tenant_with_owner(db_session)
+    add = await client.post(
+        "/merchant/staff",
+        json={"email": "stf@example.com", "full_name": "Stf", "role": "staff"},
+        headers={
+            "Authorization": f"Bearer {owner_token}",
+            "X-Tenant-Id": str(tenant.id),
+        },
+    )
+    staff_user_id = add.json()["staff"]["user_id"]
+    staff_token = create_access_token(user_id=staff_user_id)
+
+    response = await client.get(
+        "/tenants/me/settings",
+        headers={
+            "Authorization": f"Bearer {staff_token}",
+            "X-Tenant-Id": str(tenant.id),
+        },
+    )
+    assert response.status_code == 200

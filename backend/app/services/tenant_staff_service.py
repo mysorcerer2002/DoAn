@@ -23,16 +23,50 @@ class StaffAlreadyInTenantError(Exception):
     pass
 
 
+class LastOwnerError(Exception):
+    """Raised khi action sẽ làm tenant không còn owner nào."""
+
+    pass
+
+
 class TenantStaffService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def _count_owners(self, tenant_id: int) -> int:
+        return await self.db.scalar(
+            select(func.count())
+            .select_from(TenantStaff)
+            .where(
+                TenantStaff.tenant_id == tenant_id,
+                TenantStaff.role == TenantStaffRole.OWNER,
+            )
+        )
+
     async def add_staff(
         self, *, tenant_id: int, request: StaffAddRequest
     ) -> StaffAddResponse:
+        """Thêm staff vào tenant. Tạo shadow user nếu email chưa tồn tại.
+
+        Check link existence TRƯỚC khi tạo shadow để tránh orphan rows
+        khi user đã tồn tại + đã link.
+        """
         existing_user = await self.db.scalar(
             select(User).where(User.email == request.email)
         )
+
+        # Nếu user đã tồn tại, check link trước khi tạo shadow / verification code
+        if existing_user is not None:
+            existing_link = await self.db.scalar(
+                select(TenantStaff).where(
+                    TenantStaff.tenant_id == tenant_id,
+                    TenantStaff.user_id == existing_user.id,
+                )
+            )
+            if existing_link is not None:
+                raise StaffAlreadyInTenantError(
+                    f"User {request.email} already in tenant {tenant_id}"
+                )
 
         verification_code: str | None = None
 
@@ -56,18 +90,6 @@ class TenantStaffService:
                 purpose=VerificationCodePurpose.CLAIM_SHADOW,
             )
 
-        # Check đã có trong tenant_staff chưa
-        existing_link = await self.db.scalar(
-            select(TenantStaff).where(
-                TenantStaff.tenant_id == tenant_id,
-                TenantStaff.user_id == existing_user.id,
-            )
-        )
-        if existing_link is not None:
-            raise StaffAlreadyInTenantError(
-                f"User {request.email} already in tenant {tenant_id}"
-            )
-
         staff = TenantStaff(
             tenant_id=tenant_id,
             user_id=existing_user.id,
@@ -76,10 +98,10 @@ class TenantStaffService:
         self.db.add(staff)
         try:
             await self.db.flush()
-        except IntegrityError:
+        except IntegrityError as e:
             raise StaffAlreadyInTenantError(
                 f"User {request.email} already in tenant {tenant_id}"
-            )
+            ) from e
         await self.db.refresh(staff)
 
         return StaffAddResponse(
@@ -95,25 +117,27 @@ class TenantStaffService:
             verification_code=verification_code,
         )
 
-    async def remove_staff(self, *, tenant_id: int, staff_id: int) -> None:
+    async def remove_staff(self, *, tenant_id: int, staff_id: int) -> int:
+        """Xóa staff khỏi tenant. Trả về user_id (để invalidate cache).
+
+        Raises LastOwnerError nếu staff là owner cuối cùng.
+        """
         staff = await self.db.get(TenantStaff, staff_id)
         if staff is None or staff.tenant_id != tenant_id:
             raise StaffNotFoundError(f"Staff {staff_id} not in tenant {tenant_id}")
         if staff.role == TenantStaffRole.OWNER:
-            owner_count = await self.db.scalar(
-                select(func.count()).select_from(TenantStaff).where(
-                    TenantStaff.tenant_id == tenant_id,
-                    TenantStaff.role == TenantStaffRole.OWNER,
-                )
-            )
+            owner_count = await self._count_owners(tenant_id)
             if owner_count <= 1:
-                raise ValueError("Cannot remove the last owner of a tenant")
+                raise LastOwnerError("Cannot remove the last owner of a tenant")
+        user_id = staff.user_id
         await self.db.delete(staff)
         await self.db.flush()
+        return user_id
 
     async def update_role(
         self, *, tenant_id: int, staff_id: int, request: StaffUpdateRoleRequest
     ) -> StaffResponse:
+        """Cập nhật role staff. Raises LastOwnerError nếu demote owner cuối cùng."""
         staff = await self.db.scalar(
             select(TenantStaff)
             .options(joinedload(TenantStaff.user))
@@ -121,6 +145,13 @@ class TenantStaffService:
         )
         if staff is None:
             raise StaffNotFoundError(f"Staff {staff_id} not in tenant {tenant_id}")
+        # Block demote owner cuối cùng
+        if staff.role == TenantStaffRole.OWNER and request.role != TenantStaffRole.OWNER:
+            owner_count = await self._count_owners(tenant_id)
+            if owner_count <= 1:
+                raise LastOwnerError(
+                    "Cannot demote the last owner of a tenant"
+                )
         staff.role = request.role
         await self.db.flush()
         return StaffResponse(
@@ -133,13 +164,17 @@ class TenantStaffService:
             created_at=staff.added_at,
         )
 
-    async def list_staff(self, *, tenant_id: int) -> list[StaffResponse]:
+    async def list_staff(
+        self, *, tenant_id: int, limit: int = 50, offset: int = 0
+    ) -> list[StaffResponse]:
         rows = (
             await self.db.scalars(
                 select(TenantStaff)
                 .options(joinedload(TenantStaff.user))
                 .where(TenantStaff.tenant_id == tenant_id)
                 .order_by(TenantStaff.added_at)
+                .limit(limit)
+                .offset(offset)
             )
         ).all()
         return [

@@ -18,7 +18,7 @@ from app.api.redemptions import router as redemptions_router
 from app.api.rewards import router as rewards_router
 from app.api.settings import router as settings_router
 from app.api.tenant_staff import router as tenant_staff_router
-from app.api.tenants import merchant_router, tenants_router
+from app.api.tenants import merchant_router, tenants_router, users_router
 from app.api.tiers import router as tiers_router
 from app.api.transactions import router as transactions_router
 from app.api.vouchers import router as vouchers_router
@@ -66,6 +66,7 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(merchant_router)
 app.include_router(tenants_router)
+app.include_router(users_router)
 app.include_router(admin_router)
 app.include_router(tenant_staff_router)
 app.include_router(tiers_router)

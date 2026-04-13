@@ -51,20 +51,18 @@ class TestFallbackCode:
     """HMAC fallback code."""
 
     def test_same_input_same_code(self):
-        hour = int(time.time() // 3600)
-        code1 = generate_fallback_code(user_id=1, hour_bucket=hour)
-        code2 = generate_fallback_code(user_id=1, hour_bucket=hour)
+        # Bucket được tự generate inside generate_fallback_code → 2 calls cùng giây cùng kết quả
+        code1 = generate_fallback_code(user_id=1)
+        code2 = generate_fallback_code(user_id=1)
         assert code1 == code2
 
     def test_different_user_different_code(self):
-        hour = int(time.time() // 3600)
-        code1 = generate_fallback_code(user_id=1, hour_bucket=hour)
-        code2 = generate_fallback_code(user_id=2, hour_bucket=hour)
+        code1 = generate_fallback_code(user_id=1)
+        code2 = generate_fallback_code(user_id=2)
         assert code1 != code2
 
     def test_verify_with_candidates(self):
-        hour = int(time.time() // 3600)
-        code = generate_fallback_code(user_id=42, hour_bucket=hour)
+        code = generate_fallback_code(user_id=42)
         result = verify_fallback_code_with_candidates(code, [10, 20, 42, 50])
         assert result == 42
 

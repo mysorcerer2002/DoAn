@@ -95,13 +95,16 @@ async def get_verified_tenant_id(
 
     Dùng thay get_tenant_id cho public/member endpoints không qua role check.
     """
-    from app.models.tenant import Tenant
+    from app.models.tenant import Tenant, TenantStatus
 
     tenant = await db.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    if not tenant.is_active:
-        raise HTTPException(status_code=403, detail="Tenant is suspended")
+    if tenant.status != TenantStatus.ACTIVE:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Tenant is {tenant.status}, not active",
+        )
     return tenant_id
 
 
@@ -171,6 +174,34 @@ async def require_owner_in_tenant(
             detail="Owner access required",
         )
     return role
+
+
+async def require_customer_in_tenant(
+    user: User = Depends(get_current_user),
+    tenant_id: int = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Dependency: user phải là member của tenant (có row trong memberships).
+
+    Dùng cho các endpoint customer-facing như /member/redemptions, /member/qr.
+    Trả về Membership row để endpoint dùng tiếp (tránh query lại).
+    """
+    from sqlalchemy import select as sa_select
+
+    from app.models.membership import Membership
+
+    membership = await db.scalar(
+        sa_select(Membership).where(
+            Membership.tenant_id == tenant_id,
+            Membership.user_id == user.id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not a member of this tenant",
+        )
+    return membership
 
 
 async def get_optional_user(

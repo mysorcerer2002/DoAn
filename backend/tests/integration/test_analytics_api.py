@@ -330,6 +330,60 @@ async def test_admin_cross_tenant_detail(client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_dashboard_api_max_range_rejected(client, db_session):
+    """Date range > 366 ngày → 422 (anti-DoS)."""
+    _, _, headers = await _setup_analytics(db_session)
+
+    resp = await client.get(
+        "/merchant/analytics/dashboard",
+        params={"from": "2020-01-01", "to": "2026-12-31"},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+    assert "too large" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_dashboard_api_cross_tenant_forbidden(client, db_session):
+    """C2 fix: owner tenant A không xem được analytics tenant B."""
+    tenant_a, owner_a, _ = await _setup_analytics(db_session)
+
+    owner_b = User(
+        email="owner-b-dash@test.com", password_hash="x", is_active=True
+    )
+    db_session.add(owner_b)
+    await db_session.flush()
+    tenant_b = Tenant(
+        name="ShopB",
+        slug="shop-b-dash-cross",
+        owner_user_id=owner_b.id,
+        status=TenantStatus.ACTIVE,
+        settings={},
+    )
+    db_session.add(tenant_b)
+    await db_session.flush()
+    db_session.add(
+        TenantStaff(
+            tenant_id=tenant_b.id,
+            user_id=owner_b.id,
+            role=TenantStaffRole.OWNER,
+        )
+    )
+    await db_session.flush()
+    await db_session.commit()
+
+    token_a = create_access_token(user_id=owner_a.id)
+    resp = await client.get(
+        "/merchant/analytics/dashboard",
+        headers={
+            "Authorization": f"Bearer {token_a}",
+            "X-Tenant-Id": str(tenant_b.id),
+        },
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_dashboard_api_invalid_date_range_returns_422(client, db_session):
     """from_date > to_date phải trả 422."""
     _, _, headers = await _setup_analytics(db_session)

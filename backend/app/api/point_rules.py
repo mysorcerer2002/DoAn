@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -45,5 +46,12 @@ async def create_rule(
     db: AsyncSession = Depends(get_db),
 ) -> PointRuleResponse:
     service = PointRuleService(db)
-    rule = await service.create_rule(tenant_id=tenant_id, request=request)
+    try:
+        rule = await service.create_rule(tenant_id=tenant_id, request=request)
+    except IntegrityError as e:
+        # Race window: 2 owner cùng tạo rule → partial unique index reject 1
+        raise HTTPException(
+            status_code=409,
+            detail="Another active rule was created concurrently, please retry",
+        ) from e
     return PointRuleResponse.model_validate(rule)

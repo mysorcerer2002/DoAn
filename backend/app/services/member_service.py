@@ -20,6 +20,10 @@ class MemberService:
     ) -> MemberResponse:
         """Atomic upsert user theo phone + upsert membership.
 
+        Dùng SAVEPOINT (begin_nested) để bảo vệ outer transaction khi
+        IntegrityError xảy ra trong race window — chỉ rollback phần insert
+        thay vì cả transaction cha.
+
         Handles 3 cases:
         - Case 1: User hoàn toàn mới → tạo shadow user + membership
         - Case 2: User đã có (shadow tenant khác) → tạo membership
@@ -32,17 +36,18 @@ class MemberService:
         )
 
         if existing_user is None:
-            existing_user = User(
-                phone=normalized,
-                is_active=True,
-                is_shadow=True,
-                system_role="regular",
-            )
-            self.db.add(existing_user)
             try:
-                await self.db.flush()
+                async with self.db.begin_nested():
+                    existing_user = User(
+                        phone=normalized,
+                        is_active=True,
+                        is_shadow=True,
+                        system_role="regular",
+                    )
+                    self.db.add(existing_user)
+                    await self.db.flush()
             except IntegrityError:
-                await self.db.rollback()
+                # Race: another connection inserted user with same phone first
                 existing_user = await self.db.scalar(
                     select(User).where(User.phone == normalized)
                 )
@@ -60,18 +65,34 @@ class MemberService:
 
         is_membership_new = False
         if existing_membership is None:
-            existing_membership = Membership(
-                tenant_id=tenant_id,
-                user_id=existing_user.id,
-                current_tier_id=None,
-                points_balance=0,
-                total_points_earned=0,
-                joined_at=datetime.now(timezone.utc),
-            )
-            self.db.add(existing_membership)
-            await self.db.flush()
-            await self.db.refresh(existing_membership, attribute_names=["current_tier"])
-            is_membership_new = True
+            try:
+                async with self.db.begin_nested():
+                    existing_membership = Membership(
+                        tenant_id=tenant_id,
+                        user_id=existing_user.id,
+                        current_tier_id=None,
+                        points_balance=0,
+                        total_points_earned=0,
+                        joined_at=datetime.now(timezone.utc),
+                    )
+                    self.db.add(existing_membership)
+                    await self.db.flush()
+                await self.db.refresh(
+                    existing_membership, attribute_names=["current_tier"]
+                )
+                is_membership_new = True
+            except IntegrityError:
+                # Race: another connection created membership with same (tenant, user) first
+                existing_membership = await self.db.scalar(
+                    select(Membership)
+                    .options(joinedload(Membership.current_tier))
+                    .where(
+                        Membership.tenant_id == tenant_id,
+                        Membership.user_id == existing_user.id,
+                    )
+                )
+                if existing_membership is None:
+                    raise
 
         return MemberResponse(
             membership_id=existing_membership.id,
@@ -104,14 +125,32 @@ class MemberService:
         )
 
     async def list_members(
-        self, *, tenant_id: int, limit: int = 50, offset: int = 0
+        self,
+        *,
+        tenant_id: int,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[Membership]:
-        rows = await self.db.scalars(
+        stmt = (
             select(Membership)
             .options(joinedload(Membership.user), joinedload(Membership.current_tier))
             .where(Membership.tenant_id == tenant_id)
-            .order_by(Membership.last_activity_at.desc().nullslast())
+        )
+        if search:
+            search_lc = f"%{search.lower()}%"
+            stmt = stmt.join(Membership.user).where(
+                (User.phone.ilike(search_lc))
+                | (User.email.ilike(search_lc))
+                | (User.full_name.ilike(search_lc))
+            )
+        stmt = (
+            stmt.order_by(
+                Membership.last_activity_at.desc().nullslast(),
+                Membership.id.desc(),
+            )
             .limit(limit)
             .offset(offset)
         )
+        rows = await self.db.scalars(stmt)
         return list(rows.unique().all())

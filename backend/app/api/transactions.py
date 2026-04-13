@@ -14,6 +14,7 @@ from app.schemas.transaction import (
     TransactionWithMemberResponse,
 )
 from app.services.transaction_service import (
+    InvalidVoucherError,
     NoActivePointRuleError,
     TransactionService,
 )
@@ -40,6 +41,8 @@ async def create_manual_transaction(
         raise HTTPException(status_code=422, detail=f"Invalid phone: {e}") from e
     except NoActivePointRuleError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
+    except InvalidVoucherError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except IntegrityError as e:
         raise HTTPException(
             status_code=409, detail="Database integrity violation"

@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import extract, select, update
 from sqlalchemy.orm import joinedload
@@ -15,6 +16,8 @@ from app.models.voucher import Voucher, VoucherStatus
 from app.services.voucher_service import VoucherService, generate_code
 
 logger = logging.getLogger(__name__)
+
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 
 async def birthday_voucher_job() -> dict:
@@ -31,7 +34,17 @@ async def birthday_voucher_job() -> dict:
 
 
 async def _birthday_voucher_logic() -> dict:
-    today = datetime.now(timezone.utc).date()
+    """Tính 'today' theo múi giờ VN (Asia/Ho_Chi_Minh).
+
+    Sai timezone → off-by-one day cho user sinh ngay 00:00 ICT (= 17:00 UTC
+    ngày trước). Idempotency window cũng tính theo VN day boundary.
+    """
+    today_vn = datetime.now(VN_TZ).date()
+    today = today_vn  # giữ tên cũ trong query extract month/day
+    # Idempotency window: ngày VN → UTC range
+    today_start_vn = datetime.combine(today_vn, datetime.min.time(), tzinfo=VN_TZ)
+    today_start_utc = today_start_vn.astimezone(timezone.utc)
+    today_end_utc = (today_start_vn + timedelta(days=1)).astimezone(timezone.utc)
     issued = 0
     skipped = 0
 
@@ -67,12 +80,13 @@ async def _birthday_voucher_logic() -> dict:
             ).unique().all()
 
             for membership in memberships:
-                # Idempotent: kiểm tra đã có voucher sinh nhật hôm nay chưa
+                # Idempotent: kiểm tra đã có voucher sinh nhật trong "ngày VN" hôm nay chưa
                 existing = await session.scalar(
                     select(Voucher).where(
                         Voucher.campaign_id == campaign.id,
                         Voucher.membership_id == membership.id,
-                        Voucher.issued_at >= datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc),
+                        Voucher.issued_at >= today_start_utc,
+                        Voucher.issued_at < today_end_utc,
                     )
                 )
                 if existing:

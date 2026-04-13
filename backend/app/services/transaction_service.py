@@ -9,6 +9,7 @@ from app.models.campaign import Campaign, DiscountType
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType
 from app.models.point_rule import PointRule
+from app.models.tenant import Tenant
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.voucher import Voucher, VoucherStatus
@@ -63,12 +64,15 @@ class TransactionService:
             tenant_id=tenant_id, phone=request.phone
         )
 
-        # SELECT FOR UPDATE membership
+        # SELECT FOR UPDATE membership (scope theo tenant_id để defense-in-depth)
         # innerjoin=True vì user_id NOT NULL → tránh OUTER JOIN + FOR UPDATE conflict
         membership = await self.db.scalar(
             select(Membership)
             .options(joinedload(Membership.user, innerjoin=True))
-            .where(Membership.id == member.membership_id)
+            .where(
+                Membership.id == member.membership_id,
+                Membership.tenant_id == tenant_id,
+            )
             .with_for_update()
         )
         if membership is None:
@@ -102,8 +106,16 @@ class TransactionService:
                 f"Tenant {tenant_id} has no active point rule"
             )
 
-        net_amount = request.gross_amount - (voucher_discount or 0)
-        points_earned = self._calculate_points(rule, net_amount)
+        # Clamp net_amount >= 0 (defense: voucher discount > gross_amount edge case)
+        net_amount = max(0, request.gross_amount - (voucher_discount or 0))
+
+        # Đọc tenant settings để biết tính điểm trên gross hay net
+        tenant = await self.db.get(Tenant, tenant_id)
+        points_on_gross = bool(
+            tenant and tenant.settings and tenant.settings.get("points_on_gross")
+        )
+        amount_for_points = request.gross_amount if points_on_gross else net_amount
+        points_earned = self._calculate_points(rule, amount_for_points)
 
         txn = Transaction(
             tenant_id=tenant_id,
@@ -172,26 +184,35 @@ class TransactionService:
         voucher_code: str,
         gross_amount: int,
     ) -> tuple[int, int]:
-        """Validate + atomic mark_used voucher. Trả về (voucher_id, discount_amount)."""
+        """Validate + atomic mark_used voucher. Trả về (voucher_id, discount_amount).
+
+        FIX C1+C3: Lock chỉ hàng Voucher (of=Voucher), KHÔNG joinedload (load
+        campaign sau qua db.get để tránh OUTER JOIN + FOR UPDATE conflict).
+        Mark used bằng atomic UPDATE WHERE status=ISSUED + rowcount check
+        thay vì Python-side assignment.
+        """
+        from sqlalchemy import update as sa_update
+
         voucher = await self.db.scalar(
             select(Voucher)
-            .options(joinedload(Voucher.campaign))
             .where(
                 Voucher.tenant_id == tenant_id,
                 Voucher.code == voucher_code,
             )
-            .with_for_update()
+            .with_for_update(of=Voucher)
         )
         if voucher is None:
             raise InvalidVoucherError("Voucher not found")
         if voucher.membership_id != membership_id:
             raise InvalidVoucherError("Voucher does not belong to this member")
         if voucher.status != VoucherStatus.ISSUED:
-            raise InvalidVoucherError(f"Voucher status is {voucher.status}, expected issued")
+            raise InvalidVoucherError(
+                f"Voucher status is {voucher.status}, expected issued"
+            )
         if voucher.expires_at and voucher.expires_at < datetime.now(timezone.utc):
             raise InvalidVoucherError("Voucher expired")
 
-        campaign = voucher.campaign
+        campaign = await self.db.get(Campaign, voucher.campaign_id)
         if campaign is None:
             raise InvalidVoucherError("Campaign not found for voucher")
 
@@ -210,10 +231,16 @@ class TransactionService:
                 f"Order amount {gross_amount} below minimum {campaign.min_order}"
             )
 
-        # Atomic mark used
-        voucher.status = VoucherStatus.USED
-        voucher.used_at = datetime.now(timezone.utc)
-        await self.db.flush()
+        # Atomic mark used: UPDATE WHERE status=ISSUED, fail nếu race
+        result = await self.db.execute(
+            sa_update(Voucher)
+            .where(Voucher.id == voucher.id, Voucher.status == VoucherStatus.ISSUED)
+            .values(status=VoucherStatus.USED, used_at=datetime.now(timezone.utc))
+        )
+        if result.rowcount == 0:
+            raise InvalidVoucherError(
+                "Voucher đã được sử dụng (race condition)"
+            )
 
         return voucher.id, discount
 

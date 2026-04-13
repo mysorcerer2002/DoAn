@@ -2,6 +2,9 @@
 
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
+
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 import pytest
 from sqlalchemy import select
@@ -64,8 +67,8 @@ async def _setup_birthday(db_session, birthday: date):
 
 @pytest.mark.asyncio
 async def test_birthday_job_issues_voucher(db_session):
-    """Job tạo voucher cho user có sinh nhật hôm nay."""
-    today = datetime.now(timezone.utc).date()
+    """Job tạo voucher cho user có sinh nhật hôm nay (VN timezone)."""
+    today = datetime.now(VN_TZ).date()
     birthday = date(1990, today.month, today.day)
 
     tenant, user, membership, campaign = await _setup_birthday(db_session, birthday)
@@ -98,7 +101,7 @@ async def test_birthday_job_issues_voucher(db_session):
 @pytest.mark.asyncio
 async def test_birthday_job_idempotent(db_session):
     """Chạy job 2 lần → chỉ tạo 1 voucher."""
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(VN_TZ).date()
     birthday = date(1990, today.month, today.day)
 
     tenant, user, membership, campaign = await _setup_birthday(db_session, birthday)
@@ -146,7 +149,7 @@ async def test_birthday_job_no_campaign(db_session):
 @pytest.mark.asyncio
 async def test_birthday_job_different_day(db_session):
     """User có sinh nhật ngày khác → không tạo voucher."""
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(VN_TZ).date()
     # Sinh nhật ngày mai
     tomorrow = today + timedelta(days=1)
     birthday = date(1990, tomorrow.month, tomorrow.day)

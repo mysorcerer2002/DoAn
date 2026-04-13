@@ -165,12 +165,20 @@ async def test_list_my_tenants(client: AsyncClient, db_session):
     )
 
     resp = await client.get(
-        "/tenants/users/me/tenants",
+        "/users/me/tenants",
         headers=_auth_headers(owner.id),
     )
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 2
+    # Mỗi item phải có structure TenantStaffSummary
+    for item in data:
+        assert "id" in item
+        assert "name" in item
+        assert "slug" in item
+        assert "status" in item
+        assert "role" in item
+        assert item["role"] == "owner"
 
 
 # ── GET /tenants/me ──
@@ -225,4 +233,74 @@ async def test_get_tenant_me_not_found(client: AsyncClient, db_session):
         "/tenants/me",
         headers={**_auth_headers(owner.id), "X-Tenant-Id": "9999"},
     )
-    assert resp.status_code == 404
+    # Sau khi thêm require_staff_in_tenant, non-member luôn 403 trước khi check 404
+    assert resp.status_code == 403
+
+
+async def test_get_tenant_me_non_member_forbidden(client: AsyncClient, db_session):
+    """C1 fix: owner của tenant A không truy cập được tenant B."""
+    admin = await _create_user(
+        db_session, email="admin-x@test.com", system_role="super_admin"
+    )
+    owner_a = await _create_user(db_session, email="owner-a@test.com")
+    owner_b = await _create_user(db_session, email="owner-b@test.com")
+
+    reg_a = await client.post(
+        "/merchant/register",
+        json={"name": "Shop A"},
+        headers=_auth_headers(owner_a.id),
+    )
+    tenant_a_id = reg_a.json()["id"]
+    await client.post(
+        f"/admin/tenants/{tenant_a_id}/approve",
+        json={"approve": True},
+        headers=_auth_headers(admin.id),
+    )
+
+    reg_b = await client.post(
+        "/merchant/register",
+        json={"name": "Shop B"},
+        headers=_auth_headers(owner_b.id),
+    )
+    tenant_b_id = reg_b.json()["id"]
+    await client.post(
+        f"/admin/tenants/{tenant_b_id}/approve",
+        json={"approve": True},
+        headers=_auth_headers(admin.id),
+    )
+
+    # owner A cố GET tenant B → 403
+    resp = await client.get(
+        "/tenants/me",
+        headers={**_auth_headers(owner_a.id), "X-Tenant-Id": str(tenant_b_id)},
+    )
+    assert resp.status_code == 403
+
+
+async def test_patch_tenant_me_owner_can_update(client: AsyncClient, db_session):
+    """I3 fix: PATCH /tenants/me cho owner update info."""
+    admin = await _create_user(
+        db_session, email="admin-p@test.com", system_role="super_admin"
+    )
+    owner = await _create_user(db_session, email="owner-p@test.com")
+
+    reg = await client.post(
+        "/merchant/register",
+        json={"name": "Old Name"},
+        headers=_auth_headers(owner.id),
+    )
+    tenant_id = reg.json()["id"]
+    await client.post(
+        f"/admin/tenants/{tenant_id}/approve",
+        json={"approve": True},
+        headers=_auth_headers(admin.id),
+    )
+
+    resp = await client.patch(
+        "/tenants/me",
+        json={"name": "New Name", "description": "Updated"},
+        headers={**_auth_headers(owner.id), "X-Tenant-Id": str(tenant_id)},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "New Name"
+    assert resp.json()["description"] == "Updated"
