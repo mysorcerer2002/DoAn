@@ -1,113 +1,61 @@
-import { ArrowLeft, ChevronRight, Filter } from "lucide-react";
+"use client";
+
+import { ArrowLeft, Filter, Gift, History, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useMemo } from "react";
 
-type Transaction = {
-  id: string;
-  type: "earn" | "redeem" | "bonus";
-  title: string;
-  shop: string;
-  amount?: string;
-  points: number;
-  time: string;
-  emoji: string;
-};
+import { useMyLedger } from "@/lib/hooks/use-merchant";
+import type { LedgerEntryResponse } from "@/types/merchant";
 
-type DayGroup = { label: string; items: Transaction[] };
+function formatRelative(iso: string): string {
+  const d = new Date(iso);
+  const now = Date.now();
+  const diff = now - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Vừa xong";
+  if (mins < 60) return `${mins} phút trước`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} ngày trước`;
+  return d.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
 
-const groups: DayGroup[] = [
-  {
-    label: "Hôm nay - 13/04/2026",
-    items: [
-      {
-        id: "tx-1",
-        type: "earn",
-        title: "Tích điểm tại Cafe Cộng",
-        shop: "Cafe Cộng - Bà Triệu",
-        amount: "150.000 ₫",
-        points: 15,
-        time: "14:30",
-        emoji: "☕",
-      },
-      {
-        id: "tx-2",
-        type: "redeem",
-        title: "Đổi voucher giảm 50K",
-        shop: "Cafe Cộng - Bà Triệu",
-        points: -300,
-        time: "10:15",
-        emoji: "🎁",
-      },
-    ],
-  },
-  {
-    label: "Hôm qua - 12/04/2026",
-    items: [
-      {
-        id: "tx-3",
-        type: "earn",
-        title: "Tích điểm Trà sữa Toko",
-        shop: "Trà sữa Toko",
-        amount: "80.000 ₫",
-        points: 8,
-        time: "18:20",
-        emoji: "🥤",
-      },
-      {
-        id: "tx-4",
-        type: "earn",
-        title: "Tích điểm BBQ Hàn",
-        shop: "BBQ Hàn Quốc",
-        amount: "250.000 ₫",
-        points: 25,
-        time: "19:45",
-        emoji: "🍜",
-      },
-      {
-        id: "tx-5",
-        type: "bonus",
-        title: "Bonus chiến dịch x2 điểm",
-        shop: "Welcome",
-        points: 50,
-        time: "09:00",
-        emoji: "✨",
-      },
-    ],
-  },
-  {
-    label: "Tuần trước - 04-11/04",
-    items: [
-      {
-        id: "tx-6",
-        type: "earn",
-        title: "Tích điểm Pizza Hut",
-        shop: "Pizza Hut Hoàn Kiếm",
-        amount: "320.000 ₫",
-        points: 32,
-        time: "11/04 19:00",
-        emoji: "🍕",
-      },
-      {
-        id: "tx-7",
-        type: "earn",
-        title: "Tích điểm Coolmate",
-        shop: "Coolmate Pop-up",
-        amount: "450.000 ₫",
-        points: 45,
-        time: "08/04 15:30",
-        emoji: "🛍️",
-      },
-    ],
-  },
-];
+function reasonIcon(reason: string) {
+  if (reason === "redeem") return Gift;
+  if (reason === "adjust") return Sparkles;
+  return History;
+}
 
-const filterTabs = [
-  { id: "all", label: "Tất cả" },
-  { id: "earn", label: "Tích điểm" },
-  { id: "redeem", label: "Đổi quà" },
-  { id: "voucher", label: "Voucher" },
-] as const;
+function reasonLabel(reason: string): string {
+  const map: Record<string, string> = {
+    earn: "Tích điểm",
+    redeem: "Đổi quà",
+    adjust: "Điều chỉnh",
+    refund: "Hoàn điểm",
+    expire: "Hết hạn",
+  };
+  return map[reason] ?? reason;
+}
 
 export default function HistoryPage() {
+  const { data: entries, isLoading, isError } = useMyLedger({ limit: 100 });
+
+  const totals = useMemo(() => {
+    if (!entries) return { earned: 0, redeemed: 0, count: 0 };
+    let earned = 0;
+    let redeemed = 0;
+    entries.forEach((e) => {
+      if (e.delta > 0) earned += e.delta;
+      else redeemed += Math.abs(e.delta);
+    });
+    return { earned, redeemed, count: entries.length };
+  }, [entries]);
+
   return (
     <>
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between bg-slate-50/95 px-4 backdrop-blur">
@@ -135,102 +83,84 @@ export default function HistoryPage() {
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
           <div className="relative z-10 space-y-2">
             <p className="text-[12px] font-medium text-indigo-100">
-              Tổng điểm tích lũy 30 ngày qua
+              Tổng đã tích lũy
             </p>
             <p className="font-headline text-[36px] font-bold text-brand-orange text-glow-orange leading-none">
-              +450 điểm
+              +{totals.earned.toLocaleString("vi-VN")}
             </p>
             <p className="text-[12px] text-indigo-50/80">
-              Từ 12 giao dịch tại 3 cửa hàng
+              Từ {totals.count} hoạt động (đã đổi {totals.redeemed.toLocaleString("vi-VN")} điểm)
             </p>
-            <div className="flex gap-3 pt-2">
-              <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white">
-                12 GD
-              </span>
-              <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white">
-                1.840.000 ₫ chi tiêu
-              </span>
-            </div>
           </div>
         </section>
 
-        <section className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-          {filterTabs.map((tab, idx) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={
-                idx === 0
-                  ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
-                  : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
-              }
-            >
-              {tab.label}
-            </button>
-          ))}
-        </section>
-
-        {groups.map((group) => (
-          <section key={group.label} className="space-y-3">
-            <div className="rounded-lg bg-slate-100 px-3 py-1.5">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                {group.label}
-              </p>
-            </div>
-            <div className="space-y-2">
-              {group.items.map((tx) => (
+        {isLoading ? (
+          <div className="flex min-h-[30vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-brand-indigo" />
+          </div>
+        ) : isError ? (
+          <div className="rounded-xl bg-red-50 p-4 text-center text-red-600">
+            Không tải được lịch sử
+          </div>
+        ) : entries?.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+            <History className="mx-auto h-12 w-12 text-slate-300" />
+            <p className="mt-4 font-bold text-slate-700">Chưa có hoạt động</p>
+            <p className="mt-2 text-[13px] text-slate-500">
+              Quét QR shop để bắt đầu tích điểm.
+            </p>
+          </div>
+        ) : (
+          <section className="space-y-2">
+            {entries?.map((entry: LedgerEntryResponse) => {
+              const Icon = reasonIcon(entry.reason);
+              return (
                 <article
-                  key={tx.id}
+                  key={entry.id}
                   className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
                 >
                   <div
                     className={
-                      tx.type === "redeem"
-                        ? "flex h-12 w-12 items-center justify-center rounded-full bg-orange-50 text-2xl"
-                        : tx.type === "bonus"
-                        ? "flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-2xl"
-                        : "flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-2xl"
+                      entry.delta > 0
+                        ? "flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-brand-indigo"
+                        : "flex h-12 w-12 items-center justify-center rounded-full bg-orange-50 text-brand-orange"
                     }
                   >
-                    {tx.emoji}
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
                     <h4 className="text-[14px] font-bold text-slate-800">
-                      {tx.title}
+                      {reasonLabel(entry.reason)}
                     </h4>
-                    <p className="text-[11px] text-slate-400">
-                      {tx.shop}
-                      {tx.amount ? ` · ${tx.amount}` : ""}
+                    {entry.description && (
+                      <p className="text-[11px] text-slate-400">
+                        {entry.description}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-400">
+                      {formatRelative(entry.created_at)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p
                       className={
-                        tx.points >= 0
+                        entry.delta >= 0
                           ? "font-headline text-[16px] font-bold text-brand-orange"
                           : "font-headline text-[16px] font-bold text-red-500"
                       }
                     >
-                      {tx.points >= 0 ? "+" : ""}
-                      {tx.points}
+                      {entry.delta >= 0 ? "+" : ""}
+                      {entry.delta}
                     </p>
-                    <p className="text-[11px] text-slate-400">{tx.time}</p>
+                    <p className="text-[11px] text-slate-400">
+                      Còn {entry.balance_after}
+                    </p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-300" />
                 </article>
-              ))}
-            </div>
+              );
+            })}
           </section>
-        ))}
-
-        <div className="pt-2 text-center">
-          <button
-            type="button"
-            className="text-[14px] font-semibold text-brand-indigo hover:underline"
-          >
-            Tải thêm giao dịch ↓
-          </button>
-        </div>
+        )}
       </main>
     </>
   );

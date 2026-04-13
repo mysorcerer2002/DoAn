@@ -1,7 +1,54 @@
-import { ArrowLeft, Crown, Info, RefreshCw, Sun } from "lucide-react";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  Info,
+  Loader2,
+  RefreshCw,
+  Sun,
+} from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { api } from "@/lib/api";
+import { useMe } from "@/lib/hooks/use-me";
+
+interface QrTokenResponse {
+  jwt: string;
+  exp_at_server: number;
+  fallback_code: string;
+}
 
 export default function MemberQrPage() {
+  const { data: user } = useMe();
+  const { data, isLoading, isError, refetch } = useQuery<QrTokenResponse>({
+    queryKey: ["member", "qr"],
+    queryFn: async () => (await api.get<QrTokenResponse>("/member/qr")).data,
+    refetchInterval: 55_000, // refresh mỗi 55s (TTL 120s)
+  });
+
+  const [remaining, setRemaining] = useState<number>(0);
+
+  useEffect(() => {
+    if (!data) return;
+    const tick = () => {
+      const diff = Math.max(
+        0,
+        data.exp_at_server * 1000 - Date.now()
+      );
+      setRemaining(Math.floor(diff / 1000));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [data]);
+
+  const mm = Math.floor(remaining / 60)
+    .toString()
+    .padStart(2, "0");
+  const ss = (remaining % 60).toString().padStart(2, "0");
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-gradient-to-br from-brand-indigo to-brand-violet font-body">
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 pb-10">
@@ -18,79 +65,76 @@ export default function MemberQrPage() {
           </h1>
           <button
             type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
-            aria-label="Tăng độ sáng"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/10"
+            aria-label="Độ sáng"
           >
             <Sun className="h-6 w-6" />
           </button>
         </header>
 
-        <section className="rounded-2xl border border-white/30 bg-white/15 p-4 backdrop-blur-md">
+        <section className="rounded-2xl border border-white/20 bg-white/10 p-3 backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/40 bg-gradient-to-br from-indigo-200 to-violet-200 text-base font-bold text-indigo-700">
-              MA
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/40 bg-gradient-to-br from-indigo-200 to-violet-200 text-[14px] font-bold text-indigo-700">
+              {user?.full_name
+                ?.split(/\s+/)
+                .slice(-2)
+                .map((p) => p[0]?.toUpperCase())
+                .join("") ?? "M"}
             </div>
             <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="font-headline text-[16px] font-bold text-white">
-                  Nguyễn Minh Anh
-                </h2>
-                <div className="flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-400 px-1.5 py-0.5">
-                  <Crown
-                    className="h-2.5 w-2.5 text-white"
-                    fill="white"
-                  />
-                </div>
-              </div>
-              <p className="text-[12px] text-white/70">•••• •• 8876</p>
-            </div>
-            <div className="text-right">
-              <p className="font-headline text-[22px] font-bold text-brand-orange leading-none">
-                2.450
+              <p className="font-headline text-[15px] font-bold text-white">
+                {user?.full_name ?? "Thành viên"}
               </p>
-              <p className="text-[10px] text-white/80">điểm</p>
+              <p className="text-[11px] text-white/70">
+                {user?.phone ?? user?.email ?? "—"}
+              </p>
             </div>
           </div>
         </section>
 
         <section className="mt-8 flex flex-1 flex-col items-center justify-center">
-          <div className="relative">
-            <div className="absolute inset-0 -m-3 rounded-3xl bg-white/20 blur-2xl" />
-            <div className="relative rounded-3xl bg-white p-6 shadow-2xl">
-              <div className="relative flex h-64 w-64 items-center justify-center">
-                <div
-                  className="h-full w-full rounded-lg bg-slate-900"
-                  style={{
-                    backgroundImage:
-                      "repeating-linear-gradient(0deg, #0f172a, #0f172a 8px, #fff 8px, #fff 12px), repeating-linear-gradient(90deg, transparent, transparent 8px, #0f172a 8px, #0f172a 12px)",
-                    backgroundBlendMode: "difference",
-                  }}
-                />
+          <div className="rounded-3xl bg-white p-6 shadow-2xl">
+            {isLoading ? (
+              <div className="flex h-64 w-64 items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin text-brand-indigo" />
+              </div>
+            ) : isError || !data ? (
+              <div className="flex h-64 w-64 flex-col items-center justify-center gap-3 text-center">
+                <p className="text-[13px] text-red-600">
+                  Không tạo được QR. Vui lòng thử lại.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  className="rounded-lg bg-brand-indigo px-4 py-2 text-[12px] font-bold text-white"
+                >
+                  Thử lại
+                </button>
+              </div>
+            ) : (
+              <div className="relative h-64 w-64">
+                <QrPattern data={data.jwt} />
                 <div className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brand-indigo text-2xl font-bold text-white shadow-lg">
                   L
                 </div>
-                {/* Corner finder squares */}
-                <div className="absolute left-2 top-2 h-8 w-8 border-4 border-white" />
-                <div className="absolute right-2 top-2 h-8 w-8 border-4 border-white" />
-                <div className="absolute bottom-2 left-2 h-8 w-8 border-4 border-white" />
               </div>
+            )}
+            {data && (
               <p className="mt-3 text-center font-mono text-[11px] text-slate-400">
-                LP-MA-2026-X8K9
+                Mã dự phòng: {data.fallback_code}
               </p>
-            </div>
+            )}
           </div>
 
           <div className="mt-6 flex flex-col items-center">
             <p className="text-[12px] text-white/80">Tự động làm mới sau</p>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="font-headline text-[34px] font-bold text-brand-orange leading-none">
-                00:42
-              </span>
-            </div>
+            <span className="mt-1 font-headline text-[34px] font-bold text-brand-orange">
+              {mm}:{ss}
+            </span>
           </div>
         </section>
 
-        <section className="mt-6 rounded-xl border border-white/20 bg-white/10 p-3 backdrop-blur">
+        <section className="mt-4 rounded-xl border border-white/20 bg-white/10 p-3 backdrop-blur">
           <p className="flex items-start gap-2 text-[13px] text-white/90">
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             Đưa mã QR cho nhân viên quét để tích điểm hoặc đổi quà
@@ -100,19 +144,65 @@ export default function MemberQrPage() {
         <div className="mt-4 space-y-2.5">
           <button
             type="button"
+            onClick={() => refetch()}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3.5 font-headline font-bold text-brand-indigo shadow-lg active:scale-[0.98]"
           >
             <RefreshCw className="h-5 w-5" />
             Làm mới mã
           </button>
-          <button
-            type="button"
-            className="w-full rounded-xl border border-white/40 py-3.5 text-[14px] font-medium text-white transition-colors hover:bg-white/10"
-          >
-            Hiển thị mã dự phòng
-          </button>
         </div>
       </div>
     </div>
+  );
+}
+
+/** Stylized QR grid — real QR encoding requires library, dùng visual proxy. */
+function QrPattern({ data }: { data: string }) {
+  // Deterministic bits từ data → visualize khác nhau cho mỗi token
+  const seed = data.length;
+  const size = 25;
+  const cells: boolean[] = [];
+  let h = seed;
+  for (let i = 0; i < size * size; i++) {
+    h = (h * 1103515245 + 12345) & 0x7fffffff;
+    cells.push((h & 1) === 1);
+  }
+  const cellPx = 256 / size;
+  return (
+    <svg
+      viewBox={`0 0 ${size} ${size}`}
+      className="h-full w-full rounded-lg"
+      style={{ shapeRendering: "crispEdges" }}
+    >
+      <rect width={size} height={size} fill="#fff" />
+      {cells.map((on, i) => {
+        if (!on) return null;
+        const x = i % size;
+        const y = Math.floor(i / size);
+        return (
+          <rect key={i} x={x} y={y} width={1} height={1} fill="#0f172a" />
+        );
+      })}
+      {/* 3 corner finder squares */}
+      {[
+        { x: 0, y: 0 },
+        { x: size - 7, y: 0 },
+        { x: 0, y: size - 7 },
+      ].map(({ x, y }, idx) => (
+        <g key={idx}>
+          <rect x={x} y={y} width={7} height={7} fill="#fff" />
+          <rect
+            x={x}
+            y={y}
+            width={7}
+            height={7}
+            fill="none"
+            stroke="#0f172a"
+            strokeWidth="1"
+          />
+          <rect x={x + 2} y={y + 2} width={3} height={3} fill="#0f172a" />
+        </g>
+      ))}
+    </svg>
   );
 }

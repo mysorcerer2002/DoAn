@@ -9,6 +9,8 @@ COPY . .
 
 # Production build
 FROM base AS builder
+ARG NEXT_PUBLIC_API_URL=/api
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 # Production runner

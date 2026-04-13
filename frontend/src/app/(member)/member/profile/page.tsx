@@ -1,53 +1,101 @@
+"use client";
+
 import {
   ArrowLeft,
-  Bell,
   Calendar,
   ChevronRight,
   Crown,
-  Globe,
-  HelpCircle,
-  Lock,
+  Loader2,
   LogOut,
   Mail,
-  MapPin,
-  Pencil,
   Phone,
   ScrollText,
   Settings,
   Shield,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-const infoItems = [
-  { id: "phone", icon: Phone, label: "Số điện thoại", value: "0987 654 321" },
-  { id: "email", icon: Mail, label: "Email", value: "minhanh@email.com" },
-  {
-    id: "birthday",
-    icon: Calendar,
-    label: "Ngày sinh",
-    value: "15/03/1998",
-  },
-  { id: "address", icon: MapPin, label: "Địa chỉ", value: "Hai Bà Trưng, HN" },
-] as const;
+import { useMe, useMyMemberships } from "@/lib/hooks/use-me";
 
-const settingsItems = [
-  { id: "notif", icon: Bell, label: "Thông báo", trailing: "toggle" },
-  { id: "lang", icon: Globe, label: "Ngôn ngữ", trailing: "Tiếng Việt" },
-  { id: "password", icon: Lock, label: "Đổi mật khẩu", trailing: "chevron" },
-  {
-    id: "help",
-    icon: HelpCircle,
-    label: "Trợ giúp & Hỗ trợ",
-    trailing: "chevron",
-  },
-] as const;
+function getInitials(fullName: string | null): string {
+  if (!fullName) return "M";
+  const parts = fullName.trim().split(/\s+/);
+  return parts
+    .slice(-2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
-const otherItems = [
-  { id: "terms", icon: ScrollText, label: "Điều khoản sử dụng" },
-  { id: "privacy", icon: Shield, label: "Chính sách bảo mật" },
-] as const;
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
 
 export default function ProfilePage() {
+  const router = useRouter();
+  const { data: user, isLoading, isError } = useMe();
+  const { data: memberships } = useMyMemberships();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-indigo" />
+      </div>
+    );
+  }
+
+  if (isError || !user) {
+    router.replace("/login");
+    return null;
+  }
+
+  const totalPoints =
+    memberships?.reduce((sum, m) => sum + m.points_balance, 0) ?? 0;
+  const topTier = (memberships ?? [])
+    .slice()
+    .sort((a, b) => b.points_balance - a.points_balance)[0];
+
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("access_token");
+      sessionStorage.removeItem("refresh_token");
+      sessionStorage.removeItem("active_tenant");
+    }
+    router.replace("/login");
+  };
+
+  const infoItems = [
+    {
+      id: "phone",
+      icon: Phone,
+      label: "Số điện thoại",
+      value: user.phone ?? "Chưa cập nhật",
+    },
+    {
+      id: "email",
+      icon: Mail,
+      label: "Email",
+      value: user.email ?? "Chưa cập nhật",
+    },
+    {
+      id: "birthday",
+      icon: Calendar,
+      label: "Ngày sinh",
+      value: formatDate(user.birthday),
+    },
+    {
+      id: "joined",
+      icon: Calendar,
+      label: "Thành viên từ",
+      value: formatDate(user.created_at),
+    },
+  ];
+
   return (
     <>
       <header className="relative h-[260px] overflow-hidden bg-gradient-to-br from-brand-indigo to-brand-violet px-4 pt-4">
@@ -75,64 +123,50 @@ export default function ProfilePage() {
         </div>
 
         <div className="relative z-10 mt-3 flex flex-col items-center">
-          <div className="relative">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-indigo-200 to-violet-200 text-2xl font-bold text-indigo-700 shadow-lg">
-              MA
-            </div>
-            <button
-              type="button"
-              className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-brand-orange text-white shadow-md"
-              aria-label="Đổi ảnh đại diện"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
+          <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-indigo-200 to-violet-200 text-2xl font-bold text-indigo-700 shadow-lg">
+            {getInitials(user.full_name)}
           </div>
           <h2 className="mt-3 font-headline text-[24px] font-bold text-white">
-            Nguyễn Minh Anh
+            {user.full_name ?? "Thành viên"}
           </h2>
-          <div className="mt-1 flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-400 px-3 py-1 shadow-lg">
-            <Crown className="h-3.5 w-3.5 text-white" fill="white" />
-            <span className="font-headline text-[12px] font-bold text-white">
-              Hạng Vàng
-            </span>
-          </div>
-          <p className="mt-1 text-[12px] text-white/70">
-            Thành viên từ 03/2025
-          </p>
+          {topTier && (
+            <div className="mt-1 flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-400 px-3 py-1 shadow-lg">
+              <Crown className="h-3.5 w-3.5 text-white" fill="white" />
+              <span className="font-headline text-[12px] font-bold text-white">
+                {topTier.current_tier_name ?? "Thành viên mới"}
+              </span>
+            </div>
+          )}
         </div>
       </header>
 
       <main className="-mt-8 space-y-5 px-4">
         <section className="grid grid-cols-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-lg">
-          <Stat value="2.450" label="Điểm hiện có" valueColor="orange" />
-          <Stat value="8" label="Cửa hàng" valueColor="indigo" border />
-          <Stat value="12" label="Voucher" valueColor="indigo" />
+          <Stat
+            value={totalPoints.toLocaleString("vi-VN")}
+            label="Điểm hiện có"
+            tone="orange"
+          />
+          <Stat
+            value={(memberships?.length ?? 0).toString()}
+            label="Cửa hàng"
+            tone="indigo"
+            border
+          />
+          <Stat value="—" label="Voucher" tone="indigo" />
         </section>
 
         <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="font-headline text-[16px] font-bold text-slate-800">
-              Thông tin cá nhân
-            </h3>
-            <button
-              type="button"
-              className="flex items-center gap-1 text-[13px] font-semibold text-brand-indigo"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Chỉnh sửa
-            </button>
-          </div>
+          <h3 className="px-1 font-headline text-[16px] font-bold text-slate-800">
+            Thông tin cá nhân
+          </h3>
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             {infoItems.map((item, idx) => (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50"
-                style={
-                  idx > 0
-                    ? { borderTop: "1px solid #f1f5f9" }
-                    : undefined
-                }
+                className={`flex items-center gap-3 px-4 py-3.5 ${
+                  idx > 0 ? "border-t border-slate-100" : ""
+                }`}
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
                   <item.icon className="h-5 w-5 text-brand-indigo" />
@@ -144,45 +178,6 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-slate-300" />
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="space-y-3">
-          <h3 className="px-1 font-headline text-[16px] font-bold text-slate-800">
-            Cài đặt
-          </h3>
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            {settingsItems.map((item, idx) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 px-4 py-3.5"
-                style={
-                  idx > 0
-                    ? { borderTop: "1px solid #f1f5f9" }
-                    : undefined
-                }
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-                  <item.icon className="h-5 w-5 text-brand-indigo" />
-                </div>
-                <p className="flex-1 text-[14px] font-medium text-slate-800">
-                  {item.label}
-                </p>
-                {item.trailing === "toggle" && (
-                  <span className="inline-flex h-6 w-11 items-center rounded-full bg-brand-indigo p-0.5">
-                    <span className="ml-auto h-5 w-5 rounded-full bg-white shadow" />
-                  </span>
-                )}
-                {item.trailing === "Tiếng Việt" && (
-                  <span className="text-[13px] text-slate-400">
-                    Tiếng Việt
-                  </span>
-                )}
-                {item.trailing === "chevron" && (
-                  <ChevronRight className="h-5 w-5 text-slate-300" />
-                )}
               </div>
             ))}
           </div>
@@ -193,28 +188,27 @@ export default function ProfilePage() {
             Khác
           </h3>
           <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            {otherItems.map((item, idx) => (
-              <button
-                key={item.id}
-                type="button"
-                className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50"
-                style={
-                  idx > 0
-                    ? { borderTop: "1px solid #f1f5f9" }
-                    : undefined
-                }
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-                  <item.icon className="h-5 w-5 text-brand-indigo" />
-                </div>
-                <p className="flex-1 text-[14px] font-medium text-slate-800">
-                  {item.label}
-                </p>
-                <ChevronRight className="h-5 w-5 text-slate-300" />
-              </button>
-            ))}
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
+                <ScrollText className="h-5 w-5 text-brand-indigo" />
+              </div>
+              <p className="flex-1 text-[14px] font-medium text-slate-800">
+                Điều khoản sử dụng
+              </p>
+              <ChevronRight className="h-5 w-5 text-slate-300" />
+            </div>
+            <div className="flex items-center gap-3 border-t border-slate-100 px-4 py-3.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
+                <Shield className="h-5 w-5 text-brand-indigo" />
+              </div>
+              <p className="flex-1 text-[14px] font-medium text-slate-800">
+                Chính sách bảo mật
+              </p>
+              <ChevronRight className="h-5 w-5 text-slate-300" />
+            </div>
             <button
               type="button"
+              onClick={handleLogout}
               className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-3.5 text-left transition-colors hover:bg-red-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50">
@@ -234,12 +228,12 @@ export default function ProfilePage() {
 function Stat({
   value,
   label,
-  valueColor,
+  tone,
   border,
 }: {
   value: string;
   label: string;
-  valueColor: "orange" | "indigo";
+  tone: "orange" | "indigo";
   border?: boolean;
 }) {
   return (
@@ -252,7 +246,7 @@ function Stat({
     >
       <span
         className={
-          valueColor === "orange"
+          tone === "orange"
             ? "font-headline text-[24px] font-bold text-brand-orange"
             : "font-headline text-[24px] font-bold text-brand-indigo"
         }

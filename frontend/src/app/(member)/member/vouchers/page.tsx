@@ -1,71 +1,45 @@
-import { ArrowLeft, Clock, Coffee, Gift, Plus, Search, Ticket } from "lucide-react";
+"use client";
+
+import { ArrowLeft, Clock, Loader2, Search, Ticket } from "lucide-react";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
-type Voucher = {
-  id: string;
-  title: string;
-  description: string;
-  shop: string;
-  expiry: string;
-  daysLeft: number;
-  valueLabel: string;
-  icon: "ticket" | "coffee" | "gift";
-  badge?: string;
-  variant?: "default" | "premium";
-};
+import { useMyVouchers } from "@/lib/hooks/use-merchant";
+import type { VoucherResponse } from "@/types/merchant";
 
-const vouchers: Voucher[] = [
-  {
-    id: "v1",
-    title: "Giảm 50.000₫",
-    description: "Áp dụng cho hóa đơn từ 200K",
-    shop: "Cafe Cộng - Bà Triệu",
-    expiry: "20/04/2026",
-    daysLeft: 5,
-    valueLabel: "50K",
-    icon: "ticket",
-    badge: "MỚI",
-  },
-  {
-    id: "v2",
-    title: "Free Cafe Latte size M",
-    description: "Áp dụng mọi món Latte",
-    shop: "Cafe Cộng",
-    expiry: "27/04/2026",
-    daysLeft: 12,
-    valueLabel: "Free",
-    icon: "coffee",
-  },
-  {
-    id: "v3",
-    title: "Giảm 20%",
-    description: "Toàn bộ menu",
-    shop: "Trà sữa Toko",
-    expiry: "13/05/2026",
-    daysLeft: 30,
-    valueLabel: "20%",
-    icon: "ticket",
-    variant: "premium",
-  },
-  {
-    id: "v4",
-    title: "Quà sinh nhật: Bánh ngọt",
-    description: "Miễn phí khi check-in",
-    shop: "BBQ Hàn Quốc",
-    expiry: "20/04/2026",
-    daysLeft: 7,
-    valueLabel: "Free",
-    icon: "gift",
-  },
-];
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
 
-const tabs = [
-  { id: "available", label: "Khả dụng (12)" },
-  { id: "used", label: "Đã dùng (5)" },
-  { id: "expired", label: "Hết hạn (3)" },
+function daysLeft(iso: string): number {
+  const diff = new Date(iso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+const TABS = [
+  { id: "issued", label: "Khả dụng" },
+  { id: "used", label: "Đã dùng" },
+  { id: "expired", label: "Hết hạn" },
 ] as const;
 
+type TabId = (typeof TABS)[number]["id"];
+
 export default function VouchersPage() {
+  const [tab, setTab] = useState<TabId>("issued");
+  const { data: vouchers, isLoading, isError } = useMyVouchers({ status: tab });
+
+  const counts = useMemo(() => {
+    return {
+      issued: vouchers?.filter((v) => v.status === "issued").length ?? 0,
+      used: vouchers?.filter((v) => v.status === "used").length ?? 0,
+      expired: vouchers?.filter((v) => v.status === "expired").length ?? 0,
+    };
+  }, [vouchers]);
+
   return (
     <>
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between bg-slate-50/95 px-4 backdrop-blur">
@@ -93,121 +67,88 @@ export default function VouchersPage() {
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
           <div className="relative z-10 space-y-1">
             <p className="text-[14px] font-bold text-white">
-              Bạn có 12 voucher khả dụng
+              {counts.issued} voucher khả dụng
             </p>
-            <p className="text-[12px] font-bold text-brand-orange">
-              Tiết kiệm tới 850.000₫
+            <p className="text-[12px] text-indigo-100">
+              {counts.used} đã dùng · {counts.expired} hết hạn
             </p>
           </div>
         </section>
 
         <section className="flex items-center gap-2 overflow-x-auto pb-1">
-          {tabs.map((tab, idx) => (
+          {TABS.map((t) => (
             <button
-              key={tab.id}
+              key={t.id}
               type="button"
+              onClick={() => setTab(t.id)}
               className={
-                idx === 0
+                t.id === tab
                   ? "shrink-0 rounded-full bg-brand-indigo/10 px-4 py-2 text-[12px] font-bold text-brand-indigo"
                   : "shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-[12px] font-medium text-slate-500"
               }
             >
-              {tab.label}
+              {t.label}
             </button>
           ))}
         </section>
 
-        <div className="space-y-3 pb-8">
-          {vouchers.map((voucher) =>
-            voucher.variant === "premium" ? (
-              <PremiumVoucher key={voucher.id} voucher={voucher} />
-            ) : (
-              <StandardVoucher key={voucher.id} voucher={voucher} />
-            )
-          )}
-        </div>
-      </main>
-
-      {/* Floating action button */}
-      <button
-        type="button"
-        className="fixed bottom-28 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-brand-indigo to-brand-violet text-white shadow-xl shadow-indigo-300 active:scale-95"
-        aria-label="Khám phá chiến dịch"
-      >
-        <Plus className="h-7 w-7" />
-      </button>
-    </>
-  );
-}
-
-function StandardVoucher({ voucher }: { voucher: Voucher }) {
-  const Icon =
-    voucher.icon === "coffee" ? Coffee : voucher.icon === "gift" ? Gift : Ticket;
-  return (
-    <article className="relative flex items-stretch overflow-hidden rounded-2xl border-l-4 border-brand-orange bg-white shadow-sm">
-      {voucher.badge && (
-        <span className="absolute right-2 top-2 z-10 rounded-full bg-brand-orange px-2 py-0.5 text-[9px] font-bold uppercase text-white">
-          {voucher.badge}
-        </span>
-      )}
-      {/* Notch top + bottom */}
-      <span className="absolute -top-1 left-[100px] h-3 w-3 rounded-full border border-slate-100 bg-[#f8fafc]" />
-      <span className="absolute -bottom-1 left-[100px] h-3 w-3 rounded-full border border-slate-100 bg-[#f8fafc]" />
-
-      <div className="flex w-[100px] shrink-0 items-center justify-center bg-orange-50">
-        <Icon className="h-9 w-9 text-brand-orange" />
-      </div>
-
-      <div className="flex-1 p-4">
-        <h3 className="font-headline text-[16px] font-bold text-slate-800">
-          {voucher.title}
-        </h3>
-        <p className="text-[12px] text-slate-500">{voucher.description}</p>
-        <p className="mt-1 text-[11px] font-medium text-brand-indigo">
-          {voucher.shop}
-        </p>
-        <div className="mt-2 flex items-center justify-between">
-          <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-            <Clock className="h-3 w-3" />
-            Còn {voucher.daysLeft} ngày
-          </span>
-          <button
-            type="button"
-            className="rounded-full bg-brand-indigo px-3 py-1 text-[11px] font-bold text-white shadow-sm active:scale-95"
-          >
-            Dùng ngay
-          </button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function PremiumVoucher({ voucher }: { voucher: Voucher }) {
-  return (
-    <article className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-orange to-amber-500 p-4 shadow-lg">
-      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10 blur-xl" />
-      <div className="relative z-10 flex items-center justify-between">
-        <div className="space-y-1">
-          <h3 className="font-headline text-[26px] font-bold text-white">
-            {voucher.title}
-          </h3>
-          <p className="text-[13px] text-white/90">{voucher.description}</p>
-          <p className="text-[11px] font-medium text-white/80">
-            {voucher.shop}
-          </p>
-          <div className="flex items-center gap-1 pt-1 text-[11px] text-white">
-            <Clock className="h-3 w-3" />
-            Còn {voucher.daysLeft} ngày
+        {isLoading ? (
+          <div className="flex min-h-[30vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-brand-indigo" />
           </div>
-        </div>
-        <button
-          type="button"
-          className="rounded-full bg-white px-4 py-2 text-[12px] font-bold text-brand-orange shadow active:scale-95"
-        >
-          Dùng
-        </button>
-      </div>
-    </article>
+        ) : isError ? (
+          <div className="rounded-xl bg-red-50 p-4 text-center text-red-600">
+            Không tải được voucher
+          </div>
+        ) : vouchers?.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+            <Ticket className="mx-auto h-12 w-12 text-slate-300" />
+            <p className="mt-4 font-bold text-slate-700">
+              Chưa có voucher {tab === "issued" ? "khả dụng" : tab === "used" ? "đã dùng" : "hết hạn"}
+            </p>
+          </div>
+        ) : (
+          <section className="space-y-3 pb-8">
+            {vouchers?.map((v: VoucherResponse) => {
+              const days = daysLeft(v.expires_at);
+              const isExpired = v.status === "expired" || days === 0;
+              return (
+                <article
+                  key={v.id}
+                  className="relative flex items-stretch overflow-hidden rounded-2xl border-l-4 border-brand-orange bg-white shadow-sm"
+                >
+                  <div className="flex w-[100px] shrink-0 items-center justify-center bg-orange-50">
+                    <Ticket className="h-9 w-9 text-brand-orange" />
+                  </div>
+                  <div className="flex-1 p-4">
+                    <h3 className="font-headline text-[16px] font-bold text-slate-800">
+                      {v.campaign_name ?? "Voucher"}
+                    </h3>
+                    <p className="font-mono text-[11px] text-slate-500">
+                      {v.code}
+                    </p>
+                    <p className="mt-1 text-[11px] font-medium text-brand-indigo">
+                      {v.discount_type === "percent"
+                        ? `Giảm ${v.discount_value ?? "-"}%`
+                        : v.discount_value
+                        ? `Giảm ${v.discount_value.toLocaleString("vi-VN")}₫`
+                        : ""}
+                    </p>
+                    <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-400">
+                      <Clock className="h-3 w-3" />
+                      {v.status === "used"
+                        ? `Đã dùng: ${v.used_at ? formatDate(v.used_at) : "—"}`
+                        : isExpired
+                        ? `Hết hạn: ${formatDate(v.expires_at)}`
+                        : `Còn ${days} ngày (${formatDate(v.expires_at)})`}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
+      </main>
+    </>
   );
 }

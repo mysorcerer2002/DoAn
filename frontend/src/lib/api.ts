@@ -1,5 +1,13 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
-import type { LoginRequest, RegisterRequest, TokenResponse, User } from "@/types/auth";
+
+import { getActiveTenantId } from "@/lib/tenant-store";
+import type {
+  LoginRequest,
+  Membership,
+  RegisterRequest,
+  TokenResponse,
+  User,
+} from "@/types/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -13,6 +21,18 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     const token = sessionStorage.getItem("access_token");
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Auto-inject X-Tenant-Id cho /merchant/* và /tenants/me/* routes
+    const url = config.url ?? "";
+    const needsTenant =
+      url.startsWith("/merchant") || url.startsWith("/tenants/me");
+    const hasTenantHeader =
+      config.headers && "X-Tenant-Id" in config.headers;
+    if (needsTenant && !hasTenantHeader && config.headers) {
+      const tenantId = getActiveTenantId();
+      if (tenantId != null) {
+        config.headers["X-Tenant-Id"] = String(tenantId);
+      }
     }
   }
   return config;
@@ -36,4 +56,8 @@ export const authApi = {
   refresh: (refreshToken: string) =>
     api.post<TokenResponse>("/auth/refresh", { refresh_token: refreshToken }),
   me: () => api.get<User>("/auth/me"),
+};
+
+export const memberApi = {
+  listMyMemberships: () => api.get<Membership[]>("/users/me/memberships"),
 };

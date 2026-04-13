@@ -3,15 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   BarChart3,
-  CreditCard,
-  Gift,
+  LayoutDashboard,
   LogOut,
-  Megaphone,
   Settings,
-  Ticket,
+  Shield,
+  Store,
   Users,
-  UsersRound,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -27,31 +26,23 @@ type MenuItem = {
 };
 
 const menu: readonly MenuItem[] = [
-  { href: "/merchant", icon: BarChart3, label: "Dashboard" },
-  {
-    href: "/merchant/pos/transactions/new",
-    icon: CreditCard,
-    label: "Giao dịch",
-  },
-  { href: "/merchant/members", icon: Users, label: "Thành viên" },
-  { href: "/merchant/rewards", icon: Gift, label: "Phần thưởng" },
-  { href: "/merchant/campaigns", icon: Megaphone, label: "Chiến dịch" },
-  { href: "/merchant/vouchers", icon: Ticket, label: "Voucher" },
-  { href: "/merchant/staff", icon: UsersRound, label: "Nhân viên" },
-  { href: "/merchant/settings", icon: Settings, label: "Cài đặt" },
+  { href: "/admin", icon: LayoutDashboard, label: "Tổng quan" },
+  { href: "/admin/tenants", icon: Store, label: "Đối tác" },
+  { href: "/admin/users", icon: Users, label: "Người dùng" },
+  { href: "/admin/stats", icon: BarChart3, label: "Thống kê" },
+  { href: "/admin/audit", icon: Activity, label: "Nhật ký" },
+  { href: "/admin/settings", icon: Settings, label: "Cài đặt" },
 ];
 
-export function MerchantSidebar() {
+export function AdminSidebar() {
   const pathname = usePathname();
   const open = useSidebarStore((s) => s.open);
   const close = useSidebarStore((s) => s.close);
 
-  // Đóng drawer khi chuyển route
   useEffect(() => {
     close();
   }, [pathname, close]);
 
-  // Đóng bằng phím ESC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
@@ -62,7 +53,6 @@ export function MerchantSidebar() {
 
   return (
     <>
-      {/* Overlay backdrop — chỉ xuất hiện khi drawer mở trên mobile/tablet */}
       <div
         className={cn(
           "fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-sm transition-opacity md:hidden",
@@ -74,22 +64,25 @@ export function MerchantSidebar() {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-30 flex h-screen w-64 flex-col bg-brand-indigo text-white transition-transform md:w-60 md:translate-x-0",
+          "fixed left-0 top-0 z-30 flex h-screen w-64 flex-col bg-gradient-to-b from-indigo-900 to-violet-900 text-white transition-transform md:w-60 md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
-        aria-label="Menu điều hướng Merchant"
+        aria-label="Menu điều hướng Admin"
       >
         <div className="px-5 pt-6">
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white font-headline text-xl font-bold text-brand-indigo">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white font-headline text-xl font-bold text-indigo-900">
                 L
               </div>
               <div>
                 <p className="font-headline text-[15px] font-bold">
-                  Loyalty Platform
+                  Loyalty Admin
                 </p>
-                <p className="text-[10px] text-indigo-200">Merchant Dashboard</p>
+                <p className="flex items-center gap-1 text-[10px] text-indigo-200">
+                  <Shield className="h-2.5 w-2.5" />
+                  Hệ thống nội bộ
+                </p>
               </div>
             </div>
             <button
@@ -104,16 +97,16 @@ export function MerchantSidebar() {
 
           <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-[12px] font-bold">
-                LB
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-orange to-amber-500 text-[12px] font-bold">
+                ND
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-bold text-white">
-                  Lê Văn Bình
+                  Nguyễn Duy
                 </p>
-                <p className="truncate text-[10px] text-indigo-200">
-                  Cafe Cộng - Bà Triệu
-                </p>
+                <span className="inline-block rounded-full bg-brand-orange px-1.5 py-0.5 text-[9px] font-bold uppercase">
+                  Super Admin
+                </span>
               </div>
             </div>
           </div>
@@ -122,9 +115,10 @@ export function MerchantSidebar() {
         <nav className="mt-5 flex-1 space-y-1 overflow-y-auto px-3">
           {menu.map((item) => {
             const active =
-              item.href === "/merchant"
-                ? pathname === "/merchant"
-                : pathname.startsWith(item.href);
+              item.href === "/admin"
+                ? pathname === "/admin"
+                : pathname === item.href ||
+                  pathname.startsWith(item.href + "/");
             return (
               <Link
                 key={item.href}
