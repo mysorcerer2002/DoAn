@@ -188,40 +188,14 @@ export default function VoucherDetailPage() {
             </div>
 
             {/* Notch dividers */}
-            <div className="relative z-10 my-5 flex items-center">
+            <div className="relative z-10 my-4 flex items-center">
               <div className="absolute -left-9 h-5 w-5 rounded-full bg-[#f8fafc]" />
               <div className="absolute -right-9 h-5 w-5 rounded-full bg-[#f8fafc]" />
               <div className="flex-1 border-t-2 border-dashed border-white/40" />
             </div>
 
-            {/* Code box */}
-            <div className="relative z-10 rounded-2xl border-2 border-dashed border-white/60 bg-white/10 p-3 backdrop-blur">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/70">
-                    Mã voucher
-                  </p>
-                  <p className="truncate font-mono text-[22px] font-bold tracking-[0.15em] text-white">
-                    {voucher.code}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-brand-orange shadow-md transition active:scale-95"
-                  aria-label="Sao chép mã"
-                >
-                  {copied ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    <Copy className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
             {/* Bottom info grid */}
-            <div className="relative z-10 mt-4 grid grid-cols-2 gap-3">
+            <div className="relative z-10 grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
                   Đơn tối thiểu
