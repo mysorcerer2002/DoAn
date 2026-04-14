@@ -210,7 +210,7 @@ export default function RegisterPage() {
             </form>
           </div>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 space-y-3 text-center">
             <p className="font-body text-slate-500">
               Đã có tài khoản?{" "}
               <Link
@@ -220,6 +220,12 @@ export default function RegisterPage() {
                 Đăng nhập
               </Link>
             </p>
+            <Link
+              href="/register/merchant"
+              className="inline-flex items-center gap-2 rounded-full border border-brand-indigo/30 bg-white px-4 py-2 text-[12px] font-bold text-brand-indigo transition hover:bg-indigo-50"
+            >
+              🏪 Bạn là chủ shop? Đăng ký bán hàng
+            </Link>
           </div>
         </main>
       </div>
