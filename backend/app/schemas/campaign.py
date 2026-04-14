@@ -10,6 +10,9 @@ from app.models.campaign import CampaignSource, DiscountType
 class CampaignCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
+    terms: str | None = Field(default=None, max_length=2000)
+    usage_guide: str | None = Field(default=None, max_length=2000)
+    support_contact: str | None = Field(default=None, max_length=500)
     discount_type: DiscountType
     discount_value: int = Field(gt=0)
     min_order: int = Field(default=0, ge=0)
@@ -32,6 +35,9 @@ class CampaignCreateRequest(BaseModel):
 class CampaignUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
+    terms: str | None = Field(default=None, max_length=2000)
+    usage_guide: str | None = Field(default=None, max_length=2000)
+    support_contact: str | None = Field(default=None, max_length=500)
     is_active: bool | None = None
     ends_at: datetime | None = None
     max_issuances: int | None = Field(default=None, gt=0)
@@ -42,6 +48,9 @@ class CampaignResponse(BaseModel):
     tenant_id: int
     name: str
     description: str | None
+    terms: str | None = None
+    usage_guide: str | None = None
+    support_contact: str | None = None
     discount_type: DiscountType
     discount_value: int
     min_order: int

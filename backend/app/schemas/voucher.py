@@ -22,8 +22,14 @@ class VoucherResponse(BaseModel):
     used_at: datetime | None
     expires_at: datetime
     campaign_name: str | None = None
+    campaign_description: str | None = None
+    campaign_terms: str | None = None
+    campaign_usage_guide: str | None = None
+    campaign_support_contact: str | None = None
     discount_type: str | None = None
     discount_value: int | None = None
+    min_order: int | None = None
+    max_discount: int | None = None
 
     model_config = {"from_attributes": True}
 

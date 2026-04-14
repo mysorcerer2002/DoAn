@@ -41,7 +41,7 @@ users_router = APIRouter(prefix="/users", tags=["users"])
     response_model=TenantResponse,
     status_code=status.HTTP_201_CREATED,
 )
-@limiter.limit("3/minute")
+@limiter.limit("10/minute")
 async def register_tenant(
     request: Request,
     body: TenantCreateRequest,
@@ -103,6 +103,35 @@ async def list_my_ledger(
     return [LedgerEntryResponse.model_validate(r) for r in rows]
 
 
+def _voucher_to_response(v: Voucher) -> VoucherResponse:
+    """Helper map Voucher (với joinedload campaign) → VoucherResponse đầy đủ field."""
+    campaign = v.campaign
+    discount_type_str: str | None = None
+    if campaign is not None:
+        dt = campaign.discount_type
+        discount_type_str = dt.value if hasattr(dt, "value") else str(dt)
+    return VoucherResponse(
+        id=v.id,
+        tenant_id=v.tenant_id,
+        campaign_id=v.campaign_id,
+        membership_id=v.membership_id,
+        code=v.code,
+        status=v.status,
+        issued_at=v.issued_at,
+        used_at=v.used_at,
+        expires_at=v.expires_at,
+        campaign_name=campaign.name if campaign else None,
+        campaign_description=campaign.description if campaign else None,
+        campaign_terms=campaign.terms if campaign else None,
+        campaign_usage_guide=campaign.usage_guide if campaign else None,
+        campaign_support_contact=campaign.support_contact if campaign else None,
+        discount_type=discount_type_str,
+        discount_value=campaign.discount_value if campaign else None,
+        min_order=campaign.min_order if campaign else None,
+        max_discount=campaign.max_discount if campaign else None,
+    )
+
+
 @users_router.get("/me/vouchers", response_model=list[VoucherResponse])
 async def list_my_vouchers_all_tenants(
     user: User = Depends(get_current_user),
@@ -126,12 +155,16 @@ async def list_my_vouchers_all_tenants(
     ]
     if not membership_ids:
         return []
-    stmt = select(Voucher).where(Voucher.membership_id.in_(membership_ids))
+    stmt = (
+        select(Voucher)
+        .options(joinedload(Voucher.campaign))
+        .where(Voucher.membership_id.in_(membership_ids))
+    )
     if status is not None:
         stmt = stmt.where(Voucher.status == status)
     stmt = stmt.order_by(Voucher.issued_at.desc())
     rows = (await db.scalars(stmt)).all()
-    return [VoucherResponse.model_validate(v) for v in rows]
+    return [_voucher_to_response(v) for v in rows]
 
 
 @users_router.get("/me/memberships", response_model=list[MemberResponse])
@@ -385,24 +418,4 @@ async def list_tenant_vouchers(
     if vstatus is not None:
         stmt = stmt.where(Voucher.status == vstatus)
     rows = (await db.scalars(stmt)).all()
-    return [
-        VoucherResponse(
-            id=v.id,
-            tenant_id=v.tenant_id,
-            campaign_id=v.campaign_id,
-            membership_id=v.membership_id,
-            code=v.code,
-            status=v.status,
-            issued_at=v.issued_at,
-            used_at=v.used_at,
-            expires_at=v.expires_at,
-            campaign_name=v.campaign.name if v.campaign else None,
-            discount_type=(
-                v.campaign.discount_type.value
-                if v.campaign and hasattr(v.campaign.discount_type, "value")
-                else None
-            ),
-            discount_value=v.campaign.discount_value if v.campaign else None,
-        )
-        for v in rows
-    ]
+    return [_voucher_to_response(v) for v in rows]

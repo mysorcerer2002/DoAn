@@ -14,6 +14,11 @@ export function BottomNavBar() {
     return null;
   }
 
+  // Hide on voucher detail pages (/member/vouchers/[id]) but keep on list page
+  if (/^\/member\/vouchers\/[^/]+/.test(pathname)) {
+    return null;
+  }
+
   const isHomeActive =
     pathname === "/member" ||
     HOME_SUB_ROUTES.some((route) => pathname.startsWith(route));

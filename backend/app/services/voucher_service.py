@@ -284,6 +284,10 @@ class VoucherService:
             "valid": True,
             "code": voucher.code,
             "campaign_name": campaign.name,
+            "campaign_description": campaign.description,
+            "campaign_terms": campaign.terms,
+            "campaign_usage_guide": campaign.usage_guide,
+            "campaign_support_contact": campaign.support_contact,
             "discount_type": (
                 campaign.discount_type.value
                 if hasattr(campaign.discount_type, "value")

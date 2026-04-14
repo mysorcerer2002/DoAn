@@ -178,7 +178,23 @@ async def _seed_tenant(
             db.add(Campaign(
                 tenant_id=tenant.id,
                 name=c_name,
-                description=f"Khuyến mãi {c_name}",
+                description=f"Khuyến mãi {c_name} — áp dụng cho mọi khách thành viên.",
+                terms=(
+                    "• Áp dụng cho hoá đơn từ 50.000₫\n"
+                    "• Không áp dụng cùng chương trình khuyến mãi khác\n"
+                    "• Mỗi khách chỉ sử dụng 1 voucher/hoá đơn\n"
+                    "• Chương trình không áp dụng hoàn tiền"
+                ),
+                usage_guide=(
+                    "1. Đưa mã voucher cho nhân viên khi thanh toán\n"
+                    "2. Nhân viên nhập mã vào POS\n"
+                    "3. Hệ thống tự động giảm giá theo điều kiện\n"
+                    "4. Voucher tự động đánh dấu đã sử dụng sau khi xác nhận"
+                ),
+                support_contact=(
+                    "Hotline CSKH: 1900-xxxx (8:00-22:00) · "
+                    "Email: hotro@loyalty.vn"
+                ),
                 source="manual",
                 discount_type=DiscountType.PERCENT,
                 discount_value=discount,

@@ -113,9 +113,10 @@ export default function VouchersPage() {
               const days = daysLeft(v.expires_at);
               const isExpired = v.status === "expired" || days === 0;
               return (
-                <article
+                <Link
                   key={v.id}
-                  className="relative flex items-stretch overflow-hidden rounded-2xl border-l-4 border-brand-orange bg-white shadow-sm"
+                  href={`/member/vouchers/${v.id}`}
+                  className="relative flex w-full items-stretch overflow-hidden rounded-2xl border-l-4 border-brand-orange bg-white text-left shadow-sm transition active:scale-[0.99]"
                 >
                   <div className="flex w-[100px] shrink-0 items-center justify-center bg-orange-50">
                     <Ticket className="h-9 w-9 text-brand-orange" />
@@ -139,16 +140,20 @@ export default function VouchersPage() {
                       {v.status === "used"
                         ? `Đã dùng: ${v.used_at ? formatDate(v.used_at) : "—"}`
                         : isExpired
-                        ? `Hết hạn: ${formatDate(v.expires_at)}`
-                        : `Còn ${days} ngày (${formatDate(v.expires_at)})`}
+                          ? `Hết hạn: ${formatDate(v.expires_at)}`
+                          : `Còn ${days} ngày (${formatDate(v.expires_at)})`}
                     </div>
+                    <p className="mt-2 text-[10px] font-bold text-brand-indigo">
+                      Xem chi tiết →
+                    </p>
                   </div>
-                </article>
+                </Link>
               );
             })}
           </section>
         )}
       </main>
+
     </>
   );
 }

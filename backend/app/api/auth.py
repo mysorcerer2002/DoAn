@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")
+@limiter.limit("20/minute")
 async def register(
     request: Request,
     body: RegisterRequest,
@@ -51,7 +51,7 @@ async def register(
 
 
 @router.post("/login", response_model=TokenResponse)
-@limiter.limit("5/minute")
+@limiter.limit("30/minute")
 async def login(
     request: Request,
     body: LoginRequest,
@@ -70,7 +70,7 @@ async def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
-@limiter.limit("10/minute")
+@limiter.limit("60/minute")
 async def refresh(
     request: Request,
     body: RefreshRequest,
@@ -167,7 +167,7 @@ async def update_me(
 
 
 @router.post("/request-claim", status_code=202)
-@limiter.limit("3/minute")
+@limiter.limit("10/minute")
 async def request_claim(
     request: Request,
     body: RequestClaimRequest,
@@ -179,7 +179,7 @@ async def request_claim(
 
 
 @router.post("/claim-shadow", response_model=TokenResponse)
-@limiter.limit("5/minute")
+@limiter.limit("15/minute")
 async def claim_shadow(
     request: Request,
     body: ClaimShadowRequest,

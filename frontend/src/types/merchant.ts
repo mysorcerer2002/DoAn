@@ -180,8 +180,14 @@ export interface VoucherResponse {
   used_at: string | null;
   expires_at: string;
   campaign_name?: string | null;
+  campaign_description?: string | null;
+  campaign_terms?: string | null;
+  campaign_usage_guide?: string | null;
+  campaign_support_contact?: string | null;
   discount_type?: string | null;
   discount_value?: number | null;
+  min_order?: number | null;
+  max_discount?: number | null;
 }
 
 // Analytics dashboard (match backend schemas/analytics.py)

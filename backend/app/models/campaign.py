@@ -51,6 +51,9 @@ class Campaign(Base, TimestampMixin):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    terms: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    usage_guide: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    support_contact: Mapped[str | None] = mapped_column(String(500), nullable=True)
     discount_type: Mapped[DiscountType] = mapped_column(
         String(20), nullable=False
     )
