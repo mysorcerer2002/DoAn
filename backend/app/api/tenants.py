@@ -370,7 +370,7 @@ async def list_tenant_vouchers(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    _role: TenantStaffRole = Depends(require_owner_in_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> list[VoucherResponse]:
     """Merchant xem tất cả voucher đã phát cho tenant này."""

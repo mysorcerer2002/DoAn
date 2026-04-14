@@ -132,14 +132,36 @@ async def update_me(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """User tự cập nhật họ tên, SĐT, ngày sinh."""
+    """User tự cập nhật họ tên, SĐT, ngày sinh.
+
+    Phone là unique partial index — nếu trùng raise 409 thay vì 500.
+    """
+    from sqlalchemy.exc import IntegrityError
+
     if body.full_name is not None:
         current_user.full_name = body.full_name.strip()
     if body.phone is not None:
         current_user.phone = body.phone.strip()
     if body.birthday is not None:
         current_user.birthday = body.birthday
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        msg = str(e.orig) if hasattr(e, "orig") else str(e)
+        if "phone" in msg.lower():
+            raise HTTPException(
+                status_code=409,
+                detail="Số điện thoại đã được sử dụng bởi tài khoản khác",
+            ) from e
+        if "email" in msg.lower():
+            raise HTTPException(
+                status_code=409,
+                detail="Email đã được sử dụng",
+            ) from e
+        raise HTTPException(
+            status_code=409, detail="Vi phạm ràng buộc dữ liệu"
+        ) from e
     await db.refresh(current_user)
     return current_user
 

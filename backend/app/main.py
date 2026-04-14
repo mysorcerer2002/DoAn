@@ -85,8 +85,31 @@ app.include_router(analytics_router)
 
 @app.exception_handler(Exception)
 async def _global_exception_handler(request, exc: Exception):
-    """Catch-all để tránh leak stack trace ra client."""
+    """Catch-all: trả 409 cho IntegrityError, 500 cho lỗi khác."""
     import logging
+
+    from sqlalchemy.exc import IntegrityError
+
+    if isinstance(exc, IntegrityError):
+        msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+        msg_low = msg.lower()
+        # Map các unique constraint phổ biến → user-facing message
+        if "phone" in msg_low and ("unique" in msg_low or "duplicate" in msg_low):
+            detail = "Số điện thoại đã được sử dụng"
+        elif "email" in msg_low and ("unique" in msg_low or "duplicate" in msg_low):
+            detail = "Email đã được sử dụng"
+        elif "slug" in msg_low and ("unique" in msg_low or "duplicate" in msg_low):
+            detail = "Slug đã tồn tại"
+        elif "tenant_user" in msg_low or "tenant_staff" in msg_low:
+            detail = "User đã thuộc tenant này"
+        elif "duplicate key" in msg_low:
+            detail = "Dữ liệu trùng lặp"
+        else:
+            detail = "Vi phạm ràng buộc dữ liệu"
+        logging.getLogger("app").warning(
+            "IntegrityError → 409 [%s] %s", detail, msg[:200]
+        )
+        return JSONResponse(status_code=409, content={"detail": detail})
 
     logging.getLogger("app").exception("Unhandled exception")
     return JSONResponse(

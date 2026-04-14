@@ -29,7 +29,7 @@ async def create_tier(
 @router.get("", response_model=list[TierResponse])
 async def list_tiers(
     tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    _role: TenantStaffRole = Depends(require_owner_in_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> list[TierResponse]:
     service = TierService(db)

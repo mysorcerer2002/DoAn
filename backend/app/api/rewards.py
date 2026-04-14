@@ -15,7 +15,7 @@ router = APIRouter(prefix="/merchant/rewards", tags=["merchant-rewards"])
 @router.get("", response_model=list[RewardResponse])
 async def list_rewards(
     tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    _role: TenantStaffRole = Depends(require_owner_in_tenant),
     active_only: bool = False,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -44,7 +44,7 @@ async def create_reward(
 async def get_reward(
     reward_id: int,
     tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    _role: TenantStaffRole = Depends(require_owner_in_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> RewardResponse:
     service = RewardService(db)

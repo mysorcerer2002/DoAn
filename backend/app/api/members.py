@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_tenant_id, require_staff_in_tenant
+from app.core.deps import get_tenant_id, require_owner_in_tenant
 from app.models.tenant_staff import TenantStaffRole
 from app.schemas.ledger import LedgerEntryResponse
 from app.schemas.member import MemberResponse
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/merchant/members", tags=["merchant-members"])
 @router.get("", response_model=list[MemberResponse])
 async def list_members(
     tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    _role: TenantStaffRole = Depends(require_owner_in_tenant),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -48,7 +48,7 @@ async def list_members(
 async def get_member(
     membership_id: int,
     tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    _role: TenantStaffRole = Depends(require_owner_in_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> MemberResponse:
     service = MemberService(db)
@@ -78,7 +78,7 @@ async def get_member(
 async def get_member_ledger(
     membership_id: int,
     tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    _role: TenantStaffRole = Depends(require_owner_in_tenant),
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ) -> list[LedgerEntryResponse]:
