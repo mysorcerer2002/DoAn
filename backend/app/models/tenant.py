@@ -50,6 +50,9 @@ class Tenant(Base, TimestampMixin):
     )
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     settings: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     activated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

@@ -51,6 +51,9 @@ class TenantService:
             category=request.category,
             description=request.description,
             logo_url=request.logo_url,
+            contact_phone=request.contact_phone,
+            contact_email=request.contact_email,
+            address=request.address,
             settings={},
         )
         self.db.add(tenant)

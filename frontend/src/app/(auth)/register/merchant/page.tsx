@@ -12,7 +12,9 @@ import {
   ImageIcon,
   Lock,
   Mail,
+  MapPin,
   Palette,
+  Phone,
   Sparkles,
   Store,
   User as UserIcon,
@@ -43,6 +45,13 @@ const shopSchema = z.object({
     .max(500)
     .optional()
     .or(z.literal("")),
+  contact_phone: z
+    .string()
+    .min(8, "Số điện thoại tối thiểu 8 chữ số")
+    .max(20)
+    .regex(/^[0-9+\-\s()]+$/, "Số điện thoại không hợp lệ"),
+  contact_email: z.string().email("Email không hợp lệ").max(255),
+  address: z.string().min(5, "Địa chỉ tối thiểu 5 ký tự").max(500),
 });
 
 type AccountForm = z.infer<typeof accountSchema>;
@@ -97,6 +106,9 @@ export default function MerchantRegisterPage() {
         category: data.category,
         description: data.description || null,
         logo_url: data.logo_url || null,
+        contact_phone: data.contact_phone,
+        contact_email: data.contact_email,
+        address: data.address,
       });
 
       setStep(3);
@@ -344,6 +356,56 @@ export default function MerchantRegisterPage() {
                   register={shopForm.register("logo_url")}
                   error={shopForm.formState.errors.logo_url?.message}
                 />
+
+                {/* Contact section divider */}
+                <div className="!mt-6 border-t border-dashed border-slate-200 pt-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100">
+                      <Phone className="h-3.5 w-3.5 text-brand-indigo" />
+                    </span>
+                    <h4 className="font-headline text-[13px] font-bold text-slate-800">
+                      Thông tin liên hệ
+                    </h4>
+                  </div>
+                  <p className="mb-3 pl-9 text-[11px] text-slate-500">
+                    Khách hàng sẽ thấy thông tin này để liên hệ shop
+                  </p>
+                </div>
+
+                <Field
+                  icon={Phone}
+                  placeholder="Số điện thoại shop (VD: 0901234567)"
+                  type="tel"
+                  autoComplete="tel"
+                  register={shopForm.register("contact_phone")}
+                  error={shopForm.formState.errors.contact_phone?.message}
+                />
+
+                <Field
+                  icon={Mail}
+                  placeholder="Email liên hệ (VD: hello@shop.vn)"
+                  type="email"
+                  autoComplete="email"
+                  register={shopForm.register("contact_email")}
+                  error={shopForm.formState.errors.contact_email?.message}
+                />
+
+                <div className="space-y-1">
+                  <div className="relative">
+                    <MapPin className="pointer-events-none absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
+                    <textarea
+                      placeholder="Địa chỉ shop (số nhà, đường, quận, thành phố)"
+                      rows={2}
+                      className="block w-full resize-none rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-3 text-[13px] outline-none transition-all placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/30"
+                      {...shopForm.register("address")}
+                    />
+                  </div>
+                  {shopForm.formState.errors.address && (
+                    <p className="pl-1 text-xs text-red-500">
+                      {shopForm.formState.errors.address.message}
+                    </p>
+                  )}
+                </div>
 
                 {error && (
                   <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
