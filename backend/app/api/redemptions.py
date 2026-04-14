@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_current_user, get_tenant_id, require_staff_in_tenant
+from app.core.deps import (
+    get_current_user,
+    get_tenant_id,
+    require_owner_in_tenant,
+    require_staff_in_tenant,
+)
 from app.core.limiter import limiter
 from app.models.membership import Membership
 from app.models.tenant_staff import TenantStaffRole
@@ -108,7 +113,7 @@ async def use_redemption(
 @router.get("", response_model=list[RedemptionResponse])
 async def list_redemptions(
     tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    _role: TenantStaffRole = Depends(require_owner_in_tenant),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
