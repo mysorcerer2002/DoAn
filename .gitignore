@@ -57,3 +57,6 @@ test_*.txt
 *_result.txt
 backend/test_output.txt
 backend/test_result.txt
+
+# Screenshot artifacts ở repo root
+/*.png
