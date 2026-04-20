@@ -23,8 +23,17 @@ async def list_campaigns(
     _role: TenantStaffRole = Depends(require_owner_in_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> list[CampaignResponse]:
-    campaigns = await CampaignService(db).list_campaigns(tenant_id=tenant_id)
-    return [CampaignResponse.model_validate(c) for c in campaigns]
+    rows = await CampaignService(db).list_campaigns_with_stats(
+        tenant_id=tenant_id
+    )
+    result: list[CampaignResponse] = []
+    for c, used, discount, revenue in rows:
+        resp = CampaignResponse.model_validate(c)
+        resp.used_count = used
+        resp.total_discount_amount = discount
+        resp.total_revenue_from_voucher_txns = revenue
+        result.append(resp)
+    return result
 
 
 @router.post("", response_model=CampaignResponse, status_code=201)
@@ -48,12 +57,18 @@ async def get_campaign(
     db: AsyncSession = Depends(get_db),
 ) -> CampaignResponse:
     try:
-        campaign = await CampaignService(db).get_campaign(
+        campaign, used, discount, revenue = await CampaignService(
+            db
+        ).get_campaign_with_stats(
             tenant_id=tenant_id, campaign_id=campaign_id
         )
     except CampaignNotFoundError as e:
         raise HTTPException(status_code=404, detail="Campaign not found") from e
-    return CampaignResponse.model_validate(campaign)
+    resp = CampaignResponse.model_validate(campaign)
+    resp.used_count = used
+    resp.total_discount_amount = discount
+    resp.total_revenue_from_voucher_txns = revenue
+    return resp
 
 
 @router.patch("/{campaign_id}", response_model=CampaignResponse)

@@ -151,6 +151,24 @@ export function useCreateCampaign() {
   });
 }
 
+export function useCampaignDetail(id: number | null) {
+  const tenantId = useTenantId();
+  return useQuery({
+    queryKey: ["merchant", "campaigns", "detail", tenantId, id],
+    queryFn: async () => (await campaignsApi.get(id as number)).data,
+    enabled: tenantId != null && id != null,
+  });
+}
+
+export function useCampaignRoi(id: number | null) {
+  const tenantId = useTenantId();
+  return useQuery({
+    queryKey: ["merchant", "campaigns", "roi", tenantId, id],
+    queryFn: async () => (await campaignsApi.roi(id as number)).data,
+    enabled: tenantId != null && id != null,
+  });
+}
+
 // ==================== Staff ====================
 export function useStaff() {
   const tenantId = useTenantId();

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRight,
   Calendar,
   CheckCircle2,
   Clock,
@@ -9,8 +10,10 @@ import {
   Plus,
   Sparkles,
   Ticket,
+  Wallet,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { useCampaigns, useCreateCampaign } from "@/lib/hooks/use-merchant";
@@ -66,11 +69,31 @@ export default function MerchantCampaignsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const stats = useMemo(() => {
-    if (!campaigns) return { total: 0, running: 0, upcoming: 0, ended: 0 };
-    const result = { total: campaigns.length, running: 0, upcoming: 0, ended: 0 };
+    if (!campaigns)
+      return {
+        total: 0,
+        running: 0,
+        upcoming: 0,
+        ended: 0,
+        totalIssued: 0,
+        totalUsed: 0,
+        totalDiscount: 0,
+      };
+    const result = {
+      total: campaigns.length,
+      running: 0,
+      upcoming: 0,
+      ended: 0,
+      totalIssued: 0,
+      totalUsed: 0,
+      totalDiscount: 0,
+    };
     campaigns.forEach((c) => {
       const s = campaignStatus(c);
       result[s]++;
+      result.totalIssued += c.issued_count ?? 0;
+      result.totalUsed += c.used_count ?? 0;
+      result.totalDiscount += c.total_discount_amount ?? 0;
     });
     return result;
   }, [campaigns]);
@@ -131,10 +154,30 @@ export default function MerchantCampaignsPage() {
       </header>
 
       <section className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard icon={Sparkles} label="Tổng chiến dịch" value={stats.total} tone="indigo" />
-        <StatCard icon={CheckCircle2} label="Đang chạy" value={stats.running} tone="green" />
-        <StatCard icon={Clock} label="Sắp diễn ra" value={stats.upcoming} tone="amber" />
-        <StatCard icon={Ticket} label="Đã kết thúc" value={stats.ended} tone="slate" />
+        <StatCard
+          icon={Sparkles}
+          label="Tổng chiến dịch"
+          value={stats.total}
+          tone="indigo"
+        />
+        <StatCard
+          icon={CheckCircle2}
+          label="Đang chạy"
+          value={stats.running}
+          tone="green"
+        />
+        <StatCard
+          icon={Ticket}
+          label="Voucher phát / dùng"
+          value={`${stats.totalIssued} / ${stats.totalUsed}`}
+          tone="amber"
+        />
+        <StatCard
+          icon={Wallet}
+          label="Tổng chi phí giảm giá"
+          value={`${stats.totalDiscount.toLocaleString("vi-VN")}₫`}
+          tone="slate"
+        />
       </section>
 
       {isLoading ? (
@@ -158,10 +201,15 @@ export default function MerchantCampaignsPage() {
           {campaigns?.map((c) => {
             const status = campaignStatus(c);
             const config = STATUS_CONFIG[status];
+            const usageRate =
+              c.issued_count > 0
+                ? Math.round((c.used_count / c.issued_count) * 100)
+                : 0;
             return (
-              <article
+              <Link
                 key={c.id}
-                className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm"
+                href={`/merchant/campaigns/${c.id}`}
+                className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="relative h-16 bg-gradient-to-br from-brand-indigo to-brand-violet">
                   <span
@@ -172,9 +220,12 @@ export default function MerchantCampaignsPage() {
                   </span>
                 </div>
                 <div className="space-y-2 p-5">
-                  <h3 className="font-headline text-[16px] font-bold text-slate-800">
-                    {c.name}
-                  </h3>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-headline text-[16px] font-bold text-slate-800 group-hover:text-brand-indigo">
+                      {c.name}
+                    </h3>
+                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-1 group-hover:text-brand-indigo" />
+                  </div>
                   {c.description && (
                     <p className="line-clamp-2 min-h-[2.4rem] text-[12px] text-slate-600">
                       {c.description}
@@ -196,8 +247,34 @@ export default function MerchantCampaignsPage() {
                       đã phát
                     </span>
                   </div>
+                  <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                        Đã dùng
+                      </p>
+                      <p className="mt-0.5 text-[13px] font-bold text-emerald-600">
+                        {c.used_count}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                        Tỉ lệ
+                      </p>
+                      <p className="mt-0.5 text-[13px] font-bold text-slate-700">
+                        {usageRate}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                        Chi phí
+                      </p>
+                      <p className="mt-0.5 text-[13px] font-bold text-rose-600">
+                        {(c.total_discount_amount / 1000).toFixed(0)}K₫
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </article>
+              </Link>
             );
           })}
         </section>
@@ -353,7 +430,7 @@ function StatCard({
 }: {
   icon: typeof Sparkles;
   label: string;
-  value: number;
+  value: number | string;
   tone: "indigo" | "green" | "amber" | "slate";
 }) {
   const toneClass =

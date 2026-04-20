@@ -97,6 +97,9 @@ export interface CampaignResponse {
   tenant_id: number;
   name: string;
   description: string | null;
+  terms?: string | null;
+  usage_guide?: string | null;
+  support_contact?: string | null;
   source: string;
   discount_type: string;
   discount_value: number;
@@ -110,6 +113,18 @@ export interface CampaignResponse {
   target_tier_id: number | null;
   created_at: string;
   deleted_at: string | null;
+  used_count: number;
+  total_discount_amount: number;
+  total_revenue_from_voucher_txns: number;
+}
+
+export interface CampaignRoiResponse {
+  campaign_id: number;
+  name: string;
+  vouchers_issued: number;
+  vouchers_used: number;
+  total_discount_amount: number;
+  total_revenue_from_voucher_txns: number;
 }
 
 export interface CampaignCreateRequest {

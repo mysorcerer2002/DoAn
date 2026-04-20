@@ -64,6 +64,10 @@ class CampaignResponse(BaseModel):
     source: CampaignSource
     deleted_at: datetime | None = None
     created_at: datetime
+    # Stats kèm kèm (default 0 khi service không enrich)
+    used_count: int = 0
+    total_discount_amount: int = 0
+    total_revenue_from_voucher_txns: int = 0
 
     model_config = {"from_attributes": True}
 

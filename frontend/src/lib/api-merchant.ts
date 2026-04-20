@@ -11,6 +11,7 @@ import type {
   AuditFeedItem,
   CampaignCreateRequest,
   CampaignResponse,
+  CampaignRoiResponse,
   CreateManualTransactionRequest,
   DashboardResponse,
   LedgerEntryResponse,
@@ -80,6 +81,8 @@ export const campaignsApi = {
   list: (params?: { active_only?: boolean }) =>
     api.get<CampaignResponse[]>("/merchant/campaigns", { params }),
   get: (id: number) => api.get<CampaignResponse>(`/merchant/campaigns/${id}`),
+  roi: (id: number) =>
+    api.get<CampaignRoiResponse>(`/merchant/campaigns/${id}/roi`),
   create: (data: CampaignCreateRequest) =>
     api.post<CampaignResponse>("/merchant/campaigns", data),
   update: (id: number, data: Partial<CampaignCreateRequest>) =>

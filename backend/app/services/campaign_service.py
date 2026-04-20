@@ -77,6 +77,77 @@ class CampaignService:
         rows = await self.db.scalars(stmt)
         return list(rows.all())
 
+    async def _compute_stats_for_campaigns(
+        self, campaign_ids: list[int]
+    ) -> dict[int, tuple[int, int, int]]:
+        """Trả map campaign_id -> (used_count, total_discount, total_revenue)."""
+        if not campaign_ids:
+            return {}
+
+        used_rows = await self.db.execute(
+            select(Voucher.campaign_id, func.count())
+            .where(
+                Voucher.campaign_id.in_(campaign_ids),
+                Voucher.status == VoucherStatus.USED,
+            )
+            .group_by(Voucher.campaign_id)
+        )
+        used_map = {cid: int(cnt) for cid, cnt in used_rows.all()}
+
+        txn_rows = await self.db.execute(
+            select(
+                Voucher.campaign_id,
+                func.coalesce(func.sum(Transaction.voucher_discount_amount), 0),
+                func.coalesce(func.sum(Transaction.net_amount), 0),
+            )
+            .join(Transaction, Transaction.voucher_id == Voucher.id)
+            .where(Voucher.campaign_id.in_(campaign_ids))
+            .group_by(Voucher.campaign_id)
+        )
+        txn_map = {
+            cid: (int(d), int(r)) for cid, d, r in txn_rows.all()
+        }
+
+        return {
+            cid: (
+                used_map.get(cid, 0),
+                txn_map.get(cid, (0, 0))[0],
+                txn_map.get(cid, (0, 0))[1],
+            )
+            for cid in campaign_ids
+        }
+
+    async def list_campaigns_with_stats(
+        self,
+        *,
+        tenant_id: int,
+        active_only: bool = False,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[tuple[Campaign, int, int, int]]:
+        campaigns = await self.list_campaigns(
+            tenant_id=tenant_id,
+            active_only=active_only,
+            limit=limit,
+            offset=offset,
+        )
+        stats_map = await self._compute_stats_for_campaigns(
+            [c.id for c in campaigns]
+        )
+        return [
+            (c, *stats_map.get(c.id, (0, 0, 0))) for c in campaigns
+        ]
+
+    async def get_campaign_with_stats(
+        self, *, tenant_id: int, campaign_id: int
+    ) -> tuple[Campaign, int, int, int]:
+        campaign = await self.get_campaign(
+            tenant_id=tenant_id, campaign_id=campaign_id
+        )
+        stats_map = await self._compute_stats_for_campaigns([campaign.id])
+        used, discount, revenue = stats_map.get(campaign.id, (0, 0, 0))
+        return campaign, used, discount, revenue
+
     async def update_campaign(
         self, *, tenant_id: int, campaign_id: int, request: CampaignUpdateRequest
     ) -> Campaign:
