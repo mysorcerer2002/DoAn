@@ -22,6 +22,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { authApi } from "@/lib/api";
+import { useLogout } from "@/lib/hooks/use-logout";
 import { useMe, useMyMemberships } from "@/lib/hooks/use-me";
 import type { User } from "@/types/auth";
 
@@ -49,6 +50,7 @@ export default function ProfilePage() {
   const { data: user, isLoading, isError } = useMe();
   const { data: memberships } = useMyMemberships();
   const [editOpen, setEditOpen] = useState(false);
+  const logout = useLogout();
 
   const updateMut = useMutation({
     mutationFn: authApi.updateMe,
@@ -78,12 +80,7 @@ export default function ProfilePage() {
     .sort((a, b) => b.points_balance - a.points_balance)[0];
 
   const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("access_token");
-      sessionStorage.removeItem("refresh_token");
-      sessionStorage.removeItem("active_tenant");
-    }
-    router.replace("/login");
+    logout();
   };
 
   const infoItems = [
