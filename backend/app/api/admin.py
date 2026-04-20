@@ -1,4 +1,7 @@
-from datetime import datetime
+import secrets
+import string
+from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -8,8 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import require_super_admin
+from app.core.security import hash_password
 from app.models.membership import Membership
 from app.models.tenant import Tenant, TenantStatus
+from app.models.tier import Tier
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.analytics import PlatformStatsResponse, TenantDetailResponse
@@ -313,6 +318,195 @@ async def get_admin_settings(
         scheduler_enabled=s.enable_scheduler,
         allowed_origins=s.cors_origins,
         app_name=s.app_name,
+    )
+
+
+class AdminMembershipInfo(BaseModel):
+    tenant_id: int
+    tenant_name: str
+    tenant_slug: str
+    points_balance: int
+    total_points_earned: int
+    current_tier_name: str | None
+    joined_at: datetime
+    archived: bool
+
+
+class AdminUserDetailResponse(BaseModel):
+    id: int
+    email: str | None
+    phone: str | None
+    full_name: str | None
+    system_role: str
+    is_active: bool
+    is_shadow: bool
+    created_at: datetime
+    last_login_at: datetime | None
+    password_changed_at: datetime | None
+    memberships: list[AdminMembershipInfo]
+
+
+class AdminUserUpdateRequest(BaseModel):
+    is_active: bool | None = None
+    system_role: Literal["regular", "admin", "super_admin"] | None = None
+
+
+class AdminResetPasswordResponse(BaseModel):
+    user_id: int
+    temporary_password: str
+
+
+def _generate_temp_password(length: int = 12) -> str:
+    """Sinh mật khẩu ngẫu nhiên dễ đọc (chữ + số, không ký tự đặc biệt)."""
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+async def _count_active_super_admins(db: AsyncSession) -> int:
+    return int(
+        await db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(
+                User.system_role == "super_admin",
+                User.is_active.is_(True),
+                User.is_shadow.is_(False),
+            )
+        )
+        or 0
+    )
+
+
+@router.get("/users/{user_id}", response_model=AdminUserDetailResponse)
+async def get_user_detail(
+    user_id: int,
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> AdminUserDetailResponse:
+    """Super Admin xem chi tiết user + danh sách membership."""
+    target = await db.get(User, user_id)
+    if target is None or target.is_shadow:
+        raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
+
+    rows = (
+        await db.execute(
+            select(Membership, Tenant, Tier.name)
+            .join(Tenant, Membership.tenant_id == Tenant.id)
+            .outerjoin(Tier, Membership.current_tier_id == Tier.id)
+            .where(Membership.user_id == user_id)
+            .order_by(Membership.joined_at.desc())
+        )
+    ).all()
+
+    memberships = [
+        AdminMembershipInfo(
+            tenant_id=t.id,
+            tenant_name=t.name,
+            tenant_slug=t.slug,
+            points_balance=m.points_balance,
+            total_points_earned=m.total_points_earned,
+            current_tier_name=tier_name,
+            joined_at=m.joined_at,
+            archived=m.archived_at is not None,
+        )
+        for m, t, tier_name in rows
+    ]
+
+    return AdminUserDetailResponse(
+        id=target.id,
+        email=target.email,
+        phone=target.phone,
+        full_name=target.full_name,
+        system_role=target.system_role,
+        is_active=target.is_active,
+        is_shadow=target.is_shadow,
+        created_at=target.created_at,
+        last_login_at=target.last_login_at,
+        password_changed_at=target.password_changed_at,
+        memberships=memberships,
+    )
+
+
+@router.patch("/users/{user_id}", response_model=AdminUserDetailResponse)
+async def update_user(
+    user_id: int,
+    body: AdminUserUpdateRequest,
+    admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> AdminUserDetailResponse:
+    """Super Admin cập nhật is_active hoặc system_role của user.
+
+    - Không cho phép tự khoá/tự đổi role của chính mình.
+    - Không cho phép demote hoặc deactivate super_admin cuối cùng của platform.
+    """
+    if body.is_active is None and body.system_role is None:
+        raise HTTPException(status_code=400, detail="Không có trường nào để cập nhật")
+
+    target = await db.get(User, user_id)
+    if target is None or target.is_shadow:
+        raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
+
+    if target.id == admin.id:
+        raise HTTPException(
+            status_code=409,
+            detail="Không thể chỉnh sửa trạng thái hoặc vai trò của chính mình",
+        )
+
+    demoting_super = (
+        body.system_role is not None
+        and target.system_role == "super_admin"
+        and body.system_role != "super_admin"
+    )
+    deactivating_super = (
+        body.is_active is False
+        and target.system_role == "super_admin"
+        and target.is_active
+    )
+    if demoting_super or deactivating_super:
+        active_supers = await _count_active_super_admins(db)
+        if active_supers <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Không thể hạ cấp/khoá super admin cuối cùng của hệ thống",
+            )
+
+    if body.is_active is not None:
+        target.is_active = body.is_active
+    if body.system_role is not None:
+        target.system_role = body.system_role
+
+    await db.commit()
+    await db.refresh(target)
+
+    return await get_user_detail(user_id=target.id, _admin=admin, db=db)
+
+
+@router.post(
+    "/users/{user_id}/reset-password", response_model=AdminResetPasswordResponse
+)
+async def reset_user_password(
+    user_id: int,
+    admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> AdminResetPasswordResponse:
+    """Super Admin reset mật khẩu user, trả mật khẩu tạm thời để chuyển cho user."""
+    target = await db.get(User, user_id)
+    if target is None or target.is_shadow:
+        raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
+
+    if target.id == admin.id:
+        raise HTTPException(
+            status_code=409,
+            detail="Không thể reset mật khẩu của chính mình qua trang admin",
+        )
+
+    temp_password = _generate_temp_password()
+    target.password_hash = hash_password(temp_password)
+    target.password_changed_at = datetime.now(tz=UTC)
+    await db.commit()
+
+    return AdminResetPasswordResponse(
+        user_id=target.id, temporary_password=temp_password
     )
 
 
