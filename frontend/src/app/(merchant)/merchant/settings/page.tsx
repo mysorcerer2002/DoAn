@@ -14,6 +14,12 @@ type TenantForm = {
   name: string;
   description: string;
   logo_url: string;
+  contact_phone: string;
+  contact_email: string;
+  address: string;
+  tax_code: string;
+  website: string;
+  business_hours: string;
 };
 
 type SettingsForm = {
@@ -33,6 +39,12 @@ export default function MerchantSettingsPage() {
     name: "",
     description: "",
     logo_url: "",
+    contact_phone: "",
+    contact_email: "",
+    address: "",
+    tax_code: "",
+    website: "",
+    business_hours: "",
   });
   const [settingsForm, setSettingsForm] = useState<SettingsForm>({
     points_on_gross: false,
@@ -48,6 +60,12 @@ export default function MerchantSettingsPage() {
         name: tenant.name,
         description: tenant.description ?? "",
         logo_url: tenant.logo_url ?? "",
+        contact_phone: tenant.contact_phone ?? "",
+        contact_email: tenant.contact_email ?? "",
+        address: tenant.address ?? "",
+        tax_code: tenant.tax_code ?? "",
+        website: tenant.website ?? "",
+        business_hours: tenant.business_hours ?? "",
       });
     }
   }, [tenant]);
@@ -72,6 +90,12 @@ export default function MerchantSettingsPage() {
         name: tenantForm.name,
         description: tenantForm.description || null,
         logo_url: tenantForm.logo_url || null,
+        contact_phone: tenantForm.contact_phone || null,
+        contact_email: tenantForm.contact_email || null,
+        address: tenantForm.address || null,
+        tax_code: tenantForm.tax_code || null,
+        website: tenantForm.website || null,
+        business_hours: tenantForm.business_hours || null,
       });
       setSavedMessage("Đã cập nhật thông tin cửa hàng");
     } catch {
@@ -170,6 +194,99 @@ export default function MerchantSettingsPage() {
                   setTenantForm({ ...tenantForm, logo_url: e.target.value })
                 }
                 placeholder="https://..."
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+              />
+            </Field>
+
+            <div className="!mt-5 border-t border-dashed border-slate-200 pt-4">
+              <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">
+                Thông tin liên hệ
+              </h3>
+            </div>
+
+            <Field label="Số điện thoại">
+              <input
+                type="tel"
+                value={tenantForm.contact_phone}
+                onChange={(e) =>
+                  setTenantForm({
+                    ...tenantForm,
+                    contact_phone: e.target.value,
+                  })
+                }
+                placeholder="VD: 0901234567"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+              />
+            </Field>
+
+            <Field label="Email liên hệ">
+              <input
+                type="email"
+                value={tenantForm.contact_email}
+                onChange={(e) =>
+                  setTenantForm({
+                    ...tenantForm,
+                    contact_email: e.target.value,
+                  })
+                }
+                placeholder="hello@shop.vn"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+              />
+            </Field>
+
+            <Field label="Địa chỉ">
+              <textarea
+                rows={2}
+                value={tenantForm.address}
+                onChange={(e) =>
+                  setTenantForm({ ...tenantForm, address: e.target.value })
+                }
+                placeholder="Số nhà, đường, quận, thành phố"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+              />
+            </Field>
+
+            <div className="!mt-5 border-t border-dashed border-slate-200 pt-4">
+              <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">
+                Thông tin kinh doanh
+              </h3>
+            </div>
+
+            <Field label="Mã số thuế">
+              <input
+                type="text"
+                value={tenantForm.tax_code}
+                onChange={(e) =>
+                  setTenantForm({ ...tenantForm, tax_code: e.target.value })
+                }
+                placeholder="VD: 0312345678"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+              />
+            </Field>
+
+            <Field label="Website">
+              <input
+                type="url"
+                value={tenantForm.website}
+                onChange={(e) =>
+                  setTenantForm({ ...tenantForm, website: e.target.value })
+                }
+                placeholder="https://shop.vn"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+              />
+            </Field>
+
+            <Field label="Giờ mở cửa">
+              <input
+                type="text"
+                value={tenantForm.business_hours}
+                onChange={(e) =>
+                  setTenantForm({
+                    ...tenantForm,
+                    business_hours: e.target.value,
+                  })
+                }
+                placeholder="VD: 07:00 - 22:00 hàng ngày"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
               />
             </Field>

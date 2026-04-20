@@ -6,15 +6,18 @@ import {
   ArrowRight,
   Building2,
   CheckCircle2,
+  Clock,
   Coffee,
   Eye,
   EyeOff,
+  Globe,
   ImageIcon,
   Lock,
   Mail,
   MapPin,
   Palette,
   Phone,
+  Receipt,
   Sparkles,
   Store,
   User as UserIcon,
@@ -52,6 +55,19 @@ const shopSchema = z.object({
     .regex(/^[0-9+\-\s()]+$/, "Số điện thoại không hợp lệ"),
   contact_email: z.string().email("Email không hợp lệ").max(255),
   address: z.string().min(5, "Địa chỉ tối thiểu 5 ký tự").max(500),
+  tax_code: z
+    .string()
+    .max(20)
+    .regex(/^[0-9\-]*$/, "Mã số thuế chỉ gồm chữ số")
+    .optional()
+    .or(z.literal("")),
+  website: z
+    .string()
+    .url("URL không hợp lệ")
+    .max(500)
+    .optional()
+    .or(z.literal("")),
+  business_hours: z.string().max(255).optional().or(z.literal("")),
 });
 
 type AccountForm = z.infer<typeof accountSchema>;
@@ -109,6 +125,9 @@ export default function MerchantRegisterPage() {
         contact_phone: data.contact_phone,
         contact_email: data.contact_email,
         address: data.address,
+        tax_code: data.tax_code || null,
+        website: data.website || null,
+        business_hours: data.business_hours || null,
       });
 
       setStep(3);
@@ -406,6 +425,48 @@ export default function MerchantRegisterPage() {
                     </p>
                   )}
                 </div>
+
+                {/* Business info (optional) */}
+                <div className="!mt-6 border-t border-dashed border-slate-200 pt-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100">
+                      <Receipt className="h-3.5 w-3.5 text-brand-indigo" />
+                    </span>
+                    <h4 className="font-headline text-[13px] font-bold text-slate-800">
+                      Thông tin kinh doanh
+                      <span className="ml-1 text-[11px] font-normal text-slate-400">
+                        (không bắt buộc)
+                      </span>
+                    </h4>
+                  </div>
+                  <p className="mb-3 pl-9 text-[11px] text-slate-500">
+                    Dùng để xuất hóa đơn và hiển thị cho khách hàng
+                  </p>
+                </div>
+
+                <Field
+                  icon={Receipt}
+                  placeholder="Mã số thuế (VD: 0312345678)"
+                  type="text"
+                  register={shopForm.register("tax_code")}
+                  error={shopForm.formState.errors.tax_code?.message}
+                />
+
+                <Field
+                  icon={Globe}
+                  placeholder="Website (VD: https://shop.vn)"
+                  type="url"
+                  register={shopForm.register("website")}
+                  error={shopForm.formState.errors.website?.message}
+                />
+
+                <Field
+                  icon={Clock}
+                  placeholder="Giờ mở cửa (VD: 07:00 - 22:00 hàng ngày)"
+                  type="text"
+                  register={shopForm.register("business_hours")}
+                  error={shopForm.formState.errors.business_hours?.message}
+                />
 
                 {error && (
                   <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">

@@ -15,8 +15,15 @@ export interface TenantResponse {
   slug: string;
   owner_user_id: number;
   status: string;
+  category: string;
   logo_url: string | null;
   description: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  address: string | null;
+  tax_code: string | null;
+  website: string | null;
+  business_hours: string | null;
   settings: Record<string, unknown>;
   created_at: string;
   activated_at: string | null;
@@ -26,6 +33,13 @@ export interface TenantUpdateRequest {
   name?: string;
   description?: string | null;
   logo_url?: string | null;
+  category?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  address?: string | null;
+  tax_code?: string | null;
+  website?: string | null;
+  business_hours?: string | null;
 }
 
 // Members
