@@ -60,3 +60,6 @@ backend/test_result.txt
 
 # Screenshot artifacts ở repo root
 /*.png
+
+# Stitch design mockups (local only)
+stitch-designs/
