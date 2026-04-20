@@ -215,6 +215,34 @@ export function useAdminTenants(status?: string) {
   });
 }
 
+export function useAdminTenantDetail(tenantId: number | null) {
+  return useQuery({
+    queryKey: ["admin", "tenants", "detail", tenantId],
+    queryFn: async () => (await adminApi.tenantDetail(tenantId as number)).data,
+    enabled: tenantId != null,
+  });
+}
+
+export function useAdminTenantStaff(tenantId: number | null) {
+  return useQuery({
+    queryKey: ["admin", "tenants", "staff", tenantId],
+    queryFn: async () => (await adminApi.tenantStaff(tenantId as number)).data,
+    enabled: tenantId != null,
+  });
+}
+
+export function useAdminTenantMembers(
+  tenantId: number | null,
+  params?: { limit?: number; offset?: number },
+) {
+  return useQuery({
+    queryKey: ["admin", "tenants", "members", tenantId, params],
+    queryFn: async () =>
+      (await adminApi.tenantMembers(tenantId as number, params)).data,
+    enabled: tenantId != null,
+  });
+}
+
 export function useApproveTenant() {
   const qc = useQueryClient();
   return useMutation({

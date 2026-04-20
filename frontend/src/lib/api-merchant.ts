@@ -2,6 +2,9 @@ import { api } from "@/lib/api";
 import type {
   AdminResetPasswordResponse,
   AdminSettingsResponse,
+  AdminTenantListRow,
+  AdminTenantMemberRow,
+  AdminTenantStaffRow,
   AdminUserDetailResponse,
   AdminUserListResponse,
   AdminUserUpdateRequest,
@@ -112,9 +115,15 @@ export const tiersApi = {
 export const adminApi = {
   stats: () => api.get<PlatformStatsResponse>("/admin/stats"),
   listTenants: (params?: { status?: string }) =>
-    api.get<TenantResponse[]>("/admin/tenants", { params }),
+    api.get<AdminTenantListRow[]>("/admin/tenants", { params }),
   tenantDetail: (id: number) =>
     api.get<TenantDetailResponse>(`/admin/tenants/${id}/detail`),
+  tenantStaff: (id: number) =>
+    api.get<AdminTenantStaffRow[]>(`/admin/tenants/${id}/staff`),
+  tenantMembers: (id: number, params?: { limit?: number; offset?: number }) =>
+    api.get<AdminTenantMemberRow[]>(`/admin/tenants/${id}/members`, {
+      params,
+    }),
   approveTenant: (id: number, approve: boolean, reason?: string) =>
     api.post<TenantResponse>(`/admin/tenants/${id}/approve`, {
       approve,

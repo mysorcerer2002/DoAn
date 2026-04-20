@@ -273,9 +273,74 @@ export interface TenantDetailResponse {
   name: string;
   slug: string;
   status: string;
+  category: string;
+  description: string | null;
+  logo_url: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  address: string | null;
+  tax_code: string | null;
+  website: string | null;
+  business_hours: string | null;
+  created_at: string;
+  activated_at: string | null;
+  owner_id: number;
+  owner_name: string | null;
+  owner_email: string | null;
+  owner_phone: string | null;
   member_count: number;
+  active_member_count: number;
+  staff_count: number;
   transaction_count: number;
   total_revenue: number;
+  campaign_count: number;
+  active_campaign_count: number;
+  voucher_count: number;
+  redemption_count: number;
+  reward_count: number;
+}
+
+export interface AdminTenantListRow {
+  id: number;
+  name: string;
+  slug: string;
+  status: string;
+  category: string;
+  logo_url: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  created_at: string;
+  activated_at: string | null;
+  owner_id: number;
+  owner_name: string | null;
+  owner_email: string | null;
+  member_count: number;
+  staff_count: number;
+  transaction_count: number;
+  total_revenue: number;
+}
+
+export interface AdminTenantStaffRow {
+  user_id: number;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  added_at: string;
+  is_active: boolean;
+}
+
+export interface AdminTenantMemberRow {
+  membership_id: number;
+  user_id: number;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  points_balance: number;
+  total_points_earned: number;
+  current_tier_name: string | null;
+  joined_at: string;
+  archived: boolean;
 }
 
 export interface AdminUserRow {
