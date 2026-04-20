@@ -45,3 +45,15 @@ Thumbs.db
 # Docker
 .docker/
 .gitnexus
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Claude Code runtime state
+.claude/scheduled_tasks.lock
+
+# Test/debug outputs
+test_*.txt
+*_result.txt
+backend/test_output.txt
+backend/test_result.txt
