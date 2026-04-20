@@ -15,6 +15,9 @@ class TenantCreateRequest(BaseModel):
     contact_phone: str | None = Field(default=None, max_length=20)
     contact_email: str | None = Field(default=None, max_length=255)
     address: str | None = Field(default=None, max_length=500)
+    tax_code: str | None = Field(default=None, max_length=20)
+    website: str | None = Field(default=None, max_length=500)
+    business_hours: str | None = Field(default=None, max_length=255)
 
 
 class TenantUpdateRequest(BaseModel):
@@ -27,6 +30,9 @@ class TenantUpdateRequest(BaseModel):
     contact_phone: str | None = Field(default=None, max_length=20)
     contact_email: str | None = Field(default=None, max_length=255)
     address: str | None = Field(default=None, max_length=500)
+    tax_code: str | None = Field(default=None, max_length=20)
+    website: str | None = Field(default=None, max_length=500)
+    business_hours: str | None = Field(default=None, max_length=255)
 
 
 class TenantResponse(BaseModel):
@@ -43,6 +49,9 @@ class TenantResponse(BaseModel):
     contact_phone: str | None
     contact_email: str | None
     address: str | None
+    tax_code: str | None
+    website: str | None
+    business_hours: str | None
     settings: dict
     created_at: datetime
     activated_at: datetime | None
@@ -62,6 +71,8 @@ class TenantPublicResponse(BaseModel):
     contact_phone: str | None
     contact_email: str | None
     address: str | None
+    website: str | None
+    business_hours: str | None
 
     model_config = {"from_attributes": True}
 

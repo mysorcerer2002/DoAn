@@ -54,6 +54,9 @@ class TenantService:
             contact_phone=request.contact_phone,
             contact_email=request.contact_email,
             address=request.address,
+            tax_code=request.tax_code,
+            website=request.website,
+            business_hours=request.business_hours,
             settings={},
         )
         self.db.add(tenant)

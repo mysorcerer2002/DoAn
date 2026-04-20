@@ -53,6 +53,9 @@ class Tenant(Base, TimestampMixin):
     contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    tax_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    business_hours: Mapped[str | None] = mapped_column(String(255), nullable=True)
     settings: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     activated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
