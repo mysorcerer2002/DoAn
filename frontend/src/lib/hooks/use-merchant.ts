@@ -16,6 +16,7 @@ import {
 } from "@/lib/api-merchant";
 import { useTenantStore } from "@/lib/tenant-store";
 import type {
+  AdminUserUpdateRequest,
   CampaignCreateRequest,
   CreateManualTransactionRequest,
   RewardCreateRequest,
@@ -258,6 +259,34 @@ export function useAdminUsers(params?: {
   return useQuery({
     queryKey: ["admin", "users", params],
     queryFn: async () => (await adminApi.listUsers(params)).data,
+  });
+}
+
+export function useAdminUserDetail(userId: number | null) {
+  return useQuery({
+    queryKey: ["admin", "users", "detail", userId],
+    queryFn: async () => (await adminApi.getUser(userId as number)).data,
+    enabled: userId != null,
+  });
+}
+
+export function useUpdateAdminUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: AdminUserUpdateRequest }) =>
+      adminApi.updateUser(id, data),
+    onSuccess: (_res, vars) => {
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({
+        queryKey: ["admin", "users", "detail", vars.id],
+      });
+    },
+  });
+}
+
+export function useResetAdminUserPassword() {
+  return useMutation({
+    mutationFn: (id: number) => adminApi.resetUserPassword(id),
   });
 }
 

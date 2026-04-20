@@ -295,6 +295,32 @@ export interface AdminUserListResponse {
   items: AdminUserRow[];
 }
 
+export interface AdminMembershipInfo {
+  tenant_id: number;
+  tenant_name: string;
+  tenant_slug: string;
+  points_balance: number;
+  total_points_earned: number;
+  current_tier_name: string | null;
+  joined_at: string;
+  archived: boolean;
+}
+
+export interface AdminUserDetailResponse extends AdminUserRow {
+  password_changed_at: string | null;
+  memberships: AdminMembershipInfo[];
+}
+
+export interface AdminUserUpdateRequest {
+  is_active?: boolean;
+  system_role?: "regular" | "admin" | "super_admin";
+}
+
+export interface AdminResetPasswordResponse {
+  user_id: number;
+  temporary_password: string;
+}
+
 export interface AuditFeedItem {
   event_type:
     | "tenant_created"

@@ -1,7 +1,10 @@
 import { api } from "@/lib/api";
 import type {
+  AdminResetPasswordResponse,
   AdminSettingsResponse,
+  AdminUserDetailResponse,
   AdminUserListResponse,
+  AdminUserUpdateRequest,
   AuditFeedItem,
   CampaignCreateRequest,
   CampaignResponse,
@@ -125,6 +128,12 @@ export const adminApi = {
     limit?: number;
     offset?: number;
   }) => api.get<AdminUserListResponse>("/admin/users", { params }),
+  getUser: (id: number) =>
+    api.get<AdminUserDetailResponse>(`/admin/users/${id}`),
+  updateUser: (id: number, data: AdminUserUpdateRequest) =>
+    api.patch<AdminUserDetailResponse>(`/admin/users/${id}`, data),
+  resetUserPassword: (id: number) =>
+    api.post<AdminResetPasswordResponse>(`/admin/users/${id}/reset-password`),
   auditFeed: (params?: { limit?: number }) =>
     api.get<AuditFeedItem[]>("/admin/audit-feed", { params }),
   settings: () => api.get<AdminSettingsResponse>("/admin/settings"),
