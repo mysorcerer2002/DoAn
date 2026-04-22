@@ -52,6 +52,13 @@ async def _setup(db_session):
         ends_at=now + timedelta(days=7),
         is_active=True,
         source=CampaignSource.MANUAL,
+        program_form="giam_gia",
+        approval_status="auto_approved",
+        approval_tier="none",
+        estimated_cost=0,
+        realized_cost=0,
+        service_fee_total=0,
+        service_fee_status="none",
     )
     db_session.add(campaign)
     await db_session.flush()

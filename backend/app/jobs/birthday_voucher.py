@@ -1,10 +1,16 @@
-"""Birthday voucher job — tự động tạo voucher sinh nhật mỗi ngày."""
+"""Birthday voucher job — tự động tạo voucher sinh nhật mỗi ngày.
+
+Phase 9: gọi `VoucherService.claim(..., issue_source="birthday_job")` thay
+vì INSERT Voucher thủ công — đảm bảo voucher có `issuance_id`,
+`discount_snapshot`, `terms_hash`, và qua đầy đủ guard approval +
+authorization (acceptance #11).
+"""
 
 import logging
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import extract, select, update
+from sqlalchemy import extract, select
 from sqlalchemy.orm import joinedload
 
 from app.core.db import AsyncSessionLocal
@@ -12,8 +18,13 @@ from app.models.campaign import Campaign, CampaignSource
 from app.models.membership import Membership
 from app.models.notification import Notification
 from app.models.user import User
-from app.models.voucher import Voucher, VoucherStatus
-from app.services.voucher_service import VoucherService, generate_code
+from app.models.voucher import Voucher
+from app.services.voucher_service import (
+    AlreadyClaimedError,
+    CampaignFullError,
+    CampaignNotEligibleError,
+    VoucherService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +60,14 @@ async def _birthday_voucher_logic() -> dict:
     skipped = 0
 
     async with AsyncSessionLocal() as session:
-        # Tìm tất cả campaign sinh nhật đang active
+        # Tìm tất cả campaign sinh nhật đang active + đã duyệt.
         campaigns = (
             await session.scalars(
                 select(Campaign).where(
                     Campaign.source == CampaignSource.BIRTHDAY,
+                    Campaign.approval_status.in_(
+                        ("auto_approved", "approved")
+                    ),
                     Campaign.is_active.is_(True),
                     Campaign.deleted_at.is_(None),
                 )
@@ -64,6 +78,7 @@ async def _birthday_voucher_logic() -> dict:
             logger.info("No active birthday campaigns found")
             return {"issued": 0, "skipped": 0}
 
+        svc = VoucherService(session)
         for campaign in campaigns:
             # Tìm memberships có sinh nhật hôm nay trong tenant này
             memberships = (
@@ -93,35 +108,26 @@ async def _birthday_voucher_logic() -> dict:
                     skipped += 1
                     continue
 
-                # Kiểm tra max_issuances
-                if campaign.max_issuances and campaign.issued_count >= campaign.max_issuances:
+                try:
+                    voucher = await svc.claim(
+                        tenant_id=campaign.tenant_id,
+                        membership_id=membership.id,
+                        campaign_id=campaign.id,
+                        issue_source="birthday_job",
+                    )
+                except AlreadyClaimedError:
+                    skipped += 1
+                    continue
+                except CampaignFullError:
                     logger.warning(
-                        "Campaign %d reached max issuances (%d)",
-                        campaign.id, campaign.max_issuances,
+                        "Campaign %d reached max issuances", campaign.id,
                     )
                     continue
-
-                # Tạo voucher
-                voucher_code = generate_code()
-                svc = VoucherService(session)
-                ttl_days = await svc.get_voucher_ttl(campaign.tenant_id)
-                now = datetime.now(timezone.utc)
-
-                voucher = Voucher(
-                    tenant_id=campaign.tenant_id,
-                    campaign_id=campaign.id,
-                    membership_id=membership.id,
-                    code=voucher_code,
-                    status=VoucherStatus.ISSUED,
-                    issued_at=now,
-                    expires_at=now + timedelta(days=ttl_days),
-                )
-                session.add(voucher)
-                await session.execute(
-                    update(Campaign)
-                    .where(Campaign.id == campaign.id)
-                    .values(issued_count=Campaign.issued_count + 1)
-                )
+                except CampaignNotEligibleError as e:
+                    logger.warning(
+                        "Campaign %d không đủ điều kiện: %s", campaign.id, e,
+                    )
+                    continue
 
                 # Push notification
                 notification = Notification(
@@ -129,8 +135,8 @@ async def _birthday_voucher_logic() -> dict:
                     user_id=membership.user_id,
                     type="birthday_voucher",
                     title="Chúc mừng sinh nhật! 🎂",
-                    body=f"Bạn nhận được voucher giảm giá {campaign.name}. Mã: {voucher_code}",
-                    data={"voucher_code": voucher_code, "campaign_id": campaign.id},
+                    body=f"Bạn nhận được voucher giảm giá {campaign.name}. Mã: {voucher.code}",
+                    data={"voucher_code": voucher.code, "campaign_id": campaign.id},
                 )
                 session.add(notification)
                 issued += 1

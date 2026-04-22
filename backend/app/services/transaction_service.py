@@ -231,19 +231,31 @@ class TransactionService:
         if campaign is None:
             raise InvalidVoucherError("Campaign not found for voucher")
 
-        # Tính discount
-        if campaign.discount_type == DiscountType.PERCENT:
-            discount = int(gross_amount * campaign.discount_value / 100)
-            if campaign.max_discount:
-                discount = min(discount, campaign.max_discount)
+        # Phase 9 I1 — đọc từ discount_snapshot trước (cô lập voucher
+        # khỏi edit campaign sau khi đã issue). Fallback sang live campaign
+        # cho voucher cũ chưa có snapshot (pre-migration c7d8e9f0a1b2).
+        snap = voucher.discount_snapshot or {}
+        discount_type_str = snap.get("discount_type") or (
+            campaign.discount_type.value
+            if hasattr(campaign.discount_type, "value")
+            else str(campaign.discount_type)
+        )
+        discount_value = snap.get("discount_value", campaign.discount_value)
+        max_discount = snap.get("max_discount", campaign.max_discount)
+        min_order = snap.get("min_order", campaign.min_order)
+
+        if discount_type_str == "percent":
+            discount = int(gross_amount * discount_value / 100)
+            if max_discount:
+                discount = min(discount, max_discount)
         else:
-            discount = campaign.discount_value
+            discount = discount_value
 
         discount = min(discount, gross_amount)
 
-        if campaign.min_order and gross_amount < campaign.min_order:
+        if min_order and gross_amount < min_order:
             raise InvalidVoucherError(
-                f"Order amount {gross_amount} below minimum {campaign.min_order}"
+                f"Order amount {gross_amount} below minimum {min_order}"
             )
 
         # Atomic mark used: UPDATE WHERE status=ISSUED, fail nếu race
@@ -468,16 +480,29 @@ class TransactionService:
             VoucherService,
         )
 
+        from sqlalchemy import or_
+
+        from app.models.tenant_authorization import TenantAuthorization
+
         now = datetime.now(timezone.utc)
         campaign = await self.db.scalar(
             select(Campaign)
+            .outerjoin(
+                TenantAuthorization,
+                Campaign.authorization_id == TenantAuthorization.id,
+            )
             .where(
                 Campaign.tenant_id == tenant_id,
                 Campaign.source == CampaignSource.SIGNUP,
+                Campaign.approval_status.in_(("auto_approved", "approved")),
                 Campaign.is_active.is_(True),
                 Campaign.deleted_at.is_(None),
                 Campaign.starts_at <= now,
                 Campaign.ends_at > now,
+                or_(
+                    Campaign.authorization_id.is_(None),
+                    TenantAuthorization.revoked_at.is_(None),
+                ),
             )
             .order_by(Campaign.id.asc())
             .limit(1)
@@ -491,6 +516,7 @@ class TransactionService:
                 tenant_id=tenant_id,
                 membership_id=membership_id,
                 campaign_id=campaign.id,
+                issue_source="signup_job",
             )
         except (AlreadyClaimedError, CampaignFullError, CampaignNotEligibleError):
             return None
