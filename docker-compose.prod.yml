@@ -55,7 +55,7 @@ services:
       NEXT_PUBLIC_API_URL: /api
       BACKEND_INTERNAL_URL: http://backend:8000
     ports:
-      - "127.0.0.1:3099:3000"
+      - "3199:3000"
     networks:
       - loyalty-net
 
