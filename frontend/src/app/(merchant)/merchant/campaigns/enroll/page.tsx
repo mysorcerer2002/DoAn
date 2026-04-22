@@ -27,11 +27,10 @@ const PROGRAM_FORM_LABEL: Record<string, string> = {
 };
 
 const APPROVAL_TIER_LABEL: Record<string, string> = {
-  none: "Không cần duyệt",
-  auto: "Tự động duyệt",
-  notify: "Thông báo",
-  register: "Cần đăng ký Sở CT",
-  reject: "Từ chối",
+  none: "Không cần duyệt (auto-approve)",
+  notify_so_ct: "Thông báo Sở CT (NĐ 81 Điều 17)",
+  dang_ky_so_ct: "Đăng ký Sở CT (NĐ 81 Điều 19)",
+  full_dossier: "Hồ sơ đầy đủ",
 };
 
 const APPROVAL_STATUS_LABEL: Record<string, string> = {

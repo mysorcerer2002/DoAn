@@ -6,11 +6,10 @@ import Link from "next/link";
 import { useOverdueReports } from "@/lib/hooks/use-admin-campaigns";
 
 const TIER_LABELS: Record<string, string> = {
-  none: "Không cần",
-  auto: "Tự động",
-  notify: "Thông báo",
-  register: "Đăng ký",
-  reject: "Từ chối",
+  none: "Không cần duyệt",
+  notify_so_ct: "Thông báo Sở CT",
+  dang_ky_so_ct: "Đăng ký Sở CT",
+  full_dossier: "Hồ sơ đầy đủ",
 };
 
 function fmtDate(iso: string): string {

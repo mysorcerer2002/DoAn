@@ -14,19 +14,17 @@ const PROGRAM_FORM_LABELS: Record<string, string> = {
 };
 
 const TIER_LABELS: Record<string, string> = {
-  none: "Không cần",
-  auto: "Tự động",
-  notify: "Thông báo",
-  register: "Đăng ký",
-  reject: "Từ chối",
+  none: "Không cần duyệt",
+  notify_so_ct: "Thông báo Sở CT",
+  dang_ky_so_ct: "Đăng ký Sở CT",
+  full_dossier: "Hồ sơ đầy đủ",
 };
 
 const TIER_COLORS: Record<string, string> = {
-  none: "bg-slate-100 text-slate-600",
-  auto: "bg-emerald-100 text-emerald-700",
-  notify: "bg-blue-100 text-blue-700",
-  register: "bg-amber-100 text-amber-700",
-  reject: "bg-red-100 text-red-600",
+  none: "bg-emerald-100 text-emerald-700",
+  notify_so_ct: "bg-blue-100 text-blue-700",
+  dang_ky_so_ct: "bg-amber-100 text-amber-700",
+  full_dossier: "bg-red-100 text-red-600",
 };
 
 const FEE_LABELS: Record<string, string> = {

@@ -31,11 +31,10 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const TIER_LABELS: Record<string, string> = {
-  none: "Không cần",
-  auto: "Tự động",
-  notify: "Thông báo",
-  register: "Đăng ký",
-  reject: "Từ chối",
+  none: "Không cần duyệt",
+  notify_so_ct: "Thông báo Sở CT (NĐ 81 Điều 17)",
+  dang_ky_so_ct: "Đăng ký Sở CT (NĐ 81 Điều 19)",
+  full_dossier: "Hồ sơ đầy đủ",
 };
 
 const FEE_LABELS: Record<string, string> = {
