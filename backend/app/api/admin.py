@@ -12,7 +12,7 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import require_super_admin
 from app.core.security import hash_password
-from app.models.campaign import Campaign
+from app.models.campaign import Campaign, CampaignSource
 from app.models.membership import Membership
 from app.models.redemption import Redemption
 from app.models.reward import Reward
@@ -29,8 +29,18 @@ from app.schemas.analytics import (
     PlatformStatsResponse,
     TenantDetailResponse,
 )
+from app.schemas.campaign_template import (
+    CampaignTemplateCreateRequest,
+    CampaignTemplateResponse,
+    CampaignTemplateUpdateRequest,
+)
 from app.schemas.ledger import ReconcileResponse
 from app.schemas.tenant import TenantApprovalRequest, TenantResponse
+from app.services.campaign_template_service import (
+    CampaignTemplateService,
+    TemplateCodeConflictError,
+    TemplateNotFoundError,
+)
 from app.services.ledger_service import LedgerService
 from app.services.tenant_service import (
     InvalidStatusTransitionError,
@@ -761,6 +771,106 @@ async def reset_user_password(
     return AdminResetPasswordResponse(
         user_id=target.id, temporary_password=temp_password
     )
+
+
+# ---------------------------------------------------------------------------
+# Campaign templates (phase 2 voucher rebuild v2.2)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/campaign-templates", response_model=list[CampaignTemplateResponse]
+)
+async def list_campaign_templates(
+    source: CampaignSource | None = Query(default=None),
+    is_active: bool | None = Query(default=None),
+    include_deleted: bool = Query(default=False),
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> list[CampaignTemplateResponse]:
+    """Liệt kê template khung khuyến mãi; mặc định ẩn soft-deleted."""
+    service = CampaignTemplateService(db)
+    templates = await service.list_templates(
+        source=source.value if source else None,
+        is_active=is_active,
+        include_deleted=include_deleted,
+    )
+    return [CampaignTemplateResponse.model_validate(t) for t in templates]
+
+
+@router.post(
+    "/campaign-templates",
+    response_model=CampaignTemplateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_campaign_template(
+    body: CampaignTemplateCreateRequest,
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> CampaignTemplateResponse:
+    """Tạo template mới — `code` UNIQUE, version=1."""
+    service = CampaignTemplateService(db)
+    try:
+        template = await service.create_template(body)
+    except TemplateCodeConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return CampaignTemplateResponse.model_validate(template)
+
+
+@router.get(
+    "/campaign-templates/{template_id}",
+    response_model=CampaignTemplateResponse,
+)
+async def get_campaign_template(
+    template_id: int,
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> CampaignTemplateResponse:
+    service = CampaignTemplateService(db)
+    try:
+        template = await service.get_template(template_id)
+    except TemplateNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return CampaignTemplateResponse.model_validate(template)
+
+
+@router.patch(
+    "/campaign-templates/{template_id}",
+    response_model=CampaignTemplateResponse,
+)
+async def update_campaign_template(
+    template_id: int,
+    body: CampaignTemplateUpdateRequest,
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> CampaignTemplateResponse:
+    """Đổi rule nghiệp vụ → `version += 1` để campaign cũ giữ snapshot cũ."""
+    service = CampaignTemplateService(db)
+    try:
+        template = await service.update_template(template_id, body)
+    except TemplateNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return CampaignTemplateResponse.model_validate(template)
+
+
+@router.delete(
+    "/campaign-templates/{template_id}",
+    response_model=CampaignTemplateResponse,
+)
+async def soft_delete_campaign_template(
+    template_id: int,
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> CampaignTemplateResponse:
+    """Soft delete (`deleted_at = NOW`); campaign đã enroll vẫn đọc được."""
+    service = CampaignTemplateService(db)
+    try:
+        template = await service.soft_delete_template(template_id)
+    except TemplateNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return CampaignTemplateResponse.model_validate(template)
 
 
 @router.get("/stats", response_model=PlatformStatsResponse)

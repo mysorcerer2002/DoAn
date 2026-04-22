@@ -32,6 +32,17 @@ class Settings(BaseSettings):
     enable_scheduler: bool = False
     frontend_origins: str = "http://localhost:3000"
 
+    # Voucher rebuild v2.2 — gate phí dịch vụ.
+    # False ở scope đồ án: hide UI + API phí; data model (campaign_service_fees,
+    # campaign_fee_schedules, VAT fields) vẫn tạo đầy đủ để khoá luận bật on.
+    service_fee_enabled: bool = False
+
+    # NĐ 81/2018 Điều 17/19 — threshold tier phê duyệt (VND).
+    # estimated_cost <= auto → auto_approved;
+    # < notify → notify_so_ct; >= notify → dang_ky_so_ct.
+    campaign_auto_threshold: int = 500_000
+    campaign_notify_threshold: int = 2_000_000
+
     @model_validator(mode="after")
     def _validate_secrets(self) -> "Settings":
         """Kiểm tra secrets đủ mạnh trong production."""
