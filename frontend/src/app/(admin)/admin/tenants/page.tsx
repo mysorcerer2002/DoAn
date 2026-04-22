@@ -181,8 +181,7 @@ export default function AdminTenantsPage() {
                   <th className="px-4 py-3">Chủ sở hữu</th>
                   <th className="px-4 py-3 text-right">Khách</th>
                   <th className="px-4 py-3 text-right">NV</th>
-                  <th className="px-4 py-3 text-right">Giao dịch</th>
-                  <th className="px-4 py-3 text-right">Doanh thu</th>
+                  <th className="px-4 py-3 text-right">Hoạt động 30 ngày</th>
                   <th className="px-4 py-3 text-center">Trạng thái</th>
                   <th className="px-4 py-3 text-right">Hành động</th>
                 </tr>
@@ -239,11 +238,8 @@ export default function AdminTenantsPage() {
                     <td className="px-4 py-3 text-right text-[13px] font-semibold text-slate-700 tabular-nums">
                       {formatNumber(t.staff_count)}
                     </td>
-                    <td className="px-4 py-3 text-right text-[13px] font-semibold text-slate-700 tabular-nums">
-                      {formatNumber(t.transaction_count)}
-                    </td>
                     <td className="px-4 py-3 text-right text-[13px] font-semibold text-emerald-600 tabular-nums">
-                      {formatCurrency(t.total_revenue)}
+                      {formatNumber(t.active_member_count_30d)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <StatusBadge status={t.status} />

@@ -1,6 +1,6 @@
 import secrets
 import string
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -65,12 +65,14 @@ async def list_tenants(
         .group_by(TenantStaff.tenant_id)
         .subquery()
     )
-    txn_sq = (
+    # Khách hoạt động 30 ngày: số membership distinct có giao dịch trong 30 ngày gần nhất
+    since_30d = datetime.now(UTC) - timedelta(days=30)
+    active_30d_sq = (
         select(
             Transaction.tenant_id.label("tenant_id"),
-            func.count(Transaction.id).label("cnt"),
-            func.coalesce(func.sum(Transaction.net_amount), 0).label("revenue"),
+            func.count(func.distinct(Transaction.membership_id)).label("cnt"),
         )
+        .where(Transaction.created_at >= since_30d)
         .group_by(Transaction.tenant_id)
         .subquery()
     )
@@ -82,13 +84,12 @@ async def list_tenants(
             User.email.label("owner_email"),
             func.coalesce(member_count_sq.c.cnt, 0).label("member_count"),
             func.coalesce(staff_count_sq.c.cnt, 0).label("staff_count"),
-            func.coalesce(txn_sq.c.cnt, 0).label("txn_count"),
-            func.coalesce(txn_sq.c.revenue, 0).label("revenue"),
+            func.coalesce(active_30d_sq.c.cnt, 0).label("active_30d_count"),
         )
         .join(User, User.id == Tenant.owner_user_id)
         .outerjoin(member_count_sq, member_count_sq.c.tenant_id == Tenant.id)
         .outerjoin(staff_count_sq, staff_count_sq.c.tenant_id == Tenant.id)
-        .outerjoin(txn_sq, txn_sq.c.tenant_id == Tenant.id)
+        .outerjoin(active_30d_sq, active_30d_sq.c.tenant_id == Tenant.id)
         .order_by(Tenant.created_at.desc())
     )
     if tenant_status is not None:
@@ -113,11 +114,10 @@ async def list_tenants(
             owner_name=owner_name,
             owner_email=owner_email,
             member_count=int(mc),
+            active_member_count_30d=int(a30),
             staff_count=int(sc),
-            transaction_count=int(tc),
-            total_revenue=int(rev),
         )
-        for t, owner_name, owner_email, mc, sc, tc, rev in rows
+        for t, owner_name, owner_email, mc, sc, a30 in rows
     ]
 
 

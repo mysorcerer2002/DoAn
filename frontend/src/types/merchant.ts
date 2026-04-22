@@ -344,9 +344,8 @@ export interface AdminTenantListRow {
   owner_name: string | null;
   owner_email: string | null;
   member_count: number;
+  active_member_count_30d: number;
   staff_count: number;
-  transaction_count: number;
-  total_revenue: number;
 }
 
 export interface AdminTenantStaffRow {

@@ -107,9 +107,8 @@ class AdminTenantListRow(BaseModel):
     owner_name: str | None = None
     owner_email: str | None = None
     member_count: int
+    active_member_count_30d: int
     staff_count: int
-    transaction_count: int
-    total_revenue: int
 
 
 class AdminTenantStaffRow(BaseModel):
