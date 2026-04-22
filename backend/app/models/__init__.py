@@ -5,6 +5,7 @@ from app.models.campaign import (
     CampaignSource,
     DiscountType,
 )
+from app.models.campaign_issuance import CampaignIssuance, IssueMode
 from app.models.campaign_template import CampaignTemplate, ProgramForm
 from app.models.membership import Membership
 from app.models.notification import Notification
@@ -19,7 +20,7 @@ from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
 from app.models.verification_code import VerificationCode, VerificationCodePurpose
-from app.models.voucher import Voucher, VoucherStatus
+from app.models.voucher import IssueSource, Voucher, VoucherStatus
 
 __all__ = [
     "User", "Tenant", "TenantStatus", "TenantStaff", "TenantStaffRole",
@@ -31,5 +32,6 @@ __all__ = [
     "Campaign", "CampaignSource", "DiscountType",
     "ApprovalStatus", "ApprovalTier",
     "CampaignTemplate", "ProgramForm",
-    "Voucher", "VoucherStatus", "Notification",
+    "CampaignIssuance", "IssueMode",
+    "Voucher", "VoucherStatus", "IssueSource", "Notification",
 ]
