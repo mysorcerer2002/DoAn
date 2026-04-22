@@ -42,7 +42,7 @@ async def test_login_with_correct_credentials(db_session):
     )
     await db_session.flush()
 
-    user = await service.authenticate(email="charlie@example.com", password="pass12345")
+    user = await service.authenticate(identifier="charlie@example.com", password="pass12345")
     assert user is not None
     assert user.email == "charlie@example.com"
     assert user.last_login_at is not None
@@ -57,11 +57,11 @@ async def test_login_with_wrong_password_raises(db_session):
     await db_session.flush()
 
     with pytest.raises(InvalidCredentialsError):
-        await service.authenticate(email="dave@example.com", password="wrongpass")
+        await service.authenticate(identifier="dave@example.com", password="wrongpass")
 
 
 @pytest.mark.asyncio
 async def test_login_with_nonexistent_email_raises(db_session):
     service = AuthService(db_session)
     with pytest.raises(InvalidCredentialsError):
-        await service.authenticate(email="nobody@example.com", password="anything")
+        await service.authenticate(identifier="nobody@example.com", password="anything")

@@ -59,7 +59,7 @@ async def login(
 ) -> TokenResponse:
     service = AuthService(db)
     try:
-        user = await service.authenticate(email=body.email, password=body.password)
+        user = await service.authenticate(identifier=body.identifier, password=body.password)
     except InvalidCredentialsError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
 

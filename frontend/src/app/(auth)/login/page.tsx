@@ -6,15 +6,39 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Lock, UserRound } from "lucide-react";
 
 import { api, authApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTenantStore } from "@/lib/tenant-store";
 import type { TenantStaffSummary } from "@/types/merchant";
 
+// Normalize identifier client-side để UX nhất quán: nhập "+84 987 654 321"
+// vẫn detect là phone VN. Backend cũng normalize, nhưng feedback sớm giúp
+// user thấy lỗi trước khi submit.
+const VN_PHONE_RE = /^0\d{9}$/;
+
+function normalizeIdentifier(raw: string): string {
+  const v = raw.trim();
+  if (v.includes("@")) return v.toLowerCase();
+  let cleaned = v.replace(/[\s\-.]/g, "");
+  if (cleaned.startsWith("+84")) cleaned = "0" + cleaned.slice(3);
+  else if (cleaned.startsWith("84") && cleaned.length === 11)
+    cleaned = "0" + cleaned.slice(2);
+  return cleaned;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const schema = z.object({
-  email: z.string().email("Email không hợp lệ"),
+  identifier: z
+    .string()
+    .min(1, "Vui lòng nhập email hoặc số điện thoại")
+    .transform(normalizeIdentifier)
+    .refine(
+      (v) => EMAIL_RE.test(v) || VN_PHONE_RE.test(v),
+      "Email hoặc số điện thoại không hợp lệ"
+    ),
   password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự"),
 });
 
@@ -136,18 +160,19 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               <div className="space-y-1">
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute inset-y-0 left-3 my-auto h-5 w-5 text-slate-400" />
+                  <UserRound className="pointer-events-none absolute inset-y-0 left-3 my-auto h-5 w-5 text-slate-400" />
                   <input
-                    type="email"
-                    placeholder="email@example.com"
-                    autoComplete="email"
+                    type="text"
+                    inputMode="text"
+                    placeholder="Email hoặc số điện thoại"
+                    autoComplete="username"
                     className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-3 outline-none transition-all placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
-                    {...register("email")}
+                    {...register("identifier")}
                   />
                 </div>
-                {errors.email && (
+                {errors.identifier && (
                   <p className="pl-1 text-xs text-red-500">
-                    {errors.email.message}
+                    {errors.identifier.message}
                   </p>
                 )}
               </div>

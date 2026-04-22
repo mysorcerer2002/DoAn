@@ -67,9 +67,17 @@ class AuthService:
         )
         return user
 
-    async def authenticate(self, email: str, password: str) -> User:
-        """Constant-time authenticate — luôn chạy bcrypt để chống timing attack."""
-        user = await self.db.scalar(select(User).where(User.email == email))
+    async def authenticate(self, identifier: str, password: str) -> User:
+        """Constant-time authenticate — luôn chạy bcrypt để chống timing attack.
+
+        `identifier` có thể là email (chứa '@') hoặc SĐT VN (đã normalize về
+        dạng 0xxxxxxxxx bởi schema). Nếu không match format nào → user sẽ None,
+        dummy hash verify vẫn chạy để giữ thời gian nhất quán.
+        """
+        if "@" in identifier:
+            user = await self.db.scalar(select(User).where(User.email == identifier))
+        else:
+            user = await self.db.scalar(select(User).where(User.phone == identifier))
         # Luôn verify (dummy hash nếu user/hash không tồn tại) để giữ thời gian nhất quán.
         hash_to_check = (
             user.password_hash if user and user.password_hash else get_dummy_password_hash()
@@ -79,13 +87,13 @@ class AuthService:
         if user is None or user.password_hash is None or not password_valid:
             logger.warning(
                 "auth.login.failed",
-                extra={"email_hash": _hash_email_for_log(email)},
+                extra={"identifier_hash": _hash_email_for_log(identifier)},
             )
-            raise InvalidCredentialsError("Invalid email or password")
+            raise InvalidCredentialsError("Invalid email/phone or password")
         if not user.is_active:
             logger.warning(
                 "auth.login.disabled",
-                extra={"user_id": user.id, "email_hash": _hash_email_for_log(email)},
+                extra={"user_id": user.id},
             )
             raise InvalidCredentialsError("Account is disabled")
 
