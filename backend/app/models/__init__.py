@@ -1,4 +1,10 @@
-from app.models.campaign import Campaign, CampaignSource, DiscountType
+from app.models.campaign import (
+    ApprovalStatus,
+    ApprovalTier,
+    Campaign,
+    CampaignSource,
+    DiscountType,
+)
 from app.models.campaign_template import CampaignTemplate, ProgramForm
 from app.models.membership import Membership
 from app.models.notification import Notification
@@ -23,6 +29,7 @@ __all__ = [
     "PointLedger", "LedgerReason", "LedgerRefType",
     "Reward", "Redemption", "RedemptionStatus",
     "Campaign", "CampaignSource", "DiscountType",
+    "ApprovalStatus", "ApprovalTier",
     "CampaignTemplate", "ProgramForm",
     "Voucher", "VoucherStatus", "Notification",
 ]
