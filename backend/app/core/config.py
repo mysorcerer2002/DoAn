@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     campaign_auto_threshold: int = 500_000
     campaign_notify_threshold: int = 2_000_000
 
+    # Voucher rebuild v2.2 — post-report và retention.
+    # 45 ngày nộp báo cáo kết thúc (Điều 20 NĐ 81). 10 năm lưu uỷ quyền + phí
+    # (Luật Kế toán 2015 Điều 41). VAT mặc định 10% (Luật Thuế GTGT).
+    campaign_default_post_report_days: int = 45
+    service_fee_vat_rate: float = 10.0
+    auth_retention_years: int = 10
+    consent_text_version: str = "v1.0-2026-04"
+
     @model_validator(mode="after")
     def _validate_secrets(self) -> "Settings":
         """Kiểm tra secrets đủ mạnh trong production."""

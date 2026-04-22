@@ -10,6 +10,7 @@ from app.models.base import Base, TimestampMixin
 class VerificationCodePurpose(str, enum.Enum):
     CLAIM_SHADOW = "claim_shadow"
     RESET_PASSWORD = "reset_password"
+    AUTHORIZATION_SIGN = "authorization_sign"
 
 
 class VerificationCode(Base, TimestampMixin):
@@ -28,4 +29,9 @@ class VerificationCode(Base, TimestampMixin):
     )
     used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # sha256 hex của payload liên quan — dùng ở flow authorization_sign để
+    # bind OTP với form enroll (chặn tamper). Null cho purpose khác.
+    context_hash: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
     )

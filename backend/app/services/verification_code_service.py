@@ -30,9 +30,18 @@ class VerificationCodeService:
         self._secret = get_settings().jwt_secret
 
     async def create_code(
-        self, *, user_id: int, purpose: VerificationCodePurpose
+        self,
+        *,
+        user_id: int,
+        purpose: VerificationCodePurpose,
+        context_hash: str | None = None,
     ) -> str:
-        """Sinh code mới + invalidate code cũ chưa dùng. Trả plain code."""
+        """Sinh code mới + invalidate code cũ chưa dùng. Trả plain code.
+
+        `context_hash` (optional): sha256 của payload cần bind OTP vào —
+        verify sẽ fail nếu context mismatch. Dùng ở flow
+        `authorization_sign` để chặn tamper form giữa request-otp và sign.
+        """
         # Vô hiệu code cũ
         await self.db.execute(
             update(VerificationCode)
@@ -53,6 +62,7 @@ class VerificationCodeService:
             code_hash=code_hash,
             purpose=purpose,
             expires_at=expires_at,
+            context_hash=context_hash,
         )
         self.db.add(record)
         await self.db.flush()
@@ -60,22 +70,39 @@ class VerificationCodeService:
         return plain
 
     async def verify_code(
-        self, *, user_id: int, code: str, purpose: VerificationCodePurpose
+        self,
+        *,
+        user_id: int,
+        code: str,
+        purpose: VerificationCodePurpose,
+        context_hash: str | None = None,
     ) -> bool:
+        """Verify OTP; fail nếu sai / hết hạn / đã dùng / context mismatch.
+
+        Dùng `SELECT ... FOR UPDATE` để serialize concurrent sign với cùng
+        OTP — request thứ 2 block đến khi request 1 commit rồi mới thấy
+        `used_at IS NOT NULL` và fail.
+        """
         code_hash = _hmac_hash(code, self._secret)
         now = datetime.now(timezone.utc)
 
         record = await self.db.scalar(
-            select(VerificationCode).where(
+            select(VerificationCode)
+            .where(
                 VerificationCode.user_id == user_id,
                 VerificationCode.code_hash == code_hash,
                 VerificationCode.purpose == purpose,
                 VerificationCode.used_at.is_(None),
                 VerificationCode.expires_at > now,
             )
+            .with_for_update()
         )
         if record is None:
             raise InvalidCodeError("Invalid, expired, or already used code")
+
+        if context_hash is not None and record.context_hash != context_hash:
+            # Form đã bị đổi giữa request-otp và sign → từ chối.
+            raise InvalidCodeError("OTP context mismatch")
 
         record.used_at = now
         await self.db.flush()
