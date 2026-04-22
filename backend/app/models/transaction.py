@@ -1,6 +1,15 @@
 import enum
+from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String
+from sqlalchemy import (
+    CheckConstraint,
+    Computed,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -46,3 +55,12 @@ class Transaction(Base, TimestampMixin):
         String(20), nullable=False
     )
     note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # Phase 10 M12 — GENERATED STORED (DB tự tính), read-only trong app.
+    legal_discount_ratio: Mapped[Decimal | None] = mapped_column(
+        Numeric(5, 2),
+        Computed(
+            "voucher_discount_amount::NUMERIC / NULLIF(gross_amount, 0) * 100",
+            persisted=True,
+        ),
+        nullable=True,
+    )

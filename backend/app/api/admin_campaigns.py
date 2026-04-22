@@ -43,6 +43,7 @@ from app.services.campaign_approval_service import (
     InvalidStateError,
     UsedVouchersBlockRejectError,
 )
+from app.services.transaction_service import TransactionService
 
 
 router = APIRouter(prefix="/admin", tags=["admin-campaigns"])
@@ -122,7 +123,15 @@ async def get_campaign_detail(
         campaign = await CampaignApprovalService(db).get_detail(campaign_id)
     except CampaignNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    return AdminCampaignDetailResponse.model_validate(campaign)
+    # Phase 10 I2 — đọc realized_cost realtime từ view `v_campaign_stats`
+    # thay vì column cache (column sẽ drop ở phase sau). View COALESCE 0
+    # khi chưa có voucher nào dùng.
+    realized = await TransactionService(db).get_campaign_realized_cost_from_view(
+        campaign_id
+    )
+    resp = AdminCampaignDetailResponse.model_validate(campaign)
+    resp.realized_cost = realized
+    return resp
 
 
 @router.get(

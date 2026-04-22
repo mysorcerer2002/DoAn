@@ -1,9 +1,16 @@
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+
+logger = logging.getLogger(__name__)
+
+# NĐ 81 Điều 7: mức giảm giá tối đa 50% (trừ đợt tập trung). Service
+# layer warn log không CHECK cứng DB — đợt tập trung có thể vượt hợp lệ.
+_LEGAL_DISCOUNT_WARN_THRESHOLD = Decimal("50")
 
 from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
@@ -47,6 +54,41 @@ class InvalidVoucherError(Exception):
 class TransactionService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def get_campaign_realized_cost_from_view(self, campaign_id: int) -> int:
+        """Phase 10 — đọc realized_cost realtime từ `v_campaign_stats`.
+
+        View COALESCE → 0 khi không có voucher nào dùng, trả BIGINT.
+        Admin/merchant API nên dùng helper này thay vì column cache
+        `campaigns.realized_cost` (ngày cache sẽ drop ở phase sau).
+        """
+        row = await self.db.execute(
+            text(
+                "SELECT realized_cost FROM v_campaign_stats "
+                "WHERE campaign_id = :cid"
+            ),
+            {"cid": campaign_id},
+        )
+        value = row.scalar()
+        return int(value) if value is not None else 0
+
+    async def _warn_if_high_discount_ratio(self, txn: Transaction) -> None:
+        """NĐ 81 Điều 7 — giảm >50% chỉ hợp lệ trong đợt tập trung.
+
+        Không raise — chỉ log WARNING để ops monitor. Column
+        `legal_discount_ratio` do DB GENERATED STORED tính; sau flush,
+        SQLAlchemy refresh giá trị.
+        """
+        ratio = txn.legal_discount_ratio
+        if ratio is None:
+            return
+        if ratio > _LEGAL_DISCOUNT_WARN_THRESHOLD:
+            logger.warning(
+                "Transaction #%s legal_discount_ratio=%s%% vượt ngưỡng NĐ 81 Đ7 "
+                "(gross=%s, voucher_discount=%s, campaign qua voucher #%s)",
+                txn.id, ratio, txn.gross_amount,
+                txn.voucher_discount_amount, txn.voucher_id,
+            )
 
     async def create_manual(
         self,
@@ -109,6 +151,11 @@ class TransactionService:
                 f"Tenant {tenant_id} has no active point rule"
             )
 
+        # Phase 10 I1 — clamp discount ≤ gross trước khi persist để
+        # `legal_discount_ratio` (NUMERIC(5,2)) không overflow. NĐ 81 Đ7
+        # về bản chất không cho ratio > 100% — data corruption nếu vượt.
+        if voucher_discount is not None:
+            voucher_discount = min(voucher_discount, request.gross_amount)
         # Clamp net_amount >= 0 (defense: voucher discount > gross_amount edge case)
         net_amount = max(0, request.gross_amount - (voucher_discount or 0))
 
@@ -134,6 +181,8 @@ class TransactionService:
         )
         self.db.add(txn)
         await self.db.flush()
+        await self.db.refresh(txn, ["legal_discount_ratio"])
+        await self._warn_if_high_discount_ratio(txn)
 
         new_balance = membership.points_balance + points_earned
         membership.points_balance = new_balance
@@ -360,7 +409,10 @@ class TransactionService:
                 f"Tenant {tenant_id} has no active point rule"
             )
 
-        net_amount = gross_amount - (voucher_discount or 0)
+        # Phase 10 I1 — clamp discount ≤ gross (xem create_manual comment).
+        if voucher_discount is not None:
+            voucher_discount = min(voucher_discount, gross_amount)
+        net_amount = max(0, gross_amount - (voucher_discount or 0))
         points_earned = self._calculate_points(rule, net_amount)
 
         txn = Transaction(
@@ -377,6 +429,8 @@ class TransactionService:
         )
         self.db.add(txn)
         await self.db.flush()
+        await self.db.refresh(txn, ["legal_discount_ratio"])
+        await self._warn_if_high_discount_ratio(txn)
 
         new_balance = membership.points_balance + points_earned
         membership.points_balance = new_balance
