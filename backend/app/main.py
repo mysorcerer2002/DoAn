@@ -18,6 +18,7 @@ from app.api.qr import router as qr_router
 from app.api.redemptions import router as redemptions_router
 from app.api.rewards import router as rewards_router
 from app.api.settings import router as settings_router
+from app.api.tenant_authorization import router as tenant_authorization_router
 from app.api.tenant_staff import router as tenant_staff_router
 from app.api.tenants import merchant_router, tenants_router, users_router
 from app.api.tiers import router as tiers_router
@@ -80,6 +81,7 @@ app.include_router(rewards_router)
 app.include_router(redemptions_router)
 app.include_router(campaigns_router)
 app.include_router(campaign_enrollment_router)
+app.include_router(tenant_authorization_router)
 app.include_router(vouchers_router)
 app.include_router(notifications_router)
 app.include_router(analytics_router)

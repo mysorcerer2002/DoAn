@@ -42,6 +42,7 @@ from app.schemas.campaign_enrollment import (
     EnrollFormInput,
     FeePreviewItem,
 )
+from app.services.campaign_fee_service import calc_vat
 from app.services.campaign_template_service import CampaignTemplateService
 
 
@@ -257,7 +258,7 @@ class CampaignEnrollmentService:
             if sched is None:
                 continue
             base = int(sched.base_amount)
-            vat = int(base * vat_rate / 100)
+            vat = calc_vat(base, vat_rate)
             items.append(
                 FeePreviewItem(
                     fee_type=ft,
