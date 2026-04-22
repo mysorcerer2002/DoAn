@@ -5,7 +5,15 @@ from app.models.campaign import (
     CampaignSource,
     DiscountType,
 )
+from app.models.campaign_approval_event import (
+    ApprovalEventType,
+    CampaignApprovalEvent,
+)
 from app.models.campaign_issuance import CampaignIssuance, IssueMode
+from app.models.campaign_regulatory_submission import (
+    CampaignRegulatorySubmission,
+    RegulatoryDocType,
+)
 from app.models.campaign_template import CampaignTemplate, ProgramForm
 from app.models.membership import Membership
 from app.models.notification import Notification
@@ -33,5 +41,7 @@ __all__ = [
     "ApprovalStatus", "ApprovalTier",
     "CampaignTemplate", "ProgramForm",
     "CampaignIssuance", "IssueMode",
+    "CampaignRegulatorySubmission", "RegulatoryDocType",
+    "CampaignApprovalEvent", "ApprovalEventType",
     "Voucher", "VoucherStatus", "IssueSource", "Notification",
 ]
