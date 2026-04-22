@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  AlertTriangle,
   BarChart3,
+  ClipboardList,
+  FileText,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -30,6 +33,9 @@ const menu: readonly MenuItem[] = [
   { href: "/admin", icon: LayoutDashboard, label: "Tổng quan" },
   { href: "/admin/tenants", icon: Store, label: "Đối tác" },
   { href: "/admin/users", icon: Users, label: "Người dùng" },
+  { href: "/admin/templates", icon: FileText, label: "Template" },
+  { href: "/admin/campaigns", icon: ClipboardList, label: "Duyệt chiến dịch" },
+  { href: "/admin/campaigns/overdue", icon: AlertTriangle, label: "Quá hạn báo cáo" },
   { href: "/admin/stats", icon: BarChart3, label: "Thống kê" },
   { href: "/admin/audit", icon: Activity, label: "Nhật ký" },
   { href: "/admin/settings", icon: Settings, label: "Cài đặt" },
