@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+
 import { useCampaigns, useCreateCampaign } from "@/lib/hooks/use-merchant";
 import type { CampaignResponse } from "@/types/merchant";
 
@@ -143,14 +144,23 @@ export default function MerchantCampaignsPage() {
             Chiến dịch khuyến mãi
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-200 active:scale-95"
-        >
-          <Plus className="h-4 w-4" />
-          Tạo chiến dịch mới
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/merchant/campaigns/enroll"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-200 active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+            Đăng ký chiến dịch
+          </Link>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50 active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+            Tạo thủ công
+          </button>
+        </div>
       </header>
 
       <section className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">

@@ -12,6 +12,7 @@ import {
   Loader2,
   Percent,
   ReceiptText,
+  ShieldCheck,
   Target,
   TrendingUp,
   Wallet,
@@ -23,6 +24,10 @@ import {
   useCampaignDetail,
   useCampaignRoi,
 } from "@/lib/hooks/use-merchant";
+import {
+  useAuthorizations,
+  useCampaignServiceFees,
+} from "@/lib/hooks/use-merchant-enroll";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("vi-VN", {
@@ -83,6 +88,21 @@ export default function CampaignDetailPage() {
     isError,
   } = useCampaignDetail(Number.isFinite(id) ? id : null);
   const { data: roi } = useCampaignRoi(Number.isFinite(id) ? id : null);
+  const { data: authorizations } = useAuthorizations();
+  const { data: serviceFees } = useCampaignServiceFees(
+    Number.isFinite(id) ? id : null,
+  );
+
+  // Tìm uỷ quyền liên kết với campaign này — ưu tiên còn hiệu lực, sau đó mới nhất
+  const linkedAuth = authorizations
+    ?.filter((a) => a.campaign_id === id)
+    .sort((a, b) => {
+      // Active first
+      if (!a.revoked_at && b.revoked_at) return -1;
+      if (a.revoked_at && !b.revoked_at) return 1;
+      // Then most recent
+      return new Date(b.signed_at).getTime() - new Date(a.signed_at).getTime();
+    })[0];
 
   if (isLoading) {
     return (
@@ -232,6 +252,7 @@ export default function CampaignDetailPage() {
       {/* Two columns: info + rules */}
       <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+
           <h3 className="font-headline text-[15px] font-bold text-slate-800">
             Thông tin ưu đãi
           </h3>
@@ -313,6 +334,110 @@ export default function CampaignDetailPage() {
               )}
           </div>
         </article>
+      </section>
+
+      {/* Uỷ quyền */}
+      <section className="mt-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-brand-indigo" />
+          <h3 className="font-headline text-[15px] font-bold text-slate-800">
+            Uỷ quyền
+          </h3>
+        </div>
+        <div className="mt-3">
+          {linkedAuth ? (
+            <div className="flex items-center justify-between text-[13px]">
+              <div className="space-y-1">
+                <p className="text-slate-600">
+                  Ký lúc:{" "}
+                  <span className="font-medium text-slate-800">
+                    {new Date(linkedAuth.signed_at).toLocaleString("vi-VN")}
+                  </span>
+                </p>
+                {linkedAuth.revoked_at && (
+                  <p className="text-red-600">
+                    Đã thu hồi lúc:{" "}
+                    {new Date(linkedAuth.revoked_at).toLocaleString("vi-VN")}
+                  </p>
+                )}
+              </div>
+              <Link
+                href={`/merchant/authorizations/${linkedAuth.id}`}
+                className="rounded-xl bg-indigo-50 px-3 py-1.5 text-[12px] font-medium text-brand-indigo hover:bg-indigo-100"
+              >
+                Xem uỷ quyền
+              </Link>
+            </div>
+          ) : (
+            <p className="text-[13px] italic text-slate-400">
+              Chưa có uỷ quyền liên kết. Nếu chiến dịch được tạo qua
+              managed-service, uỷ quyền sẽ hiện ở đây.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Phí dịch vụ */}
+      <section className="mt-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <h3 className="font-headline text-[15px] font-bold text-slate-800">
+          Phí dịch vụ
+        </h3>
+        <div className="mt-3">
+          {!serviceFees || serviceFees.length === 0 ? (
+            <p className="text-[13px] italic text-slate-400">
+              Đồ án không áp dụng phí dịch vụ (SERVICE_FEE_ENABLED=false).
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-slate-400">
+                    <th className="pb-1 pr-3">Loại phí</th>
+                    <th className="pb-1 pr-3">Số tiền</th>
+                    <th className="pb-1 pr-3">VAT</th>
+                    <th className="pb-1 pr-3">Tổng</th>
+                    <th className="pb-1 pr-3">Trạng thái</th>
+                    <th className="pb-1 pr-3">Hoá đơn</th>
+                    <th className="pb-1">Thanh toán</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {serviceFees.map((f) => (
+                    <tr key={f.id} className="border-b border-slate-50">
+                      <td className="py-1 pr-3 font-medium text-slate-700">
+                        {f.fee_type}
+                      </td>
+                      <td className="py-1 pr-3 text-slate-700">
+                        {f.amount.toLocaleString("vi-VN")}₫
+                      </td>
+                      <td className="py-1 pr-3 text-slate-700">
+                        {f.vat_amount.toLocaleString("vi-VN")}₫
+                      </td>
+                      <td className="py-1 pr-3 font-bold text-slate-800">
+                        {f.total_with_vat.toLocaleString("vi-VN")}₫
+                      </td>
+                      <td className="py-1 pr-3">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
+                          {f.status}
+                        </span>
+                      </td>
+                      <td className="py-1 pr-3 text-slate-500">
+                        {f.invoiced_at
+                          ? new Date(f.invoiced_at).toLocaleDateString("vi-VN")
+                          : "—"}
+                      </td>
+                      <td className="py-1 text-slate-500">
+                        {f.paid_at
+                          ? new Date(f.paid_at).toLocaleDateString("vi-VN")
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </section>
     </main>
   );
