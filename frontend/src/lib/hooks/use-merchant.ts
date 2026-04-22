@@ -218,6 +218,22 @@ export function useCreateTransaction() {
   });
 }
 
+export function useCreateQrTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      qr_payload: string;
+      gross_amount: number;
+      note?: string | null;
+    }) => transactionsApi.createFromQr(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["merchant", "transactions"] });
+      qc.invalidateQueries({ queryKey: ["merchant", "dashboard"] });
+      qc.invalidateQueries({ queryKey: ["merchant", "members"] });
+    },
+  });
+}
+
 // ==================== Admin ====================
 export function usePlatformStats() {
   return useQuery({

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 
 import { api } from "@/lib/api";
 import { useMe } from "@/lib/hooks/use-me";
@@ -113,10 +114,21 @@ export default function MemberQrPage() {
               </div>
             ) : (
               <div className="relative h-64 w-64">
-                <QrPattern data={data.jwt} />
-                <div className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brand-indigo text-2xl font-bold text-white shadow-lg">
-                  L
-                </div>
+                <QRCodeSVG
+                  value={data.jwt}
+                  size={256}
+                  level="M"
+                  marginSize={0}
+                  bgColor="#ffffff"
+                  fgColor="#0f172a"
+                  imageSettings={{
+                    src:
+                      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='20' fill='%234f46e5'/><text x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-family='sans-serif' font-size='22' font-weight='700' fill='white'>L</text></svg>",
+                    height: 44,
+                    width: 44,
+                    excavate: true,
+                  }}
+                />
               </div>
             )}
             {data && (
@@ -156,53 +168,3 @@ export default function MemberQrPage() {
   );
 }
 
-/** Stylized QR grid — real QR encoding requires library, dùng visual proxy. */
-function QrPattern({ data }: { data: string }) {
-  // Deterministic bits từ data → visualize khác nhau cho mỗi token
-  const seed = data.length;
-  const size = 25;
-  const cells: boolean[] = [];
-  let h = seed;
-  for (let i = 0; i < size * size; i++) {
-    h = (h * 1103515245 + 12345) & 0x7fffffff;
-    cells.push((h & 1) === 1);
-  }
-  const cellPx = 256 / size;
-  return (
-    <svg
-      viewBox={`0 0 ${size} ${size}`}
-      className="h-full w-full rounded-lg"
-      style={{ shapeRendering: "crispEdges" }}
-    >
-      <rect width={size} height={size} fill="#fff" />
-      {cells.map((on, i) => {
-        if (!on) return null;
-        const x = i % size;
-        const y = Math.floor(i / size);
-        return (
-          <rect key={i} x={x} y={y} width={1} height={1} fill="#0f172a" />
-        );
-      })}
-      {/* 3 corner finder squares */}
-      {[
-        { x: 0, y: 0 },
-        { x: size - 7, y: 0 },
-        { x: 0, y: size - 7 },
-      ].map(({ x, y }, idx) => (
-        <g key={idx}>
-          <rect x={x} y={y} width={7} height={7} fill="#fff" />
-          <rect
-            x={x}
-            y={y}
-            width={7}
-            height={7}
-            fill="none"
-            stroke="#0f172a"
-            strokeWidth="1"
-          />
-          <rect x={x + 2} y={y + 2} width={3} height={3} fill="#0f172a" />
-        </g>
-      ))}
-    </svg>
-  );
-}

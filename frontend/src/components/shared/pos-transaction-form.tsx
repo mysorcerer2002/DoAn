@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  Camera,
   Check,
   CheckCircle2,
   Crown,
@@ -13,10 +14,13 @@ import {
   Tag,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
-import { useCreateTransaction } from "@/lib/hooks/use-merchant";
+import {
+  useCreateQrTransaction,
+  useCreateTransaction,
+} from "@/lib/hooks/use-merchant";
 import type { TransactionWithMemberResponse } from "@/types/merchant";
 
 type PadKey =
@@ -61,6 +65,10 @@ export function PosTransactionForm({
 }: PosTransactionFormProps) {
   const [mode, setMode] = useState<"phone" | "qr">("phone");
   const [phone, setPhone] = useState("");
+  const [qrPayload, setQrPayload] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [amount, setAmount] = useState("");
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherCheck, setVoucherCheck] = useState<VoucherCheckResponse | null>(
@@ -74,6 +82,64 @@ export function PosTransactionForm({
   const [error, setError] = useState<string | null>(null);
 
   const createTxn = useCreateTransaction();
+  const createQrTxn = useCreateQrTransaction();
+  const submitting = createTxn.isPending || createQrTxn.isPending;
+
+  // BarcodeDetector — chrome/edge/android. Feature detect an toàn cho SSR.
+  const hasBarcodeDetector =
+    typeof window !== "undefined" && "BarcodeDetector" in window;
+
+  useEffect(() => {
+    if (!scanning) return;
+    let stream: MediaStream | null = null;
+    let rafId: number | null = null;
+    let cancelled = false;
+
+    const start = async () => {
+      try {
+        // @ts-expect-error BarcodeDetector chưa có trong TS lib.dom mặc định
+        const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = stream;
+        await video.play();
+
+        const tick = async () => {
+          if (cancelled || !videoRef.current) return;
+          try {
+            const codes = await detector.detect(videoRef.current);
+            if (codes.length > 0 && codes[0].rawValue) {
+              setQrPayload(codes[0].rawValue);
+              setScanning(false);
+              return;
+            }
+          } catch {
+            // Frame lỗi thì bỏ qua, giữ loop
+          }
+          rafId = requestAnimationFrame(tick);
+        };
+        rafId = requestAnimationFrame(tick);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setScanError("Không mở được camera: " + msg);
+        setScanning(false);
+      }
+    };
+    start();
+
+    return () => {
+      cancelled = true;
+      if (rafId != null) cancelAnimationFrame(rafId);
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+    };
+  }, [scanning]);
 
   const handlePad = (key: PadKey) => {
     if (key === "del") {
@@ -114,11 +180,30 @@ export function PosTransactionForm({
   const handleSubmit = async () => {
     setError(null);
     setResult(null);
-    if (!phone.trim() || !amount.trim() || Number(amount) <= 0) {
-      setError("Vui lòng nhập số điện thoại và số tiền hợp lệ");
+    if (!amount.trim() || Number(amount) <= 0) {
+      setError("Vui lòng nhập số tiền hợp lệ");
       return;
     }
     try {
+      if (mode === "qr") {
+        if (!qrPayload.trim()) {
+          setError("Vui lòng quét hoặc dán nội dung QR khách");
+          return;
+        }
+        const res = await createQrTxn.mutateAsync({
+          qr_payload: qrPayload.trim(),
+          gross_amount: Number(amount),
+          note: null,
+        });
+        setResult(res.data);
+        setAmount("");
+        setQrPayload("");
+        return;
+      }
+      if (!phone.trim()) {
+        setError("Vui lòng nhập số điện thoại khách");
+        return;
+      }
       const res = await createTxn.mutateAsync({
         phone: phone.trim(),
         gross_amount: Number(amount),
@@ -137,6 +222,9 @@ export function PosTransactionForm({
 
   const handleReset = () => {
     setPhone("");
+    setQrPayload("");
+    setScanning(false);
+    setScanError(null);
     setAmount("");
     setVoucherCode("");
     setVoucherCheck(null);
@@ -207,8 +295,62 @@ export function PosTransactionForm({
               />
             </div>
           ) : (
-            <div className="mt-3 flex h-20 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 text-[13px] text-slate-500">
-              Quét QR đang phát triển — hãy nhập SĐT
+            <div className="mt-3 space-y-3">
+              {scanning ? (
+                <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-black">
+                  <video
+                    ref={videoRef}
+                    className="h-56 w-full object-cover"
+                    playsInline
+                    muted
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setScanning(false)}
+                    className="absolute right-2 top-2 rounded-lg bg-white/90 px-3 py-1 text-[11px] font-bold text-slate-700"
+                  >
+                    Dừng
+                  </button>
+                  <div className="pointer-events-none absolute inset-6 rounded-xl border-2 border-white/70" />
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScanError(null);
+                      if (!hasBarcodeDetector) {
+                        setScanError(
+                          "Trình duyệt không hỗ trợ quét camera — hãy dán nội dung QR vào ô bên dưới"
+                        );
+                        return;
+                      }
+                      setScanning(true);
+                    }}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl ${accentBg} py-3 text-[13px] font-bold text-white`}
+                  >
+                    <Camera className="h-4 w-4" />
+                    Quét bằng camera
+                  </button>
+                </div>
+              )}
+              <textarea
+                value={qrPayload}
+                onChange={(e) => setQrPayload(e.target.value)}
+                rows={3}
+                placeholder="Hoặc dán nội dung QR khách (JWT) / mã dự phòng 8 ký tự"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-[12px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+              />
+              {qrPayload.trim() && !scanning && (
+                <p className="flex items-center gap-1.5 text-[12px] text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Đã có nội dung QR ({qrPayload.trim().length} ký tự) — bấm
+                  "Xác nhận tích điểm"
+                </p>
+              )}
+              {scanError && (
+                <p className="text-[12px] text-amber-700">{scanError}</p>
+              )}
             </div>
           )}
           <p className="mt-2 flex items-center gap-1 text-[11px] text-slate-400">
@@ -354,7 +496,13 @@ export function PosTransactionForm({
             </li>
             <li className="flex items-center justify-between">
               <span className="text-slate-500">Khách</span>
-              <span className="font-medium text-slate-800">{phone || "—"}</span>
+              <span className="font-medium text-slate-800">
+                {mode === "qr"
+                  ? qrPayload.trim()
+                    ? `QR (${qrPayload.trim().length} ký tự)`
+                    : "—"
+                  : phone || "—"}
+              </span>
             </li>
             {voucherCheck && voucherCheck.meets_min_order && (
               <>
@@ -424,15 +572,15 @@ export function PosTransactionForm({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={createTxn.isPending}
+            disabled={submitting}
             className={`flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r ${accentGradient} py-3 font-headline text-[14px] font-bold text-white shadow-lg active:scale-[0.98] disabled:opacity-60`}
           >
-            {createTxn.isPending ? (
+            {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Check className="h-4 w-4" />
             )}
-            {createTxn.isPending ? "Đang tích..." : "Xác nhận tích điểm"}
+            {submitting ? "Đang tích..." : "Xác nhận tích điểm"}
           </button>
           <button
             type="button"

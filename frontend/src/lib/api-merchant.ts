@@ -105,6 +105,15 @@ export const staffApi = {
 export const transactionsApi = {
   create: (data: CreateManualTransactionRequest) =>
     api.post<TransactionWithMemberResponse>("/merchant/transactions", data),
+  createFromQr: (data: {
+    qr_payload: string;
+    gross_amount: number;
+    note?: string | null;
+  }) =>
+    api.post<TransactionWithMemberResponse>(
+      "/merchant/transactions/qr",
+      data
+    ),
   list: (params?: { limit?: number; offset?: number }) =>
     api.get<TransactionResponse[]>("/merchant/transactions", { params }),
 };

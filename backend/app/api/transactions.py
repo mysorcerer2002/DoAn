@@ -15,12 +15,14 @@ from app.models.tenant_staff import TenantStaffRole
 from app.models.user import User
 from app.schemas.transaction import (
     CreateManualTransactionRequest,
+    CreateQrCustomerTransactionRequest,
     TransactionResponse,
     TransactionWithMemberResponse,
 )
 from app.services.transaction_service import (
     InvalidVoucherError,
     NoActivePointRuleError,
+    NoMembershipError,
     TransactionService,
 )
 
@@ -48,6 +50,39 @@ async def create_manual_transaction(
         raise HTTPException(status_code=409, detail=str(e)) from e
     except InvalidVoucherError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=409, detail="Database integrity violation"
+        ) from e
+
+
+@router.post("/qr", response_model=TransactionWithMemberResponse, status_code=201)
+@limiter.limit("30/minute")
+async def create_qr_transaction(
+    request: Request,
+    body: CreateQrCustomerTransactionRequest,
+    tenant_id: int = Depends(get_tenant_id),
+    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TransactionWithMemberResponse:
+    """Staff quét QR khách (JWT hoặc fallback code) → tích điểm.
+
+    Khác `/` (manual theo phone): payload là JWT/fallback code — backend
+    decode ra user_id, bắt buộc user đã là member của tenant.
+    """
+    service = TransactionService(db)
+    try:
+        return await service.create_qr_customer(
+            tenant_id=tenant_id, staff_id=user.id, request=body
+        )
+    except ValueError as e:
+        # QR invalid / expired / không decode được
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except NoMembershipError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except NoActivePointRuleError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except IntegrityError as e:
         raise HTTPException(
             status_code=409, detail="Database integrity violation"
