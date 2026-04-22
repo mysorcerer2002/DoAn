@@ -105,11 +105,13 @@ Models hiện có (đã đọc):
 
 **`campaign_templates`** — admin-managed
 
+> **v2.2 adjustment (M1 review pass 1)**: length `code` mở rộng **40→60**, `name` **120→200** — prefix `system-` + VN có dấu dễ dài. `approval_tier_hint` KHÔNG lưu DB (derive ở `determine_tier` service).
+
 | Cột | Type | Null | Ghi chú |
 |---|---|---|---|
 | id | INT PK | | |
-| code | VARCHAR(40) UNIQUE | | vd `welcome-10pct-20k` |
-| name | VARCHAR(120) | | |
+| code | VARCHAR(60) UNIQUE | | vd `system-welcome-5pct-10k` |
+| name | VARCHAR(200) | | |
 | description | TEXT | ✓ | admin internal |
 | source | ENUM(manual, birthday, signup) | | |
 | program_form | ENUM(giam_gia, tang_kem, may_rui_quay_so, may_rui_truc_tiep, khach_hang_thuong_xuyen) | | **NEW** — phân loại theo NĐ 81/2018 Điều 8, 13; driver chính cho approval_tier |

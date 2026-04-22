@@ -8,6 +8,15 @@ M1 của plan voucher rebuild v2.2 — tạo bảng `campaign_templates` admin-m
 + seed 3 template baseline (welcome, birthday, loyalty-fixed) để jobs signup/birthday
 có thể enroll auto-approved không cần admin tạo thủ công.
 
+Lưu ý semantic (review pass 1):
+- `max_issuances_cap` là TRẦN TỐI ĐA cho mỗi INSTANCE campaign shop enroll, không phải
+  giới hạn toàn platform. NULL = không giới hạn trần, shop tự chọn khi enroll
+  (vẫn bị chặn bởi threshold NOTIFY=2M ở approval tier logic).
+- `code` String(60) / `name` String(200) — lệch spec 40/120 vì tên tiếng Việt
+  có dấu + prefix `system-` dễ dài tương lai. Plan section 3.1 note rõ v2.2.
+- `approval_tier_hint` KHÔNG lưu DB — derive từ `program_form` ở service:
+  may_rui_* → dang_ky_so_ct luôn; còn lại tính theo estimated_cost vs threshold.
+
 CHECK constraints (Điều 96 Luật TM + NĐ 81/2018):
 - discount_type='percent' → max_discount_percent_cap IS NOT NULL
   AND max_discount_percent_cap <= 50 AND max_discount_value_cap IS NOT NULL
@@ -105,11 +114,12 @@ def upgrade() -> None:
         ["source"],
         unique=False,
     )
+    # Job signup/birthday lookup: WHERE source=? AND is_active AND deleted_at IS NULL
     op.create_index(
-        "ix_campaign_templates_active",
+        "ix_campaign_templates_source_active",
         "campaign_templates",
-        ["is_active"],
-        postgresql_where=sa.text("deleted_at IS NULL"),
+        ["source"],
+        postgresql_where=sa.text("is_active = TRUE AND deleted_at IS NULL"),
     )
 
     # Seed 3 template baseline để signup/birthday jobs dùng ngay
@@ -130,7 +140,7 @@ def upgrade() -> None:
                'signup', 'giam_gia', 'percent',
                'Áp dụng cho đơn hàng đầu tiên tại cửa hàng. Xuất trình voucher khi thanh toán.',
                'Mỗi khách hàng 01 voucher duy nhất. Không áp dụng kèm khuyến mãi khác.',
-               5, 10000, NULL, 0, 200, 90, 7, 30, 1, TRUE),
+               5, 10000, NULL, 0, NULL, 90, 7, 30, 1, TRUE),
 
               ('system-birthday-10pct-30k',
                'Voucher sinh nhật thành viên',
@@ -153,6 +163,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_campaign_templates_active", table_name="campaign_templates")
+    op.drop_index("ix_campaign_templates_source_active", table_name="campaign_templates")
     op.drop_index("ix_campaign_templates_source", table_name="campaign_templates")
     op.drop_table("campaign_templates")

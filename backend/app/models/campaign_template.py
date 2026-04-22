@@ -1,4 +1,9 @@
-"""CampaignTemplate model — template admin-managed cho shop enroll campaign."""
+"""CampaignTemplate model — template admin-managed cho shop enroll campaign.
+
+`approval_tier_hint` không lưu DB — tính ở service `determine_tier(program_form, estimated_cost)`:
+- `may_rui_quay_so` / `may_rui_truc_tiep` → `dang_ky_so_ct` luôn (NĐ 81 Điều 19)
+- còn lại: so estimated_cost với `CAMPAIGN_AUTO_THRESHOLD` / `NOTIFY_THRESHOLD`
+"""
 
 import enum
 from datetime import datetime
@@ -13,6 +18,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -72,6 +78,11 @@ class CampaignTemplate(Base, TimestampMixin):
             name="ck_campaign_templates_voucher_ttl_range",
         ),
         Index("ix_campaign_templates_source", "source"),
+        Index(
+            "ix_campaign_templates_source_active",
+            "source",
+            postgresql_where=text("is_active = TRUE AND deleted_at IS NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
