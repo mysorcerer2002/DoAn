@@ -8,6 +8,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.api import auth as auth_router
 from app.api.admin import router as admin_router
+from app.api.admin_campaigns import router as admin_campaigns_router
 from app.api.analytics import router as analytics_router
 from app.api.campaign_enrollment import router as campaign_enrollment_router
 from app.api.campaigns import router as campaigns_router
@@ -70,6 +71,7 @@ app.include_router(merchant_router)
 app.include_router(tenants_router)
 app.include_router(users_router)
 app.include_router(admin_router)
+app.include_router(admin_campaigns_router)
 app.include_router(tenant_staff_router)
 app.include_router(tiers_router)
 app.include_router(point_rules_router)
