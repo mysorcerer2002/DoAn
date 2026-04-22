@@ -4,17 +4,30 @@ from app.models.campaign import (
     Campaign,
     CampaignSource,
     DiscountType,
+    ServiceFeeStatus,
 )
 from app.models.campaign_approval_event import (
     ApprovalEventType,
     CampaignApprovalEvent,
 )
+from app.models.campaign_fee_schedule import CampaignFeeSchedule
 from app.models.campaign_issuance import CampaignIssuance, IssueMode
 from app.models.campaign_regulatory_submission import (
     CampaignRegulatorySubmission,
     RegulatoryDocType,
 )
+from app.models.campaign_service_fee import (
+    CampaignServiceFee,
+    EInvoiceProvider,
+    FeeStatus,
+    FeeType,
+)
 from app.models.campaign_template import CampaignTemplate, ProgramForm
+from app.models.tenant_authorization import (
+    AuthorizationScope,
+    SignatureMethod,
+    TenantAuthorization,
+)
 from app.models.membership import Membership
 from app.models.notification import Notification
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
@@ -38,10 +51,13 @@ __all__ = [
     "PointLedger", "LedgerReason", "LedgerRefType",
     "Reward", "Redemption", "RedemptionStatus",
     "Campaign", "CampaignSource", "DiscountType",
-    "ApprovalStatus", "ApprovalTier",
+    "ApprovalStatus", "ApprovalTier", "ServiceFeeStatus",
     "CampaignTemplate", "ProgramForm",
     "CampaignIssuance", "IssueMode",
     "CampaignRegulatorySubmission", "RegulatoryDocType",
     "CampaignApprovalEvent", "ApprovalEventType",
+    "TenantAuthorization", "AuthorizationScope", "SignatureMethod",
+    "CampaignServiceFee", "FeeType", "FeeStatus", "EInvoiceProvider",
+    "CampaignFeeSchedule",
     "Voucher", "VoucherStatus", "IssueSource", "Notification",
 ]

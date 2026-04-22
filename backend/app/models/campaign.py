@@ -58,6 +58,13 @@ class ApprovalTier(str, enum.Enum):
     FULL_DOSSIER = "full_dossier"
 
 
+class ServiceFeeStatus(str, enum.Enum):
+    NONE = "none"
+    ESTIMATED = "estimated"
+    INVOICED = "invoiced"
+    PAID = "paid"
+
+
 class Campaign(Base, TimestampMixin):
     """Chiến dịch khuyến mãi — max_issuances NULL = unlimited, soft delete qua deleted_at."""
 
@@ -88,6 +95,14 @@ class Campaign(Base, TimestampMixin):
         ),
         CheckConstraint("estimated_cost >= 0", name="ck_campaigns_estimated_cost_nonneg"),
         CheckConstraint("realized_cost >= 0", name="ck_campaigns_realized_cost_nonneg"),
+        CheckConstraint(
+            "service_fee_total >= 0",
+            name="ck_campaigns_service_fee_total_nonneg",
+        ),
+        CheckConstraint(
+            "service_fee_status IN ('none','estimated','invoiced','paid')",
+            name="ck_campaigns_service_fee_status",
+        ),
         CheckConstraint(
             "program_form NOT IN ('may_rui_quay_so','may_rui_truc_tiep') "
             "OR approval_tier IN ('dang_ky_so_ct','full_dossier')",
@@ -176,6 +191,17 @@ class Campaign(Base, TimestampMixin):
 
     estimated_cost: Mapped[int] = mapped_column(BigInteger, nullable=False)
     realized_cost: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+
+    authorization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenant_authorizations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    service_fee_total: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0
+    )
+    service_fee_status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default=ServiceFeeStatus.NONE.value
+    )
 
     ops_filing_started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
