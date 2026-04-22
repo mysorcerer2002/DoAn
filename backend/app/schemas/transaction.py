@@ -38,6 +38,7 @@ class TransactionWithMemberResponse(BaseModel):
     new_tier_id: int | None
     new_tier_name: str | None
     tier_upgraded: bool
+    welcome_voucher_code: str | None = None
 
 
 class CreateQrCustomerTransactionRequest(BaseModel):

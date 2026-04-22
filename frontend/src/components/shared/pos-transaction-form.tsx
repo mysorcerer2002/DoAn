@@ -564,6 +564,14 @@ export function PosTransactionForm({
                   Đã lên hạng {result.new_tier_name}
                 </p>
               )}
+              {result.welcome_voucher_code && (
+                <p className="mt-2 rounded-lg bg-indigo-100 px-2 py-1 font-bold text-brand-indigo">
+                  🎁 Phiếu mua hàng chào mừng:{" "}
+                  <span className="font-mono tracking-wider">
+                    {result.welcome_voucher_code}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
         )}

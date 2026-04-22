@@ -5,7 +5,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models.campaign import Campaign, DiscountType
+from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType
 from app.models.point_rule import PointRule
@@ -77,6 +77,9 @@ class TransactionService:
         )
         if membership is None:
             raise ValueError(f"Membership {member.membership_id} not found")
+
+        # Giao dịch đầu tiên của khách tại shop này → phát voucher chào mừng
+        is_first_transaction = membership.last_activity_at is None
 
         # Apply voucher nếu có
         voucher_id = None
@@ -154,9 +157,20 @@ class TransactionService:
         )
         await self.db.flush()
 
+        # tier_upgraded: True khi chuyển sang tier cao hơn (kể cả lần đầu có tier)
         tier_upgraded = False
-        if new_tier is not None and old_tier_id is not None and new_tier.id != old_tier_id:
-            tier_upgraded = new_tier.min_points > old_tier_min_points
+        if new_tier is not None and new_tier.id != old_tier_id:
+            # Lần đầu có tier (old_tier_id=None) cũng coi là thăng hạng
+            tier_upgraded = (
+                old_tier_id is None
+                or new_tier.min_points > old_tier_min_points
+            )
+
+        welcome_voucher_code: str | None = None
+        if is_first_transaction and points_earned > 0:
+            welcome_voucher_code = await self._maybe_issue_welcome_voucher(
+                tenant_id=tenant_id, membership_id=membership.id
+            )
 
         return TransactionWithMemberResponse(
             transaction=TransactionResponse.model_validate(txn),
@@ -167,6 +181,7 @@ class TransactionService:
             new_tier_id=membership.current_tier_id,
             new_tier_name=new_tier.name if new_tier else None,
             tier_upgraded=tier_upgraded,
+            welcome_voucher_code=welcome_voucher_code,
         )
 
     @staticmethod
@@ -275,7 +290,7 @@ class TransactionService:
         except InvalidQRError as e:
             raise ValueError(f"Invalid QR: {e}") from e
 
-        # Tìm membership
+        # Tìm membership — nếu chưa có thì auto-enroll (1 lần đăng ký dùng mọi shop)
         membership = await self.db.scalar(
             select(Membership)
             .options(joinedload(Membership.user, innerjoin=True))
@@ -286,8 +301,8 @@ class TransactionService:
             .with_for_update()
         )
         if membership is None:
-            raise NoMembershipError(
-                f"User {user_id} not a member of tenant {tenant_id}"
+            membership = await self._auto_enroll_membership(
+                tenant_id=tenant_id, user_id=user_id
             )
 
         return await self._create_transaction_for_membership(
@@ -314,6 +329,8 @@ class TransactionService:
         """Logic tạo transaction dùng chung cho manual và QR."""
         ledger_svc = LedgerService(self.db)
         tier_svc = TierService(self.db)
+
+        is_first_transaction = membership.last_activity_at is None
 
         old_tier_id = membership.current_tier_id
         old_tier_min_points = 0
@@ -372,8 +389,18 @@ class TransactionService:
         await self.db.flush()
 
         tier_upgraded = False
-        if new_tier is not None and old_tier_id is not None and new_tier.id != old_tier_id:
-            tier_upgraded = new_tier.min_points > old_tier_min_points
+        if new_tier is not None and new_tier.id != old_tier_id:
+            # Lần đầu có tier (old_tier_id=None) cũng coi là thăng hạng
+            tier_upgraded = (
+                old_tier_id is None
+                or new_tier.min_points > old_tier_min_points
+            )
+
+        welcome_voucher_code: str | None = None
+        if is_first_transaction and points_earned > 0:
+            welcome_voucher_code = await self._maybe_issue_welcome_voucher(
+                tenant_id=tenant_id, membership_id=membership.id
+            )
 
         user = membership.user
         return TransactionWithMemberResponse(
@@ -385,4 +412,86 @@ class TransactionService:
             new_tier_id=membership.current_tier_id,
             new_tier_name=new_tier.name if new_tier else None,
             tier_upgraded=tier_upgraded,
+            welcome_voucher_code=welcome_voucher_code,
         )
+
+    async def _auto_enroll_membership(
+        self, *, tenant_id: int, user_id: int
+    ) -> Membership:
+        """Tạo membership mới cho user tại tenant (auto-enroll lần đầu quét QR)."""
+        from sqlalchemy.exc import IntegrityError as _SAIntegrityError
+
+        try:
+            async with self.db.begin_nested():
+                membership = Membership(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    current_tier_id=None,
+                    points_balance=0,
+                    total_points_earned=0,
+                    joined_at=datetime.now(timezone.utc),
+                )
+                self.db.add(membership)
+                await self.db.flush()
+        except _SAIntegrityError:
+            # Race: cùng lúc có request khác tạo cho (tenant, user) này
+            pass
+
+        # Reload để có lock + eager load user (dùng cho response)
+        membership = await self.db.scalar(
+            select(Membership)
+            .options(joinedload(Membership.user, innerjoin=True))
+            .where(
+                Membership.tenant_id == tenant_id,
+                Membership.user_id == user_id,
+            )
+            .with_for_update()
+        )
+        if membership is None:
+            raise NoMembershipError(
+                f"Không thể tạo membership cho user {user_id} tại tenant {tenant_id}"
+            )
+        return membership
+
+    async def _maybe_issue_welcome_voucher(
+        self, *, tenant_id: int, membership_id: int
+    ) -> str | None:
+        """Phát voucher tích điểm lần đầu nếu shop có campaign source=SIGNUP đang mở.
+
+        Không raise: mọi lỗi (không có campaign, campaign full, race duplicate)
+        đều swallow để không làm fail giao dịch chính.
+        """
+        from app.services.voucher_service import (
+            AlreadyClaimedError,
+            CampaignFullError,
+            CampaignNotEligibleError,
+            VoucherService,
+        )
+
+        now = datetime.now(timezone.utc)
+        campaign = await self.db.scalar(
+            select(Campaign)
+            .where(
+                Campaign.tenant_id == tenant_id,
+                Campaign.source == CampaignSource.SIGNUP,
+                Campaign.is_active.is_(True),
+                Campaign.deleted_at.is_(None),
+                Campaign.starts_at <= now,
+                Campaign.ends_at > now,
+            )
+            .order_by(Campaign.id.asc())
+            .limit(1)
+        )
+        if campaign is None:
+            return None
+
+        voucher_svc = VoucherService(self.db)
+        try:
+            voucher = await voucher_svc.claim(
+                tenant_id=tenant_id,
+                membership_id=membership_id,
+                campaign_id=campaign.id,
+            )
+        except (AlreadyClaimedError, CampaignFullError, CampaignNotEligibleError):
+            return None
+        return voucher.code

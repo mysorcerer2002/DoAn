@@ -188,6 +188,7 @@ export interface TransactionWithMemberResponse {
   new_tier_id: number | null;
   new_tier_name: string | null;
   tier_upgraded: boolean;
+  welcome_voucher_code?: string | null;
 }
 
 export interface CreateManualTransactionRequest {
