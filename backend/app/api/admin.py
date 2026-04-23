@@ -58,7 +58,7 @@ async def list_tenants(
     db: AsyncSession = Depends(get_db),
 ) -> list[AdminTenantListRow]:
     """Super Admin xem danh sách tenant kèm metric tổng quan + thông tin owner."""
-    member_count_sq = (
+    active_member_count_sq = (
         select(
             Membership.tenant_id.label("tenant_id"),
             func.count().label("cnt"),
@@ -92,12 +92,12 @@ async def list_tenants(
             Tenant,
             User.full_name.label("owner_name"),
             User.email.label("owner_email"),
-            func.coalesce(member_count_sq.c.cnt, 0).label("member_count"),
+            func.coalesce(active_member_count_sq.c.cnt, 0).label("active_member_count"),
             func.coalesce(staff_count_sq.c.cnt, 0).label("staff_count"),
             func.coalesce(active_30d_sq.c.cnt, 0).label("active_30d_count"),
         )
         .join(User, User.id == Tenant.owner_user_id)
-        .outerjoin(member_count_sq, member_count_sq.c.tenant_id == Tenant.id)
+        .outerjoin(active_member_count_sq, active_member_count_sq.c.tenant_id == Tenant.id)
         .outerjoin(staff_count_sq, staff_count_sq.c.tenant_id == Tenant.id)
         .outerjoin(active_30d_sq, active_30d_sq.c.tenant_id == Tenant.id)
         .order_by(Tenant.created_at.desc())
@@ -123,7 +123,7 @@ async def list_tenants(
             owner_id=t.owner_user_id,
             owner_name=owner_name,
             owner_email=owner_email,
-            member_count=int(mc),
+            active_member_count=int(mc),
             active_member_count_30d=int(a30),
             staff_count=int(sc),
         )

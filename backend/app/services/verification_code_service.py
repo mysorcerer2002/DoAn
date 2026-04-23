@@ -100,8 +100,11 @@ class VerificationCodeService:
         if record is None:
             raise InvalidCodeError("Invalid, expired, or already used code")
 
-        if context_hash is not None and record.context_hash != context_hash:
-            # Form đã bị đổi giữa request-otp và sign → từ chối.
+        # Fail-closed: nếu OTP lúc phát được bind vào context_hash (sign uỷ
+        # quyền), mọi request verify sau đó PHẢI gửi context_hash khớp —
+        # bỏ qua `is not None` tránh bypass bằng cách gọi verify không kèm
+        # context_hash.
+        if record.context_hash != context_hash:
             raise InvalidCodeError("OTP context mismatch")
 
         record.used_at = now

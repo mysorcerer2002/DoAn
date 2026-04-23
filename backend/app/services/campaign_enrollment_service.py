@@ -169,6 +169,18 @@ class CampaignEnrollmentService:
             )
 
         if (
+            template.max_issuances_cap is None
+            and form.max_issuances is None
+        ):
+            # Nếu cả template lẫn form đều không chốt quota → _estimate_cost
+            # = 0 → tier='none' auto_approved, bypass kiểm duyệt pháp lý dù
+            # thực tế chi phí có thể rất lớn. Ép shop phải điền.
+            raise FormValidationError(
+                "Campaign phải có max_issuances (số lượng voucher phát hành) "
+                "hoặc template phải đặt max_issuances_cap"
+            )
+
+        if (
             template.max_issuances_cap is not None
             and form.max_issuances is not None
             and form.max_issuances > template.max_issuances_cap

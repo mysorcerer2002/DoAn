@@ -40,6 +40,10 @@ class CampaignService:
             ends_at=request.ends_at,
             is_active=True,
             source=request.source,
+            program_form="giam_gia",
+            approval_status="auto_approved",
+            approval_tier="none",
+            estimated_cost=0,
         )
         self.db.add(campaign)
         await self.db.flush()

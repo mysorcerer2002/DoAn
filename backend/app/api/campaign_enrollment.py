@@ -58,7 +58,12 @@ async def list_merchant_templates(
     _role: TenantStaffRole = Depends(require_owner_in_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> list[CampaignTemplatePublicResponse]:
-    rows = await CampaignTemplateService(db).list_templates(is_active=True)
+    # Chỉ trả template source='manual' — shop không được enroll template
+    # auto_cron (birthday/welcome) vì các template này do cron tự issue
+    # voucher, không qua flow ký uỷ quyền pháp lý.
+    rows = await CampaignTemplateService(db).list_templates(
+        source="manual", is_active=True
+    )
     return [CampaignTemplatePublicResponse.model_validate(r) for r in rows]
 
 

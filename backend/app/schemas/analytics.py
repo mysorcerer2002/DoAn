@@ -91,7 +91,12 @@ class TenantDetailResponse(BaseModel):
 
 
 class AdminTenantListRow(BaseModel):
-    """Row cho /admin/tenants: đã kèm metric + owner để tránh N+1 ở FE."""
+    """Row cho /admin/tenants: đã kèm metric + owner để tránh N+1 ở FE.
+
+    `active_member_count`: membership với `archived_at IS NULL` (semantic
+    giống `TenantDetailResponse.active_member_count`). `active_member_count_30d`:
+    khách có giao dịch trong 30 ngày gần nhất — tham gia "active shop" tag.
+    """
 
     id: int
     name: str
@@ -106,7 +111,7 @@ class AdminTenantListRow(BaseModel):
     owner_id: int
     owner_name: str | None = None
     owner_email: str | None = None
-    member_count: int
+    active_member_count: int
     active_member_count_30d: int
     staff_count: int
 

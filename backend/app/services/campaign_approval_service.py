@@ -208,11 +208,12 @@ class CampaignApprovalService:
             )
 
         # Guard b: authorization active (nếu có FK).
-        # Lock auth row (.with_for_update()) để độc lập với chuỗi lock
-        # campaign→auth ở TenantAuthorizationService.revoke. Race hiện đã
-        # serialize qua campaign lock, nhưng giữ lock kép ở đây là defense
-        # in depth cho các path tương lai có thể revoke auth không qua
-        # campaign.
+        # KHÔNG lock auth row ở đây: `TenantAuthorizationService.revoke`
+        # lock chain campaign→auth; nếu approve cũng lock auth sau campaign
+        # thì race revoke↔approve có thể deadlock vì 2 path khoá 2 row theo
+        # thứ tự khác nhau. Race thực tế đã serialize qua campaign lock
+        # (revoke cần lock campaign trước khi chạm auth), nên ở approve chỉ
+        # cần đọc auth không lock là đủ.
         if campaign.authorization_id is None:
             raise ApprovalGuardFailed(
                 "Campaign chưa có uỷ quyền — không thể duyệt"
@@ -220,7 +221,6 @@ class CampaignApprovalService:
         auth = await self.db.scalar(
             select(TenantAuthorization)
             .where(TenantAuthorization.id == campaign.authorization_id)
-            .with_for_update()
         )
         if auth is None:
             raise ApprovalGuardFailed(

@@ -233,7 +233,7 @@ export default function AdminTenantsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right text-[13px] font-semibold text-slate-700 tabular-nums">
-                      {formatNumber(t.member_count)}
+                      {formatNumber(t.active_member_count)}
                     </td>
                     <td className="px-4 py-3 text-right text-[13px] font-semibold text-slate-700 tabular-nums">
                       {formatNumber(t.staff_count)}

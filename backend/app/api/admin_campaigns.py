@@ -69,6 +69,23 @@ def _to_pending_row(campaign, tenant_name: str) -> PendingCampaignRow:
     )
 
 
+async def _build_detail_response(
+    db: AsyncSession, campaign
+) -> AdminCampaignDetailResponse:
+    """Chuẩn hoá build response: model_validate + patch realized_cost từ view.
+
+    Mọi endpoint trả `AdminCampaignDetailResponse` phải đi qua helper này —
+    nếu không, field `realized_cost` sẽ lấy column cache stale (0) thay vì
+    giá trị realtime từ `v_campaign_stats` (Phase 10 I2).
+    """
+    realized = await TransactionService(db).get_campaign_realized_cost_from_view(
+        campaign.id
+    )
+    resp = AdminCampaignDetailResponse.model_validate(campaign)
+    resp.realized_cost = realized
+    return resp
+
+
 @router.get(
     "/campaigns/pending",
     response_model=list[PendingCampaignRow],
@@ -124,14 +141,8 @@ async def get_campaign_detail(
     except CampaignNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     # Phase 10 I2 — đọc realized_cost realtime từ view `v_campaign_stats`
-    # thay vì column cache (column sẽ drop ở phase sau). View COALESCE 0
-    # khi chưa có voucher nào dùng.
-    realized = await TransactionService(db).get_campaign_realized_cost_from_view(
-        campaign_id
-    )
-    resp = AdminCampaignDetailResponse.model_validate(campaign)
-    resp.realized_cost = realized
-    return resp
+    # thay vì column cache (column sẽ drop ở phase sau).
+    return await _build_detail_response(db, campaign)
 
 
 @router.get(
@@ -166,7 +177,7 @@ async def mark_ops_started(
         raise HTTPException(status_code=409, detail=str(e))
 
     await db.commit()
-    return AdminCampaignDetailResponse.model_validate(campaign)
+    return await _build_detail_response(db, campaign)
 
 
 @router.post(
@@ -218,7 +229,7 @@ async def approve_campaign(
         raise HTTPException(status_code=400, detail=str(e))
 
     await db.commit()
-    return AdminCampaignDetailResponse.model_validate(campaign)
+    return await _build_detail_response(db, campaign)
 
 
 @router.post(
@@ -254,4 +265,4 @@ async def reject_campaign(
         )
 
     await db.commit()
-    return AdminCampaignDetailResponse.model_validate(campaign)
+    return await _build_detail_response(db, campaign)
