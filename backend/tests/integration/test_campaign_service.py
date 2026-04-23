@@ -215,6 +215,8 @@ async def test_campaign_roi(db_session):
         membership_id=membership.id,
         code="TESTCODE",
         status=VoucherStatus.USED,
+        issue_source="manual",
+        discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
         issued_at=now,
         used_at=now,
         expires_at=now + timedelta(days=7),

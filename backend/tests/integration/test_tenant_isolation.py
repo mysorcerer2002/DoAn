@@ -209,6 +209,8 @@ async def two_tenants_full_data(db_session):
         min_order=10_000, max_discount=20_000,
         starts_at=now - timedelta(days=1), ends_at=now + timedelta(days=30),
         is_active=True,
+        program_form="giam_gia", approval_status="auto_approved",
+        approval_tier="none", estimated_cost=0,
     )
     camp_b = Campaign(
         tenant_id=tenant_b.id, name="B Campaign", source="manual",
@@ -216,6 +218,8 @@ async def two_tenants_full_data(db_session):
         min_order=10_000, max_discount=30_000,
         starts_at=now - timedelta(days=1), ends_at=now + timedelta(days=30),
         is_active=True,
+        program_form="giam_gia", approval_status="auto_approved",
+        approval_tier="none", estimated_cost=0,
     )
     db_session.add_all([camp_a, camp_b])
     await db_session.flush()
@@ -223,12 +227,14 @@ async def two_tenants_full_data(db_session):
     db_session.add_all([
         Voucher(
             tenant_id=tenant_a.id, campaign_id=camp_a.id, membership_id=mem_a1.id,
-            code="AAAA1111", status=VoucherStatus.ISSUED,
+            code="AAAA1111", status=VoucherStatus.ISSUED, issue_source="manual",
+            discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
             issued_at=now, expires_at=now + timedelta(days=14),
         ),
         Voucher(
             tenant_id=tenant_b.id, campaign_id=camp_b.id, membership_id=mem_b1.id,
-            code="BBBB1111", status=VoucherStatus.ISSUED,
+            code="BBBB1111", status=VoucherStatus.ISSUED, issue_source="manual",
+            discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
             issued_at=now, expires_at=now + timedelta(days=14),
         ),
     ])

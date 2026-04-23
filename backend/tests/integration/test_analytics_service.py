@@ -125,6 +125,10 @@ async def _seed_analytics(db_session):
         discount_value=10,
         is_active=True,
         source=CampaignSource.MANUAL,
+        program_form="giam_gia",
+        approval_status="auto_approved",
+        approval_tier="none",
+        estimated_cost=0,
         starts_at=now - timedelta(days=10),
         ends_at=now + timedelta(days=20),
     )
@@ -137,6 +141,8 @@ async def _seed_analytics(db_session):
         membership_id=m1.id,
         code="VANA0001",
         status=VoucherStatus.USED,
+        issue_source="manual",
+        discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
         issued_at=now - timedelta(days=5),
         expires_at=now + timedelta(days=30),
     )
@@ -146,6 +152,8 @@ async def _seed_analytics(db_session):
         membership_id=m2.id,
         code="VANA0002",
         status=VoucherStatus.ISSUED,
+        issue_source="manual",
+        discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
         issued_at=now - timedelta(days=5),
         expires_at=now + timedelta(days=30),
     )
