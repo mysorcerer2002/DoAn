@@ -1,0 +1,35 @@
+---
+title: Sơ đồ tuần tự — Khách hàng claim voucher (chống TOCTOU)
+---
+sequenceDiagram
+    autonumber
+    actor KH as Khách hàng
+    participant FE as Frontend<br/>(Next.js /member)
+    participant API as FastAPI<br/>router claim
+    participant SVC as VoucherService
+    participant DB as PostgreSQL
+
+    KH->>FE: bấm "Nhận ngay"
+    FE->>+API: POST /campaigns/{id}/claim<br/>JWT + X-Tenant-Id
+    API->>+SVC: claim(user_id, campaign_id)
+    SVC->>DB: BEGIN TRANSACTION
+    SVC->>DB: pg_advisory_xact_lock(hash(campaign_id))
+    SVC->>DB: UPDATE campaign SET issued_count=issued_count+1<br/>WHERE id=? AND issued_count<max_issuances
+    DB-->>SVC: rows_affected
+
+    alt rows_affected = 1
+        SVC->>DB: INSERT INTO voucher (code, member_id, ...)
+        DB-->>SVC: voucher_id
+        SVC->>DB: COMMIT
+        SVC-->>API: Voucher DTO
+        API-->>FE: 201 Created + voucher JSON
+        FE-->>KH: hiển thị voucher mới
+    else rows_affected = 0
+        SVC->>DB: ROLLBACK
+        SVC-->>API: CampaignQuotaExceededError
+        API-->>FE: 409 Conflict
+    end
+    deactivate SVC
+    deactivate API
+
+    Note over SVC,DB: Advisory lock + atomic UPDATE guard<br/>đảm bảo không vượt max_issuances<br/>kể cả khi N request đồng thời.

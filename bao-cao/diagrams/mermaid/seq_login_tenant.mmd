@@ -1,0 +1,26 @@
+---
+title: Sơ đồ tuần tự — Đăng nhập JWT và chọn tenant
+---
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant FE as Frontend<br/>(Next.js)
+    participant API as FastAPI<br/>/auth/login
+    participant SVC as AuthService
+    participant DB as PostgreSQL
+
+    U->>FE: nhập email + password
+    FE->>+API: POST /auth/login
+    API->>+SVC: authenticate(email, pw)
+    SVC->>DB: SELECT user JOIN memberships
+    DB-->>SVC: user + tenant_ids
+    Note right of SVC: bcrypt.checkpw(pw, hashed)
+    SVC-->>-API: jwt_token (exp 1h)
+    API-->>-FE: 200 OK — access_token + memberships
+
+    Note over FE: Zustand tenant-store.setTenant(tenant_ids[0])<br/>axios interceptor inject X-Tenant-Id
+
+    FE->>+API: GET /members/me<br/>Auth: Bearer <jwt>, X-Tenant-Id: <tid>
+    Note right of API: Dependency:<br/>require_customer_in_tenant<br/>(hoặc require_owner_in_tenant)
+    API-->>-FE: member profile
+    FE-->>U: render dashboard

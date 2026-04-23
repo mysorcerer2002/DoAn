@@ -1,0 +1,34 @@
+---
+title: Sơ đồ hoạt động — Vòng đời voucher
+---
+flowchart TD
+    Start([Khách đủ điều kiện<br/>campaign active]) --> A{UPDATE quota OK?<br/>rows_affected = 1?}
+    A -- no<br/>hết quota --> X[Trả 409<br/>CampaignQuotaExceededError]
+    X --> StopX([Dừng])
+    A -- yes --> B[INSERT voucher<br/>status = active]
+    B --> C[Voucher hiển thị<br/>trong /member]
+    C --> Fork{Nhánh song song}
+    Fork --> D1[POS flow]
+    Fork --> D2[Cron flow]
+
+    D1 --> E1[Khách đem voucher tới POS]
+    E1 --> F1[Staff quét QR<br/>kiểm tra điều kiện]
+    F1 --> G1{Áp dụng được?}
+    G1 -- yes --> H1[status = used]
+    H1 --> I1[Ghi transaction POS]
+    G1 -- no --> J1[Trả lỗi<br/>sai tier, hết hạn...]
+
+    D2 --> E2[Cron expire_vouchers<br/>mỗi 15 phút]
+    E2 --> F2{now > expires_at?}
+    F2 -- yes --> G2[status = expired]
+    F2 -- no --> H2[giữ nguyên status]
+
+    I1 --> Stop([Kết thúc])
+    J1 --> Stop
+    G2 --> Stop
+    H2 --> Stop
+
+    classDef accent fill:#DBEAFE,stroke:#1E3A8A,color:#111827;
+    classDef cond fill:#FEF3C7,stroke:#D97706,color:#111827;
+    class B,C,D1,D2,E1,F1,H1,I1,J1,E2,G2,H2,X accent;
+    class A,G1,F2,Fork cond;

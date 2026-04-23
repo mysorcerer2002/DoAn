@@ -1,0 +1,59 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 1.4
+skinparam sequence {
+  ParticipantBackgroundColor #DBEAFE
+  ParticipantBorderColor #1E3A8A
+  LifeLineBorderColor #1E3A8A
+  NoteBackgroundColor #FEF3C7
+  NoteBorderColor #D97706
+}
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 12
+title Sơ đồ tuần tự — Đổi quà bằng OTP ràng buộc context_hash
+
+actor "Khách hàng" as KH
+actor "Staff POS" as ST
+participant "FastAPI\n/rewards" as API
+participant "RewardService" as SVC
+database "PostgreSQL" as DB
+
+ST -> API: POST /rewards/{id}/request-otp\n{reward_id, member_id}
+activate API
+API -> SVC: request_otp(reward_id, member_id, staff_id)
+activate SVC
+note right of SVC
+  context_hash = HMAC_SHA256(
+    key = secret,
+    msg = reward_id|member_id|staff_id)
+end note
+SVC -> DB: INSERT otp(code, context_hash, expires_at = now()+3m)
+DB --> SVC: otp_id
+SVC --> API: otp_code (6 digits)
+deactivate SVC
+API --> ST: 200 OK + otp_code
+deactivate API
+
+ST -> KH: đọc mã OTP cho khách
+KH -> ST: đọc lại mã xác nhận
+
+ST -> API: POST /rewards/{id}/confirm-otp\n{otp, reward_id, member_id}
+activate API
+API -> SVC: confirm_otp(...)
+activate SVC
+SVC -> DB: SELECT otp\nWHERE code=? AND context_hash=?\nAND expires_at>now()
+DB --> SVC: otp row (hoặc null)
+
+alt context khớp
+    SVC -> DB: INSERT redemption, UPDATE member.points
+    DB --> SVC: redemption_id
+    SVC --> API: redemption DTO
+    API --> ST: 200 OK — đổi thành công
+else context bị sửa
+    SVC --> API: InvalidOTPError
+    API --> ST: 400 Bad Request
+end
+deactivate SVC
+deactivate API
+
+@enduml

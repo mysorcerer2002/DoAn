@@ -1,0 +1,32 @@
+---
+title: Sơ đồ hoạt động — Vòng đời chiến dịch khuyến mại (NĐ 81/2018/NĐ-CP)
+---
+flowchart TD
+    Start([Bắt đầu]) --> A[Owner tạo campaign<br/>status = draft]
+    A --> B[Hệ thống compute<br/>approval_tier + estimated_cost]
+    B --> C{tier ≥ notify_so_ct?}
+    C -- yes --> D[Owner nộp hồ sơ<br/>Sở Công Thương]
+    D --> E[status = pending_regulatory]
+    E --> F[Super admin review hồ sơ]
+    F --> G{Hợp lệ?}
+    G -- yes --> H[status = approved]
+    G -- no --> I[status = rejected<br/>kèm lý do]
+    I --> Stop1([Dừng])
+    C -- no --> J[status = ready_to_activate]
+    H --> W{now ≥ start_at?}
+    J --> W
+    W -- chưa --> W
+    W -- đến giờ --> K[status = active]
+    K --> L{Còn quota<br/>& now < end_at?}
+    L -- yes --> M[Khách claim voucher]
+    M --> N[Staff áp dụng tại POS]
+    N --> L
+    L -- hết quota hoặc end_at --> O[status = ended]
+    O --> P[Cron check_post_report_overdue<br/>báo cáo hậu khuyến mại 45 ngày]
+    P --> Q[Xuất báo cáo<br/>Điều 20 NĐ 81]
+    Q --> Stop2([Kết thúc])
+
+    classDef accent fill:#DBEAFE,stroke:#1E3A8A,color:#111827;
+    classDef cond fill:#FEF3C7,stroke:#D97706,color:#111827;
+    class A,B,D,E,F,H,I,J,K,M,N,O,P,Q accent;
+    class C,G,W,L cond;
