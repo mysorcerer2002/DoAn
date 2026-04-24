@@ -31,6 +31,6 @@ class Tier(Base, TimestampMixin):
         Index("ix_tiers_partner_min_points", "partner_id", "min_points"),
         CheckConstraint(
             "earn_multiplier >= 0.50 AND earn_multiplier <= 5.00",
-            name="ck_tiers_earn_multiplier_range",
+            name="earn_multiplier_range",
         ),
     )

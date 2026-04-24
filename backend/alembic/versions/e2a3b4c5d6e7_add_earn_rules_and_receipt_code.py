@@ -40,7 +40,7 @@ def upgrade() -> None:
         ),
     )
     op.create_check_constraint(
-        "ck_tiers_earn_multiplier_range",
+        "earn_multiplier_range",
         "tiers",
         "earn_multiplier >= 0.50 AND earn_multiplier <= 5.00",
     )
@@ -66,7 +66,7 @@ def downgrade() -> None:
     op.drop_column("transactions", "receipt_code")
 
     op.drop_constraint(
-        "ck_tiers_earn_multiplier_range", "tiers", type_="check"
+        "earn_multiplier_range", "tiers", type_="check"
     )
     op.drop_column("tiers", "earn_multiplier")
 
