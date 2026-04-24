@@ -1,18 +1,14 @@
 """CampaignEnrollmentService — preview + request-otp + sign.
 
 Phase 6 của plan voucher rebuild v2.2. Shop chọn template, fill instance,
-xem phí + nội dung uỷ quyền, ký qua OTP email → hệ thống tạo chain entity:
+xem nội dung uỷ quyền, ký qua OTP email → hệ thống tạo chain entity:
 
 - Campaign (pending_approval hoặc auto_approved tuỳ tier)
 - PartnerAuthorization (signed, with signature_payload JSONB)
-- CampaignServiceFee (draft rows, nếu SERVICE_FEE_ENABLED)
 - CampaignApprovalEvent (event_type='submitted')
 
 Tier rule (I6 plan, đã có ở CampaignTemplateService.compute_tier_hint):
 form-based trước, rồi cost-based.
-
-Feature flag `SERVICE_FEE_ENABLED=False` ở đồ án: skip tạo fee rows +
-service_fee_status='none'; data model vẫn tương thích cho khoá luận bật.
 """
 
 import hashlib
@@ -25,13 +21,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models.campaign import Campaign, ServiceFeeStatus
+from app.models.campaign import Campaign
 from app.models.campaign_approval_event import (
     ApprovalEventType,
     CampaignApprovalEvent,
 )
-from app.models.campaign_fee_schedule import CampaignFeeSchedule
-from app.models.campaign_service_fee import CampaignServiceFee, FeeStatus
 from app.models.campaign_template import CampaignTemplate
 from app.models.partner import Partner
 from app.models.partner_authorization import PartnerAuthorization
@@ -40,9 +34,7 @@ from app.schemas.campaign_enrollment import (
     AuthorizationSignResponse,
     CampaignEnrollPreviewResponse,
     EnrollFormInput,
-    FeePreviewItem,
 )
-from app.services.campaign_fee_service import calc_vat
 from app.services.campaign_template_service import CampaignTemplateService
 
 
@@ -60,15 +52,6 @@ class EnrollmentError(Exception):
 
 class ConsentRequiredError(Exception):
     pass
-
-
-# Mapping tier → list fee_type cần tính.
-_TIER_FEES: dict[str, list[str]] = {
-    "none": [],
-    "notify_so_ct": ["so_ct_filing"],
-    "dang_ky_so_ct": ["so_ct_filing", "dossier_preparation"],
-    "full_dossier": ["so_ct_filing", "dossier_preparation"],
-}
 
 
 def _sha256_hex(text: str) -> str:
@@ -241,50 +224,6 @@ class CampaignEnrollmentService:
             per_voucher = form.discount_value
         return int(per_voucher) * int(issuances)
 
-    async def _compute_fees(
-        self, approval_tier: str
-    ) -> tuple[list[FeePreviewItem], int, int, int]:
-        """Tính fee preview từ `campaign_fee_schedules` theo tier.
-
-        Trả (items, pre_vat_total, vat_total, total_with_vat).
-        """
-        settings = get_settings()
-        fee_types = _TIER_FEES.get(approval_tier, [])
-        if not settings.service_fee_enabled or not fee_types:
-            return [], 0, 0, 0
-
-        rows = await self.db.scalars(
-            select(CampaignFeeSchedule).where(
-                CampaignFeeSchedule.fee_type.in_(fee_types),
-                CampaignFeeSchedule.is_active.is_(True),
-            )
-        )
-        schedule_map = {r.fee_type: r for r in rows.all()}
-        vat_rate = settings.service_fee_vat_rate
-
-        items: list[FeePreviewItem] = []
-        pre_vat = 0
-        vat_total = 0
-        for ft in fee_types:
-            sched = schedule_map.get(ft)
-            if sched is None:
-                continue
-            base = int(sched.base_amount)
-            vat = calc_vat(base, vat_rate)
-            items.append(
-                FeePreviewItem(
-                    fee_type=ft,
-                    description=_FEE_DESCRIPTION.get(ft, ft),
-                    base_amount=base,
-                    vat_amount=vat,
-                    total_with_vat=base + vat,
-                )
-            )
-            pre_vat += base
-            vat_total += vat
-
-        return items, pre_vat, vat_total, pre_vat + vat_total
-
     # ------------------------------------------------------------
     # Public flows
     # ------------------------------------------------------------
@@ -303,7 +242,6 @@ class CampaignEnrollmentService:
         approval_tier = CampaignTemplateService.compute_tier_hint(
             template.program_form, estimated_cost
         )
-        fees, pre_vat, vat_total, total = await self._compute_fees(approval_tier)
 
         partner = await self.db.get(Partner, partner_id)
         user = await self.db.get(User, user_id)
@@ -328,11 +266,6 @@ class CampaignEnrollmentService:
             else template.program_form.value,
             approval_tier=approval_tier,
             estimated_cost=estimated_cost,
-            service_fee_enabled=settings.service_fee_enabled,
-            fees=fees,
-            fee_total_pre_vat=pre_vat,
-            fee_vat_total=vat_total,
-            fee_total_with_vat=total,
             auth_doc_text=auth_doc_text,
             auth_doc_hash=_sha256_hex(auth_doc_text),
             consent_text_version=settings.consent_text_version,
@@ -384,18 +317,6 @@ class CampaignEnrollmentService:
         # 1. Tạo campaign pending (hoặc auto_approved nếu tier=none).
         auto_approved = preview.approval_tier == "none"
         approval_status = "auto_approved" if auto_approved else "pending_approval"
-        fee_enabled = settings.service_fee_enabled and bool(preview.fees)
-        service_fee_status = (
-            ServiceFeeStatus.ESTIMATED.value
-            if fee_enabled
-            else ServiceFeeStatus.NONE.value
-        )
-        # Explicit gate — nếu flag off thì KHÔNG commit tổng tiền vào
-        # campaign, dù preview có tính sẵn. Chống divergence data khi bật
-        # flag sau.
-        campaign_service_fee_total = (
-            preview.fee_total_with_vat if fee_enabled else 0
-        )
 
         template_discount_type = (
             template.discount_type.value
@@ -427,8 +348,6 @@ class CampaignEnrollmentService:
             approval_tier=preview.approval_tier,
             estimated_cost=preview.estimated_cost,
             realized_cost=0,
-            service_fee_total=campaign_service_fee_total,
-            service_fee_status=service_fee_status,
             created_by_user_id=user_id,
         )
         if auto_approved:
@@ -480,25 +399,7 @@ class CampaignEnrollmentService:
 
         campaign.authorization_id = authorization.id
 
-        # 3. Tạo fee draft rows (nếu enabled).
-        if settings.service_fee_enabled and preview.fees:
-            fee_retention = now + timedelta(
-                days=366 * settings.auth_retention_years + 1
-            )
-            for item in preview.fees:
-                fee = CampaignServiceFee(
-                    campaign_id=campaign.id,
-                    partner_id=partner_id,
-                    fee_type=item.fee_type,
-                    amount=item.base_amount,
-                    description=item.description,
-                    status=FeeStatus.DRAFT.value,
-                    retention_until=fee_retention,
-                    created_by_user_id=user_id,
-                )
-                self.db.add(fee)
-
-        # 4. Audit event. AUTO_APPROVED không phải người ký — actor=None
+        # 3. Audit event. AUTO_APPROVED không phải người ký — actor=None
         # để audit Sở CT không nhầm "owner tự duyệt". SUBMITTED thì actor=
         # chính owner.
         event_type = (
@@ -535,13 +436,4 @@ class CampaignEnrollmentService:
             authorization_id=authorization.id,
             approval_status=campaign.approval_status,
             approval_tier=campaign.approval_tier,
-            service_fee_status=campaign.service_fee_status,
         )
-
-_FEE_DESCRIPTION = {
-    "so_ct_filing": "Phí nộp thông báo/đăng ký Sở Công Thương",
-    "dossier_preparation": "Phí chuẩn bị bộ hồ sơ pháp lý",
-    "multi_province": "Phí bổ sung phạm vi khuyến mãi liên tỉnh",
-    "express": "Phí xử lý nhanh",
-    "waiver": "Miễn phí (demo / internal)",
-}

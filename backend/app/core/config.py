@@ -32,11 +32,6 @@ class Settings(BaseSettings):
     enable_scheduler: bool = False
     frontend_origins: str = "http://localhost:3000"
 
-    # Voucher rebuild v2.2 — gate phí dịch vụ.
-    # False ở scope đồ án: hide UI + API phí; data model (campaign_service_fees,
-    # campaign_fee_schedules, VAT fields) vẫn tạo đầy đủ để khoá luận bật on.
-    service_fee_enabled: bool = False
-
     # NĐ 81/2018 Điều 17/19 — threshold tier phê duyệt (VND).
     # estimated_cost <= auto → auto_approved;
     # < notify → notify_so_ct; >= notify → dang_ky_so_ct.
@@ -44,10 +39,9 @@ class Settings(BaseSettings):
     campaign_notify_threshold: int = 2_000_000
 
     # Voucher rebuild v2.2 — post-report và retention.
-    # 45 ngày nộp báo cáo kết thúc (Điều 20 NĐ 81). 10 năm lưu uỷ quyền + phí
-    # (Luật Kế toán 2015 Điều 41). VAT mặc định 10% (Luật Thuế GTGT).
+    # 45 ngày nộp báo cáo kết thúc (Điều 20 NĐ 81). 10 năm lưu uỷ quyền
+    # (Luật Kế toán 2015 Điều 41).
     campaign_default_post_report_days: int = 45
-    service_fee_vat_rate: float = 10.0
     auth_retention_years: int = 10
     consent_text_version: str = "v1.0-2026-04"
 
