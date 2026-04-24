@@ -1,11 +1,10 @@
-"""API merchant Phase 7 — xem uỷ quyền + thu hồi + xem phí dịch vụ.
+"""API merchant Phase 7 — xem uỷ quyền + thu hồi.
 
 - `GET /partner/authorizations` — list uỷ quyền của partner.
 - `GET /partner/authorizations/{id}` — detail (kèm signature_payload).
 - `POST /partner/authorizations/{id}/revoke` — thu hồi. Guarded bởi
   `campaigns.ops_filing_started_at IS NULL AND approval_status != 'approved'`.
   Sau ops_start → 409 code `REVOKE_BLOCKED_OPS_STARTED`.
-- `GET /partner/campaigns/{id}/service-fees` — list phí dịch vụ của 1 campaign.
 
 Tất cả endpoint yêu cầu owner trong partner (`require_owner_in_partner`) —
 staff không được quyết định pháp lý.
@@ -14,18 +13,15 @@ staff không được quyết định pháp lý.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_partner_id, require_owner_in_partner
 from app.models.partner_staff import PartnerStaffRole
 from app.models.user import User
 from app.schemas.partner_authorization import (
     AuthorizationRevokeRequest,
-    CampaignServiceFeeResponse,
     PartnerAuthorizationResponse,
     PartnerAuthorizationSummaryResponse,
 )
-from app.services.campaign_fee_service import CampaignFeeService
 from app.services.partner_authorization_service import (
     AuthorizationAlreadyRevokedError,
     AuthorizationNotFoundError,
@@ -108,23 +104,3 @@ async def revoke_authorization(
     # trong khi DB đã persist.
     return PartnerAuthorizationResponse.model_validate(record)
 
-
-@router.get(
-    "/partner/campaigns/{campaign_id}/service-fees",
-    response_model=list[CampaignServiceFeeResponse],
-)
-async def list_campaign_service_fees(
-    campaign_id: int,
-    partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
-    db: AsyncSession = Depends(get_db),
-) -> list[CampaignServiceFeeResponse]:
-    """Trả list rỗng khi `SERVICE_FEE_ENABLED=False` (đồ án)."""
-    settings = get_settings()
-    if not settings.service_fee_enabled:
-        return []
-
-    rows = await CampaignFeeService(db).list_for_campaign(
-        partner_id=partner_id, campaign_id=campaign_id
-    )
-    return [CampaignServiceFeeResponse.model_validate(r) for r in rows]

@@ -59,8 +59,6 @@ def _to_pending_row(campaign, tenant_name: str) -> PendingCampaignRow:
         approval_status=campaign.approval_status,
         approval_tier=campaign.approval_tier,
         estimated_cost=campaign.estimated_cost,
-        service_fee_total=campaign.service_fee_total,
-        service_fee_status=campaign.service_fee_status,
         starts_at=campaign.starts_at,
         ends_at=campaign.ends_at,
         authorization_id=campaign.authorization_id,
