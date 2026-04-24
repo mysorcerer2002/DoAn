@@ -23,7 +23,6 @@ from sqlalchemy import select, text
 from app.core.db import AsyncSessionLocal
 from app.jobs.check_post_report_overdue import check_post_report_overdue_job
 from app.jobs.expire_vouchers import expire_vouchers_job
-from app.jobs.purge_retention import purge_retention_job
 from app.models.campaign import Campaign
 from app.models.membership import Membership
 from app.models.tenant import Tenant

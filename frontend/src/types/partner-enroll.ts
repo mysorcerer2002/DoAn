@@ -46,24 +46,12 @@ export interface EnrollFormInput {
 
 // ==================== Preview ====================
 
-export interface FeePreviewItem {
-  fee_type: string;
-  description: string;
-  base_amount: number;
-  vat_amount: number;
-  total_with_vat: number;
-}
-
 export interface CampaignEnrollPreview {
   template_id: number;
   template_version: number;
   program_form: string;
   approval_tier: string;
   estimated_cost: number;
-  fees: FeePreviewItem[];
-  fee_total_pre_vat: number;
-  fee_vat_total: number;
-  fee_total_with_vat: number;
   auth_doc_text: string;
   auth_doc_hash: string;
   consent_text_version: string;
