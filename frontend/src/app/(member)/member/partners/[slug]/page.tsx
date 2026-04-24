@@ -1,6 +1,5 @@
 "use client";
 
-import { use } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Clock, Globe, Mail, MapPin, Phone } from "lucide-react";
@@ -46,9 +45,9 @@ const CATEGORY_LABEL: Record<string, string> = {
 export default function PartnerDetailPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }) {
-  const { slug } = use(params);
+  const { slug } = params;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["partner-detail", slug],
