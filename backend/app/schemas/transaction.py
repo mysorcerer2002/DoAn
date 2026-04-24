@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.transaction import TransactionMethod
 
@@ -10,6 +10,18 @@ class CreateManualTransactionRequest(BaseModel):
     gross_amount: int = Field(gt=0, le=100_000_000)
     note: str | None = Field(default=None, max_length=1000)
     voucher_code: str | None = Field(default=None, min_length=8, max_length=8)
+    receipt_code: str | None = Field(default=None, max_length=50)
+
+    @field_validator("receipt_code", mode="before")
+    @classmethod
+    def _normalize_receipt_code(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "":
+                return None
+        return v
 
 
 class TransactionResponse(BaseModel):
@@ -24,6 +36,7 @@ class TransactionResponse(BaseModel):
     points_earned: int
     method: TransactionMethod
     note: str | None
+    receipt_code: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

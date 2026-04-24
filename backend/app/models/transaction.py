@@ -9,6 +9,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    text as sa_text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,6 +33,13 @@ class Transaction(Base, TimestampMixin):
         CheckConstraint("points_earned >= 0", name="ck_transactions_points_nonneg"),
         Index("ix_transactions_partner_created", "partner_id", "created_at"),
         Index("ix_transactions_membership_created", "membership_id", "created_at"),
+        Index(
+            "ux_transactions_partner_receipt_code",
+            "partner_id",
+            "receipt_code",
+            unique=True,
+            postgresql_where=sa_text("receipt_code IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -55,6 +63,7 @@ class Transaction(Base, TimestampMixin):
         String(20), nullable=False
     )
     note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    receipt_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     # Phase 10 M12 — GENERATED STORED (DB tự tính), read-only trong app.
     legal_discount_ratio: Mapped[Decimal | None] = mapped_column(
         Numeric(5, 2),

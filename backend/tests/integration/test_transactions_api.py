@@ -195,3 +195,137 @@ async def test_transaction_cross_tenant_isolation(client, db_session):
     resp = await client.get("/partner/transactions", headers=headers_b)
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+# ── receipt_code tests ────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_with_receipt_code(client, db_session):
+    """receipt_code được lưu và trả về trong response."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    resp = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 50000, "receipt_code": "HD-001"},
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["transaction"]["receipt_code"] == "HD-001"
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_receipt_code_whitespace_normalized(client, db_session):
+    """receipt_code chỉ toàn whitespace được normalize về None."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    resp = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 50000, "receipt_code": "   "},
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["transaction"]["receipt_code"] is None
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_receipt_code_null(client, db_session):
+    """receipt_code omitted → None trong response."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    resp = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 50000},
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["transaction"]["receipt_code"] is None
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_duplicate_receipt_code_same_partner_returns_409(
+    client, db_session
+):
+    """Hai giao dịch cùng receipt_code trong cùng partner → 409."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    resp1 = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 50000, "receipt_code": "HD-DUP"},
+        headers=headers,
+    )
+    assert resp1.status_code == 201
+
+    resp2 = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 60000, "receipt_code": "HD-DUP"},
+        headers=headers,
+    )
+    assert resp2.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_same_receipt_code_different_partners_ok(
+    client, db_session
+):
+    """Hai partner khác nhau CÓ THỂ dùng cùng receipt_code — index partial per-partner."""
+    _partner_a, _owner_a, headers_a = await _setup_shop_with_rule(db_session)
+
+    owner_b = User(email="shopb2@example.com", password_hash="x", is_active=True)
+    db_session.add(owner_b)
+    await db_session.flush()
+    partner_b = Partner(
+        name="ShopB2",
+        slug="shop-b2",
+        owner_user_id=owner_b.id,
+        status=PartnerStatus.ACTIVE,
+        settings={},
+    )
+    db_session.add(partner_b)
+    await db_session.flush()
+    db_session.add(
+        PartnerStaff(partner_id=partner_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER)
+    )
+    db_session.add(
+        PointRule(
+            partner_id=partner_b.id,
+            points_per_unit=1,
+            unit_amount=1000,
+            min_amount=0,
+            is_active=True,
+        )
+    )
+    await db_session.flush()
+    token_b = create_access_token(user_id=owner_b.id)
+    headers_b = {
+        "Authorization": f"Bearer {token_b}",
+        "X-Partner-Id": str(partner_b.id),
+    }
+
+    resp_a = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 50000, "receipt_code": "HD-CROSS"},
+        headers=headers_a,
+    )
+    assert resp_a.status_code == 201
+
+    resp_b = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234568", "gross_amount": 60000, "receipt_code": "HD-CROSS"},
+        headers=headers_b,
+    )
+    assert resp_b.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_receipt_code_too_long_returns_422(client, db_session):
+    """receipt_code > 50 ký tự → 422 validation error."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    resp = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 50000, "receipt_code": "X" * 51},
+        headers=headers,
+    )
+    assert resp.status_code == 422

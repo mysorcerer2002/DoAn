@@ -183,6 +183,7 @@ class TransactionService:
             points_earned=points_earned,
             method=TransactionMethod.MANUAL,
             note=request.note,
+            receipt_code=request.receipt_code,
         )
         self.db.add(txn)
         await self.db.flush()
