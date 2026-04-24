@@ -14,6 +14,7 @@ import {
   usePartnerTiers,
 } from "@/lib/hooks/use-partner-settings";
 import { PointRuleForm, TierMultiplierRow } from "@/components/partner/settings-form";
+import { usePartnerStore } from "@/lib/partner-store";
 
 type TenantForm = {
   name: string;
@@ -41,6 +42,7 @@ export default function MerchantSettingsPage() {
   const { data: tiers, isLoading: loadingTiers } = usePartnerTiers();
   const updateTenant = useUpdateTenant();
   const updateSettings = useUpdateSettings();
+  const role = usePartnerStore((s) => s.activePartner?.role);
 
   const [tenantForm, setTenantForm] = useState<TenantForm>({
     name: "",
@@ -136,6 +138,9 @@ export default function MerchantSettingsPage() {
       </main>
     );
   }
+
+  // Layout redirects staff → /staff, nhưng guard lại đây để tránh flash content
+  if (role !== "owner") return null;
 
   return (
     <main className="px-4 py-5 md:px-8 md:py-6">

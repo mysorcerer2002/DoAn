@@ -21,11 +21,13 @@ import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useLogout } from "@/lib/hooks/use-logout";
 import { useSidebarStore } from "@/lib/sidebar-store";
+import { usePartnerStore } from "@/lib/partner-store";
 
 type MenuItem = {
   href: string;
   icon: LucideIcon;
   label: string;
+  ownerOnly?: boolean;
 };
 
 const menu: readonly MenuItem[] = [
@@ -41,7 +43,7 @@ const menu: readonly MenuItem[] = [
   { href: "/partner/authorizations", icon: ShieldCheck, label: "Uỷ quyền" },
   { href: "/partner/vouchers", icon: Ticket, label: "Voucher" },
   { href: "/partner/staff", icon: UsersRound, label: "Nhân viên" },
-  { href: "/partner/settings", icon: Settings, label: "Cài đặt" },
+  { href: "/partner/settings", icon: Settings, label: "Cài đặt", ownerOnly: true },
 ];
 
 export function PartnerSidebar() {
@@ -49,6 +51,8 @@ export function PartnerSidebar() {
   const open = useSidebarStore((s) => s.open);
   const close = useSidebarStore((s) => s.close);
   const logout = useLogout();
+  const role = usePartnerStore((s) => s.activePartner?.role);
+  const visibleMenu = menu.filter((item) => !item.ownerOnly || role === "owner");
 
   // Đóng drawer khi chuyển route
   useEffect(() => {
@@ -124,7 +128,7 @@ export function PartnerSidebar() {
         </div>
 
         <nav className="mt-5 flex-1 space-y-1 overflow-y-auto px-3">
-          {menu.map((item) => {
+          {visibleMenu.map((item) => {
             const active =
               item.href === "/partner"
                 ? pathname === "/partner"
