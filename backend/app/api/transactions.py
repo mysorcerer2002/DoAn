@@ -60,8 +60,13 @@ async def create_manual_transaction(
     except InvalidVoucherError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except IntegrityError as e:
+        if "ux_transactions_partner_receipt_code" in str(getattr(e, "orig", "")):
+            raise HTTPException(
+                status_code=409,
+                detail="Mã hoá đơn đã tồn tại, vui lòng dùng mã khác.",
+            ) from e
         raise HTTPException(
-            status_code=409, detail="Database integrity violation"
+            status_code=409, detail="Vi phạm ràng buộc dữ liệu"
         ) from e
 
 
@@ -93,8 +98,13 @@ async def create_qr_transaction(
     except NoActivePointRuleError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
     except IntegrityError as e:
+        if "ux_transactions_partner_receipt_code" in str(getattr(e, "orig", "")):
+            raise HTTPException(
+                status_code=409,
+                detail="Mã hoá đơn đã tồn tại, vui lòng dùng mã khác.",
+            ) from e
         raise HTTPException(
-            status_code=409, detail="Database integrity violation"
+            status_code=409, detail="Vi phạm ràng buộc dữ liệu"
         ) from e
 
 
