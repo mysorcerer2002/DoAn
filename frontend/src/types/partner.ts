@@ -176,6 +176,7 @@ export interface TransactionResponse {
   points_earned: number;
   method: string;
   note: string | null;
+  receipt_code: string | null;
   created_at: string;
 }
 
@@ -196,6 +197,7 @@ export interface CreateManualTransactionRequest {
   gross_amount: number;
   voucher_code?: string | null;
   note?: string | null;
+  receipt_code?: string | null;
 }
 
 // Vouchers
