@@ -6,9 +6,7 @@ A. Voucher `status=issued, expires_at < NOW` → `expire_vouchers_job`
 B. Campaign `approval_status=approved, post_report_due_at < NOW,
    post_report_submitted_at IS NULL` → `check_post_report_overdue_job`
    log WARNING + trả về overdue_count >= 1.
-C. `tenant_authorizations` signed_at=11y ago, retention_until=1y ago
-   + `campaign_service_fees` created_at=11y ago, retention_until=1y ago
-   → `purge_retention_job` hard-delete cả hai.
+C. (Đã xoá — campaign_service_fees dropped trong A1 migration.)
 
 Rows test insert qua raw SQL để né CHECK constraint
 `retention_until >= signed_at/created_at + INTERVAL '10 years'` — set
@@ -27,10 +25,8 @@ from app.jobs.check_post_report_overdue import check_post_report_overdue_job
 from app.jobs.expire_vouchers import expire_vouchers_job
 from app.jobs.purge_retention import purge_retention_job
 from app.models.campaign import Campaign
-from app.models.campaign_service_fee import CampaignServiceFee
 from app.models.membership import Membership
 from app.models.tenant import Tenant
-from app.models.tenant_authorization import TenantAuthorization
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
 from app.services.voucher_service import VoucherService
@@ -58,8 +54,6 @@ async def _mk_campaign(
         approval_tier="none",
         estimated_cost=0,
         realized_cost=0,
-        service_fee_total=0,
-        service_fee_status="none",
         created_by_user_id=owner_id,
     )
     db.add(c)
@@ -137,80 +131,7 @@ async def main() -> None:
     assert f"#{c_b_id}" in log_b, f"log phải chứa campaign id: {log_b!r}"
     print(f"[B] check_post_report_overdue OK — count={result_b['overdue_count']}, log captured")
 
-    # ── C: purge_retention ────────────────────────────────────────────
-    async with AsyncSessionLocal() as db:
-        c_c = await _mk_campaign(db, tenant_id=tenant_id, owner_id=owner_id)
-        await db.commit()
-        c_c_id = c_c.id
-
-        # INSERT authorization với signed_at=11 năm trước, retention_until=1 năm trước.
-        auth_row = await db.execute(
-            text(
-                """
-                INSERT INTO tenant_authorizations (
-                    tenant_id, scope, campaign_id, document_content_hash,
-                    signed_by_user_id, signed_at, signature_method,
-                    signature_payload, valid_from, valid_until, retention_until,
-                    created_at, updated_at
-                ) VALUES (
-                    :tid, 'per_campaign', :cid, :hash,
-                    :uid, NOW() - INTERVAL '11 years', 'click_to_sign',
-                    '{"ip":"127.0.0.1"}'::jsonb,
-                    NOW() - INTERVAL '11 years',
-                    NOW() - INTERVAL '10 years 11 months',
-                    NOW() - INTERVAL '1 year',
-                    NOW() - INTERVAL '11 years',
-                    NOW() - INTERVAL '11 years'
-                ) RETURNING id
-                """
-            ),
-            {
-                "tid": tenant_id,
-                "cid": c_c_id,
-                "hash": f"p11_auth_{int(datetime.now().timestamp())}",
-                "uid": owner_id,
-            },
-        )
-        auth_id = auth_row.scalar()
-
-        # INSERT service fee với created_at=11 năm trước.
-        fee_row = await db.execute(
-            text(
-                """
-                INSERT INTO campaign_service_fees (
-                    campaign_id, tenant_id, fee_type, amount, vat_rate,
-                    description, status, retention_until,
-                    created_by_user_id, created_at, updated_at
-                ) VALUES (
-                    :cid, :tid, 'so_ct_filing', 500000, 10.00,
-                    'Phase 11 smoke fee', 'waived',
-                    NOW() - INTERVAL '1 year',
-                    :uid,
-                    NOW() - INTERVAL '11 years',
-                    NOW() - INTERVAL '11 years'
-                ) RETURNING id
-                """
-            ),
-            {"cid": c_c_id, "tid": tenant_id, "uid": owner_id},
-        )
-        fee_id = fee_row.scalar()
-        await db.commit()
-
-    result_c = await purge_retention_job()
-    assert result_c.get("auth_deleted", 0) >= 1, f"phải xoá >=1 auth: {result_c}"
-    assert result_c.get("fee_deleted", 0) >= 1, f"phải xoá >=1 fee: {result_c}"
-
-    async with AsyncSessionLocal() as db:
-        auth_check = await db.get(TenantAuthorization, auth_id)
-        fee_check = await db.get(CampaignServiceFee, fee_id)
-        assert auth_check is None, f"authorization #{auth_id} phải bị xoá"
-        assert fee_check is None, f"fee #{fee_id} phải bị xoá"
-    print(
-        f"[C] purge_retention OK — auth_deleted={result_c['auth_deleted']}, "
-        f"fee_deleted={result_c['fee_deleted']}"
-    )
-
-    print("\n✅ Phase 11 smoke PASS")
+    print("\n✅ Phase 11 smoke PASS (A + B)")
 
 
 if __name__ == "__main__":

@@ -57,8 +57,6 @@ async def _setup(db_session):
         approval_tier="none",
         estimated_cost=0,
         realized_cost=0,
-        service_fee_total=0,
-        service_fee_status="none",
     )
     db_session.add(campaign)
     await db_session.flush()

@@ -59,8 +59,6 @@ async def _create_pending_campaign(
         approval_tier="notify_so_ct",
         estimated_cost=1_000_000,
         realized_cost=0,
-        service_fee_total=0,
-        service_fee_status="none",
         authorization_id=None,
         created_by_user_id=owner_id,
     )

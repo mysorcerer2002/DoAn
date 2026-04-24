@@ -57,8 +57,6 @@ async def _mk_campaign(
         approval_tier="none",
         estimated_cost=0,
         realized_cost=0,
-        service_fee_total=0,
-        service_fee_status="none",
         created_by_user_id=owner_id,
     )
     db.add(c)
