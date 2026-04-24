@@ -82,7 +82,7 @@ class MemberService:
                 )
                 is_membership_new = True
             except IntegrityError:
-                # Race: another connection created membership with same (tenant, user) first
+                # Race: another connection created membership with same (partner, user) first
                 existing_membership = await self.db.scalar(
                     select(Membership)
                     .options(joinedload(Membership.current_tier))

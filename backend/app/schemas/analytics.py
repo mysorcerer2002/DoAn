@@ -49,7 +49,7 @@ class DashboardResponse(BaseModel):
 
 
 class PartnerDetailStats(BaseModel):
-    """Stats cho trang chi tiết tenant (admin)."""
+    """Stats cho trang chi tiết đối tác (admin)."""
 
     member_count: int
     transaction_count: int
@@ -57,7 +57,7 @@ class PartnerDetailStats(BaseModel):
 
 
 class PartnerDetailResponse(BaseModel):
-    """Phản hồi chi tiết tenant cho admin."""
+    """Phản hồi chi tiết đối tác cho admin."""
 
     id: int
     name: str
@@ -117,7 +117,7 @@ class AdminPartnerListRow(BaseModel):
 
 
 class AdminPartnerStaffRow(BaseModel):
-    """Nhân viên/owner của một tenant."""
+    """Nhân viên/owner của một đối tác."""
 
     user_id: int
     full_name: str | None = None
@@ -129,7 +129,7 @@ class AdminPartnerStaffRow(BaseModel):
 
 
 class AdminPartnerMemberRow(BaseModel):
-    """Khách hàng của một tenant."""
+    """Khách hàng của một đối tác."""
 
     membership_id: int
     user_id: int
@@ -146,6 +146,7 @@ class AdminPartnerMemberRow(BaseModel):
 class PlatformStatsResponse(BaseModel):
     """Thống kê toàn platform cho admin."""
 
+    # XXX: rename total_tenants → total_partners khi frontend migrate sang Partner (Phase 6+)
     total_tenants: int
     total_users: int
     total_transactions: int

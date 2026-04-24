@@ -159,7 +159,7 @@ class TransactionService:
         # Clamp net_amount >= 0 (defense: voucher discount > gross_amount edge case)
         net_amount = max(0, request.gross_amount - (voucher_discount or 0))
 
-        # Đọc tenant settings để biết tính điểm trên gross hay net
+        # Đọc settings của đối tác để biết tính điểm trên gross hay net
         partner = await self.db.get(Partner, partner_id)
         points_on_gross = bool(
             partner and partner.settings and partner.settings.get("points_on_gross")
@@ -484,7 +484,7 @@ class TransactionService:
     async def _auto_enroll_membership(
         self, *, partner_id: int, user_id: int
     ) -> Membership:
-        """Tạo membership mới cho user tại tenant (auto-enroll lần đầu quét QR)."""
+        """Tạo membership mới cho user tại đối tác (auto-enroll lần đầu quét QR)."""
         from sqlalchemy.exc import IntegrityError as _SAIntegrityError
 
         try:
@@ -500,7 +500,7 @@ class TransactionService:
                 self.db.add(membership)
                 await self.db.flush()
         except _SAIntegrityError:
-            # Race: cùng lúc có request khác tạo cho (tenant, user) này
+            # Race: cùng lúc có request khác tạo cho (đối tác, user) này
             pass
 
         # Reload để có lock + eager load user (dùng cho response)

@@ -47,7 +47,7 @@ class SignaturePayloadPublic(BaseModel):
     rendered_pdf_hash: str | None = None
 
 
-class TenantAuthorizationResponse(BaseModel):
+class PartnerAuthorizationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -74,7 +74,7 @@ class TenantAuthorizationResponse(BaseModel):
         return v
 
 
-class TenantAuthorizationSummaryResponse(BaseModel):
+class PartnerAuthorizationSummaryResponse(BaseModel):
     """Bản rút gọn — không trả signature_payload (có OTP metadata)."""
 
     model_config = ConfigDict(from_attributes=True)

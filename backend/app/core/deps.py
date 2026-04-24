@@ -125,10 +125,10 @@ async def get_current_partner_role(
     partner_id: int = Depends(get_partner_id),
     db: AsyncSession = Depends(get_db),
 ) -> "PartnerStaffRole":
-    """Lấy role của current user trong current tenant.
+    """Lấy role của current user trong đối tác hiện tại.
 
     1. Lookup cache (TTL 60s)
-    2. Cache miss → query DB tenant_staff
+    2. Cache miss → query DB partner_staff
     3. Không có row → raise 403
     """
     from sqlalchemy import select as sa_select
@@ -158,14 +158,14 @@ async def get_current_partner_role(
 async def require_staff_in_partner(
     role: "PartnerStaffRole" = Depends(get_current_partner_role),
 ) -> "PartnerStaffRole":
-    """Dependency: user phải là staff hoặc owner của tenant."""
+    """Dependency: user phải là staff hoặc owner của đối tác."""
     return role
 
 
 async def require_owner_in_partner(
     role: "PartnerStaffRole" = Depends(get_current_partner_role),
 ) -> "PartnerStaffRole":
-    """Dependency: user phải là owner của tenant."""
+    """Dependency: user phải là owner của đối tác."""
     from app.models.partner_staff import PartnerStaffRole
 
     if role != PartnerStaffRole.OWNER:
@@ -181,7 +181,7 @@ async def require_customer_in_partner(
     partner_id: int = Depends(get_partner_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Dependency: user phải là member của tenant (có row trong memberships).
+    """Dependency: user phải là member của đối tác (có row trong memberships).
 
     Dùng cho các endpoint customer-facing như /member/redemptions, /member/qr.
     Trả về Membership row để endpoint dùng tiếp (tránh query lại).

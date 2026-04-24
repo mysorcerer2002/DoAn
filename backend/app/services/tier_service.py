@@ -75,7 +75,7 @@ class TierService:
         membership = await self.db.get(Membership, membership_id)
         if membership is None or membership.partner_id != partner_id:
             raise ValueError(
-                f"Membership {membership_id} not found in tenant {partner_id}"
+                f"Membership {membership_id} not found in partner {partner_id}"
             )
 
         new_tier = await self.db.scalar(

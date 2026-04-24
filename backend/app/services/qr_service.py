@@ -39,7 +39,7 @@ class QrService:
         if "." in payload and len(payload) > 20:
             return decode_qr_jwt(payload)
 
-        # Fallback code path — lookup tất cả member của tenant hiện tại
+        # Fallback code path — lookup tất cả member của đối tác hiện tại
         candidates = list(
             (
                 await self.db.scalars(
@@ -50,7 +50,7 @@ class QrService:
             ).all()
         )
         if not candidates:
-            raise InvalidQRError("No members in tenant")
+            raise InvalidQRError("No members in partner")
         return verify_fallback_code_with_candidates(
             payload, candidate_user_ids=candidates
         )

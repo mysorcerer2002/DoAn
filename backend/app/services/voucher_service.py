@@ -375,7 +375,7 @@ class VoucherService:
         """Kiểm tra voucher code + tính discount preview cho POS form.
 
         Raises:
-            VoucherNotFoundError: code không tồn tại trong tenant
+            VoucherNotFoundError: code không tồn tại trong đối tác
             VoucherInvalidStatusError: voucher đã used/expired
             VoucherExpiredError: voucher quá hạn
 
@@ -461,7 +461,7 @@ class VoucherService:
             )
         )
         if voucher is None:
-            raise ValueError(f"Voucher {voucher_id} not found in tenant {partner_id}")
+            raise ValueError(f"Voucher {voucher_id} not found in partner {partner_id}")
         voucher.status = VoucherStatus.USED
         voucher.used_at = datetime.now(timezone.utc)
         await self.db.flush()

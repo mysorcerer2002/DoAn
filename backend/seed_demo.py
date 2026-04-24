@@ -1,9 +1,9 @@
 """Seed data phong phú cho demo + test.
 
-Tạo 2 tenant độc lập (Cafe Cộng + Trà Sữa Lala) với đầy đủ:
+Tạo 2 đối tác độc lập (Cafe Cộng + Trà Sữa Lala) với đầy đủ:
 - tier, point_rule, reward, campaign
-- 5 customer/tenant + membership với tier đa dạng
-- 14 ngày transactions (~30 txn/tenant)
+- 5 customer/đối tác + membership với tier đa dạng
+- 14 ngày transactions (~30 txn/đối tác)
 - point_ledger entries (earn + adjust + redeem)
 - voucher claims từ campaign
 - redemption records từ reward
@@ -212,7 +212,7 @@ async def _seed_tenant(
         await db.scalars(select(Campaign).where(Campaign.partner_id == partner.id))
     ).all()
 
-    # Staff accounts (ngoài owner) — seed 2 staff/tenant để test staff-only flows
+    # Staff accounts (ngoài owner) — seed 2 staff/đối tác để test staff-only flows
     staff_seeds_by_tenant = {
         "cafe-cong": [
             ("staff1@cafe.vn", "Nguyễn Thu Hằng", "0901111101"),
@@ -542,16 +542,16 @@ async def main() -> None:
         print("\n  Merchant Owners:")
         print("   - owner@cafe.vn    (Cafe Cộng)            / owner1234")
         print("   - owner@lala.vn    (Trà Sữa Lala)         / owner1234")
-        print("\n  Staff (tenant):")
+        print("\n  Staff (đối tác):")
         print("   - staff1@cafe.vn, staff2@cafe.vn          / staff1234")
         print("   - staff1@lala.vn, staff2@lala.vn          / staff1234")
-        print("\n  Customers Cafe Cộng (tenant 1):")
+        print("\n  Customers Cafe Cộng (đối tác 1):")
         print("   - khach1@gmail.com  → Hạng Đồng  (120 điểm)")
         print("   - khach2@gmail.com  → Hạng Bạc   (780 điểm)")
         print("   - khach3@gmail.com  → Hạng Vàng  (2650 điểm)")
         print("   - khach4@gmail.com  → Hạng Đồng  (350 điểm)")
         print("   - khach5@gmail.com  → Hạng Bạch Kim (5200 điểm)")
-        print("\n  Customers Trà Sữa Lala (tenant 2):")
+        print("\n  Customers Trà Sữa Lala (đối tác 2):")
         print("   - lala1@gmail.com   → Lala Member (90 điểm)")
         print("   - lala2@gmail.com   → Lala Silver (480 điểm)")
         print("   - lala3@gmail.com   → Lala Gold   (1820 điểm)")

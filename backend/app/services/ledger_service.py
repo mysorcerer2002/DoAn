@@ -62,7 +62,7 @@ class LedgerService:
         )
         membership = await self.db.get(Membership, membership_id)
         if membership is None or membership.partner_id != partner_id:
-            raise ValueError(f"Membership {membership_id} not found in tenant {partner_id}")
+            raise ValueError(f"Membership {membership_id} not found in partner {partner_id}")
 
         actual = membership.points_balance
         return ReconcileResponse(

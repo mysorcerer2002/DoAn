@@ -4,7 +4,7 @@ Phase 6 của plan voucher rebuild v2.2. Shop chọn template, fill instance,
 xem phí + nội dung uỷ quyền, ký qua OTP email → hệ thống tạo chain entity:
 
 - Campaign (pending_approval hoặc auto_approved tuỳ tier)
-- TenantAuthorization (signed, with signature_payload JSONB)
+- PartnerAuthorization (signed, with signature_payload JSONB)
 - CampaignServiceFee (draft rows, nếu SERVICE_FEE_ENABLED)
 - CampaignApprovalEvent (event_type='submitted')
 
