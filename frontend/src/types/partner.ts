@@ -200,6 +200,38 @@ export interface CreateManualTransactionRequest {
   receipt_code?: string | null;
 }
 
+// C4: List/detail/update cho /partner/transactions
+export interface TransactionListItem {
+  id: number;
+  created_at: string;
+  receipt_code: string | null;
+  membership_display_name: string;
+  staff_display_name: string | null;
+  gross_amount: number;
+  voucher_discount_amount: number | null;
+  net_amount: number;
+  points_earned: number;
+  method: string;
+  voucher_code: string | null;
+}
+
+export interface TransactionListResponse {
+  items: TransactionListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface TransactionDetailResponse extends TransactionListItem {
+  note: string | null;
+  legal_discount_ratio: string | null;
+}
+
+export interface TransactionUpdateRequest {
+  receipt_code?: string | null;
+  note?: string | null;
+}
+
 // Vouchers
 export interface VoucherResponse {
   id: number;

@@ -31,7 +31,10 @@ import type {
   StaffResponse,
   TierResponse,
   TierUpdateRequest,
+  TransactionDetailResponse,
+  TransactionListResponse,
   TransactionResponse,
+  TransactionUpdateRequest,
   TransactionWithMemberResponse,
   VoucherResponse,
 } from "@/types/partner";
@@ -117,8 +120,22 @@ export const transactionsApi = {
       "/partner/transactions/qr",
       data
     ),
-  list: (params?: { limit?: number; offset?: number }) =>
-    api.get<TransactionResponse[]>("/partner/transactions", { params }),
+  list: (params: {
+    page?: number;
+    page_size?: number;
+    date_from?: string;
+    date_to?: string;
+    staff_id?: number;
+    q?: string;
+  }) =>
+    api.get<TransactionListResponse>("/partner/transactions", { params }),
+  get: (id: number) =>
+    api.get<TransactionDetailResponse>(`/partner/transactions/${id}`),
+  update: (id: number, payload: TransactionUpdateRequest) =>
+    api.patch<TransactionDetailResponse>(
+      `/partner/transactions/${id}`,
+      payload
+    ),
 };
 
 // ==================== Partner Tiers ====================

@@ -196,15 +196,6 @@ export function useRemoveStaff() {
 }
 
 // ==================== Transactions ====================
-export function useTransactions(params?: { limit?: number; offset?: number }) {
-  const partnerId = usePartnerId();
-  return useQuery({
-    queryKey: ["partner", "transactions", partnerId, params],
-    queryFn: async () => (await transactionsApi.list(params)).data,
-    enabled: partnerId != null,
-  });
-}
-
 export function useCreateTransaction() {
   const qc = useQueryClient();
   return useMutation({
