@@ -115,7 +115,7 @@ export default function CampaignDetailPage() {
     return (
       <main className="px-4 py-8 md:px-8">
         <Link
-          href="/merchant/campaigns"
+          href="/partner/campaigns"
           className="inline-flex items-center gap-1 text-[13px] text-brand-indigo"
         >
           <ArrowLeft className="h-4 w-4" /> Quay lại danh sách
@@ -160,7 +160,7 @@ export default function CampaignDetailPage() {
   return (
     <main className="px-4 py-5 md:px-8 md:py-6">
       <Link
-        href="/merchant/campaigns"
+        href="/partner/campaigns"
         className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-brand-indigo"
       >
         <ArrowLeft className="h-4 w-4" /> Quay lại danh sách
@@ -362,7 +362,7 @@ export default function CampaignDetailPage() {
                 )}
               </div>
               <Link
-                href={`/merchant/authorizations/${linkedAuth.id}`}
+                href={`/partner/authorizations/${linkedAuth.id}`}
                 className="rounded-xl bg-indigo-50 px-3 py-1.5 text-[12px] font-medium text-brand-indigo hover:bg-indigo-100"
               >
                 Xem uỷ quyền

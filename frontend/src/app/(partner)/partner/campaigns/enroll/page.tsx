@@ -751,13 +751,13 @@ function StepSign({
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Link
-            href={`/merchant/campaigns/${result.campaignId}`}
+            href={`/partner/campaigns/${result.campaignId}`}
             className="rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-200"
           >
             Xem chi tiết chiến dịch
           </Link>
           <Link
-            href="/merchant/campaigns"
+            href="/partner/campaigns"
             className="rounded-xl border border-slate-200 px-5 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
           >
             Về danh sách
@@ -887,7 +887,7 @@ export default function EnrollCampaignPage() {
   return (
     <main className="px-4 py-5 md:px-8 md:py-6">
       <Link
-        href="/merchant/campaigns"
+        href="/partner/campaigns"
         className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-brand-indigo"
       >
         <ChevronLeft className="h-4 w-4" /> Quay lại danh sách chiến dịch

@@ -117,7 +117,7 @@ export default function MerchantRegisterPage() {
       setTokens(reg.data.access_token, reg.data.refresh_token);
       await fetchMe();
 
-      await api.post("/merchant/register", {
+      await api.post("/partner/register", {
         name: data.name,
         category: data.category,
         description: data.description || null,

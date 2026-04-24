@@ -27,7 +27,7 @@ const RULES = {
   ],
   prefetch: [
     {
-      urls: ["/login", "/register", "/member", "/merchant", "/admin"],
+      urls: ["/login", "/register", "/member", "/partner", "/admin"],
       eagerness: "moderate",
     },
   ],

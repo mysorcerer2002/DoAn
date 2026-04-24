@@ -94,7 +94,7 @@ export default function MerchantVouchersPage() {
           </p>
         </div>
         <Link
-          href="/merchant/campaigns"
+          href="/partner/campaigns"
           className="rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet px-5 py-3 font-headline text-[13px] font-bold text-white shadow-lg shadow-indigo-200 hover:opacity-95"
         >
           Tạo chiến dịch mới
@@ -162,7 +162,7 @@ export default function MerchantVouchersPage() {
               Tạo chiến dịch khuyến mãi để phát voucher cho khách hàng thành viên.
             </p>
             <Link
-              href="/merchant/campaigns"
+              href="/partner/campaigns"
               className="mt-5 rounded-xl bg-brand-indigo px-5 py-2.5 text-[13px] font-bold text-white hover:opacity-95"
             >
               Đi tới Chiến dịch

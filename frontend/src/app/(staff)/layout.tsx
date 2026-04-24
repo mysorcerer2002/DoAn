@@ -32,10 +32,10 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
     }
   }, [mounted, isLoading, user, isError, router]);
 
-  // Nếu user là owner, chuyển sang /merchant (không nên ở /staff)
+  // Nếu user là owner, chuyển sang /partner (không nên ở /staff)
   useEffect(() => {
     if (mounted && tenant && tenant.role === "owner") {
-      router.replace("/merchant");
+      router.replace("/partner");
     }
   }, [mounted, tenant, router]);
 

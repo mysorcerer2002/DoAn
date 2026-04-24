@@ -97,7 +97,7 @@ export default function AuthorizationsPage() {
                     <td className="px-4 py-3">
                       {auth.campaign_id ? (
                         <Link
-                          href={`/merchant/campaigns/${auth.campaign_id}`}
+                          href={`/partner/campaigns/${auth.campaign_id}`}
                           className="font-medium text-brand-indigo hover:underline"
                         >
                           #{auth.campaign_id}
@@ -130,7 +130,7 @@ export default function AuthorizationsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/merchant/authorizations/${auth.id}`}
+                        href={`/partner/authorizations/${auth.id}`}
                         className="text-[12px] text-brand-indigo hover:underline"
                       >
                         Xem chi tiết

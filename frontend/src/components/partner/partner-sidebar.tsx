@@ -29,19 +29,19 @@ type MenuItem = {
 };
 
 const menu: readonly MenuItem[] = [
-  { href: "/merchant", icon: BarChart3, label: "Dashboard" },
+  { href: "/partner", icon: BarChart3, label: "Dashboard" },
   {
-    href: "/merchant/pos/transactions/new",
+    href: "/partner/pos/transactions/new",
     icon: CreditCard,
     label: "Giao dịch",
   },
-  { href: "/merchant/members", icon: Users, label: "Thành viên" },
-  { href: "/merchant/rewards", icon: Gift, label: "Phần thưởng" },
-  { href: "/merchant/campaigns", icon: Megaphone, label: "Chiến dịch" },
-  { href: "/merchant/authorizations", icon: ShieldCheck, label: "Uỷ quyền" },
-  { href: "/merchant/vouchers", icon: Ticket, label: "Voucher" },
-  { href: "/merchant/staff", icon: UsersRound, label: "Nhân viên" },
-  { href: "/merchant/settings", icon: Settings, label: "Cài đặt" },
+  { href: "/partner/members", icon: Users, label: "Thành viên" },
+  { href: "/partner/rewards", icon: Gift, label: "Phần thưởng" },
+  { href: "/partner/campaigns", icon: Megaphone, label: "Chiến dịch" },
+  { href: "/partner/authorizations", icon: ShieldCheck, label: "Uỷ quyền" },
+  { href: "/partner/vouchers", icon: Ticket, label: "Voucher" },
+  { href: "/partner/staff", icon: UsersRound, label: "Nhân viên" },
+  { href: "/partner/settings", icon: Settings, label: "Cài đặt" },
 ];
 
 export function PartnerSidebar() {
@@ -126,8 +126,8 @@ export function PartnerSidebar() {
         <nav className="mt-5 flex-1 space-y-1 overflow-y-auto px-3">
           {menu.map((item) => {
             const active =
-              item.href === "/merchant"
-                ? pathname === "/merchant"
+              item.href === "/partner"
+                ? pathname === "/partner"
                 : pathname.startsWith(item.href);
             return (
               <Link

@@ -67,7 +67,7 @@ export default function LoginPage() {
       setTokens(res.data.access_token, res.data.refresh_token);
       await fetchMe();
 
-      // Redirect theo role: super_admin → /admin, staff → /merchant, else → /member
+      // Redirect theo role: super_admin → /admin, staff → /partner, else → /member
       const user = useAuthStore.getState().user;
       if (user?.system_role === "super_admin") {
         router.push("/admin");
@@ -86,8 +86,8 @@ export default function LoginPage() {
             slug: t.slug,
             role: t.role,
           });
-          // Phân route theo role: owner → /merchant (full), staff → /staff (rút gọn)
-          router.push(t.role === "owner" ? "/merchant" : "/staff");
+          // Phân route theo role: owner → /partner (full), staff → /staff (rút gọn)
+          router.push(t.role === "owner" ? "/partner" : "/staff");
           return;
         }
       } catch {

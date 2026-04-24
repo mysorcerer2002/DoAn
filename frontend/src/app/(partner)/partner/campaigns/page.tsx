@@ -146,7 +146,7 @@ export default function MerchantCampaignsPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/merchant/campaigns/enroll"
+            href="/partner/campaigns/enroll"
             className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-200 active:scale-95"
           >
             <Plus className="h-4 w-4" />
@@ -218,7 +218,7 @@ export default function MerchantCampaignsPage() {
             return (
               <Link
                 key={c.id}
-                href={`/merchant/campaigns/${c.id}`}
+                href={`/partner/campaigns/${c.id}`}
                 className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="relative h-16 bg-gradient-to-br from-brand-indigo to-brand-violet">

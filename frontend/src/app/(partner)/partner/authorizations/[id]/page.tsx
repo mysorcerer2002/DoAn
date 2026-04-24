@@ -104,7 +104,7 @@ export default function AuthorizationDetailPage() {
     return (
       <main className="px-4 py-8 md:px-8">
         <Link
-          href="/merchant/authorizations"
+          href="/partner/authorizations"
           className="inline-flex items-center gap-1 text-[13px] text-brand-indigo"
         >
           <ArrowLeft className="h-4 w-4" /> Quay lại danh sách
@@ -122,7 +122,7 @@ export default function AuthorizationDetailPage() {
   return (
     <main className="px-4 py-5 md:px-8 md:py-6">
       <Link
-        href="/merchant/authorizations"
+        href="/partner/authorizations"
         className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-brand-indigo"
       >
         <ArrowLeft className="h-4 w-4" /> Quay lại danh sách
@@ -183,7 +183,7 @@ export default function AuthorizationDetailPage() {
             <InfoRow label="Chiến dịch">
               {auth.campaign_id ? (
                 <Link
-                  href={`/merchant/campaigns/${auth.campaign_id}`}
+                  href={`/partner/campaigns/${auth.campaign_id}`}
                   className="font-medium text-brand-indigo hover:underline"
                 >
                   #{auth.campaign_id}

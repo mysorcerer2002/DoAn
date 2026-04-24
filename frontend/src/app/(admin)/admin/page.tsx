@@ -107,7 +107,7 @@ export default function AdminDashboardPage() {
       {/* Quick actions */}
       <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <ActionCard
-          href="/admin/tenants"
+          href="/admin/partners"
           icon={Store}
           iconBg="bg-indigo-50 text-brand-indigo"
           title="Quản lý đối tác"

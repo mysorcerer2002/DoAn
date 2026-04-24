@@ -31,7 +31,7 @@ type MenuItem = {
 
 const menu: readonly MenuItem[] = [
   { href: "/admin", icon: LayoutDashboard, label: "Tổng quan" },
-  { href: "/admin/tenants", icon: Store, label: "Đối tác" },
+  { href: "/admin/partners", icon: Store, label: "Đối tác" },
   { href: "/admin/users", icon: Users, label: "Người dùng" },
   { href: "/admin/templates", icon: FileText, label: "Template" },
   { href: "/admin/campaigns", icon: ClipboardList, label: "Duyệt chiến dịch" },

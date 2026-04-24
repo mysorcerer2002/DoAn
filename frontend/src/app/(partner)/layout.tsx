@@ -34,7 +34,7 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
     }
   }, [mounted, isLoading, user, isError, router]);
 
-  // Staff không có quyền vào /merchant → redirect /staff
+  // Staff không có quyền vào /partner → redirect /staff
   useEffect(() => {
     if (mounted && tenant && tenant.role === "staff") {
       router.replace("/staff");
@@ -64,7 +64,7 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[#f8fafc] font-body text-slate-800">
       <PartnerSidebar />
       <div className="md:ml-60">
-        <MobileTopbar title="Merchant" gradientClass="bg-brand-indigo" />
+        <MobileTopbar title="Đối tác" gradientClass="bg-brand-indigo" />
         {children}
       </div>
     </div>
