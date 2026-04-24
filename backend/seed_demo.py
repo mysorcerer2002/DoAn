@@ -70,7 +70,8 @@ async def _seed_tenant(
     owner: User,
     description: str,
     category: PartnerCategory,
-    tier_names: list[tuple[str, int]],
+    tier_defs: list[tuple[str, int, Decimal]],  # (name, min_points, earn_multiplier)
+    use_tiers: bool,
     rewards: list[tuple[str, int, int | None]],
     campaigns: list[tuple[str, int, int]],  # (name, discount_percent, max_discount)
     customers: list[tuple[str, str, str, int, str]],  # (email, name, phone, points, tier_name)
@@ -117,10 +118,17 @@ async def _seed_tenant(
             unit_amount=10_000,
             points_per_unit=Decimal("1"),
             min_amount=0,
+            use_tiers=use_tiers,
             is_active=True,
         ))
         await db.flush()
-        print("  ✓ Point rule: 10.000₫ = 1 điểm")
+        print(f"  ✓ Point rule: 10.000₫ = 1 điểm, use_tiers={use_tiers}")
+    else:
+        # Backfill use_tiers nếu khác
+        if rule.use_tiers != use_tiers:
+            rule.use_tiers = use_tiers
+            await db.flush()
+            print(f"  ↻ Backfill point_rule.use_tiers={use_tiers}")
 
     # Tiers
     existing_tiers = (
@@ -129,10 +137,29 @@ async def _seed_tenant(
         )
     ).all()
     if not existing_tiers:
-        for tier_name, min_pts in tier_names:
-            db.add(Tier(partner_id=partner.id, name=tier_name, min_points=min_pts, is_active=True))
+        for tier_name, min_pts, earn_mult in tier_defs:
+            db.add(Tier(
+                partner_id=partner.id,
+                name=tier_name,
+                min_points=min_pts,
+                earn_multiplier=earn_mult,
+                is_active=True,
+            ))
         await db.flush()
-        print(f"  ✓ {len(tier_names)} tiers")
+        print(f"  ✓ {len(tier_defs)} tiers")
+    else:
+        # Backfill earn_multiplier cho tier đã tồn tại (theo tên)
+        multiplier_map = {t_name: earn_mult for t_name, _, earn_mult in tier_defs}
+        updated = 0
+        for tier in existing_tiers:
+            if tier.name in multiplier_map:
+                new_mult = multiplier_map[tier.name]
+                if tier.earn_multiplier != new_mult:
+                    tier.earn_multiplier = new_mult
+                    updated += 1
+        if updated:
+            await db.flush()
+            print(f"  ↻ Backfill earn_multiplier cho {updated} tiers")
 
     tiers_map = {
         t.name: t
@@ -450,12 +477,13 @@ async def main() -> None:
             owner=owner1,
             description="Quán cafe phong cách Việt Nam",
             category=PartnerCategory.CAFE,
-            tier_names=[
-                ("Hạng Đồng", 0),
-                ("Hạng Bạc", 500),
-                ("Hạng Vàng", 2000),
-                ("Hạng Bạch Kim", 5000),
+            tier_defs=[
+                ("Hạng Đồng", 0, Decimal("1.00")),
+                ("Hạng Bạc", 500, Decimal("1.25")),
+                ("Hạng Vàng", 2000, Decimal("1.50")),
+                ("Hạng Bạch Kim", 5000, Decimal("2.00")),
             ],
+            use_tiers=True,
             rewards=[
                 ("Cafe Latte size M Free", 150, 50),
                 ("Bánh ngọt cao cấp", 200, 30),
@@ -498,12 +526,13 @@ async def main() -> None:
             owner=owner2,
             description="Chuỗi trà sữa hot nhất Sài Gòn",
             category=PartnerCategory.FOOD,
-            tier_names=[
-                ("Lala Member", 0),
-                ("Lala Silver", 300),
-                ("Lala Gold", 1500),
-                ("Lala VIP", 4000),
+            tier_defs=[
+                ("Lala Member", 0, Decimal("1.00")),
+                ("Lala Silver", 300, Decimal("1.25")),
+                ("Lala Gold", 1500, Decimal("1.50")),
+                ("Lala VIP", 4000, Decimal("2.00")),
             ],
+            use_tiers=False,
             rewards=[
                 ("Trà sữa topping free", 100, 80),
                 ("Set 2 ly trà sữa", 250, 40),

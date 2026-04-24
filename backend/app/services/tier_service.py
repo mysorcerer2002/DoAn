@@ -20,6 +20,7 @@ class TierService:
             partner_id=partner_id,
             name=request.name,
             min_points=request.min_points,
+            earn_multiplier=request.earn_multiplier,
             perks=request.perks,
             is_active=True,
         )
