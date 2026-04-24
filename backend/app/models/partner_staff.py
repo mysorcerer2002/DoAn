@@ -9,34 +9,34 @@ from sqlalchemy.sql import func
 from app.models.base import Base
 
 if TYPE_CHECKING:
-    from app.models.tenant import Tenant
+    from app.models.partner import Partner
     from app.models.user import User
 
 
-class TenantStaffRole(str, enum.Enum):
+class PartnerStaffRole(str, enum.Enum):
     OWNER = "owner"
     STAFF = "staff"
 
 
-class TenantStaff(Base):
-    __tablename__ = "tenant_staff"
+class PartnerStaff(Base):
+    __tablename__ = "partner_staff"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "user_id", name="uq_tenant_staff_tenant_user"),
+        UniqueConstraint("partner_id", "user_id", name="uq_partner_staff_partner_user"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    role: Mapped[TenantStaffRole] = mapped_column(
+    role: Mapped[PartnerStaffRole] = mapped_column(
         String(20), nullable=False
     )
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    tenant: Mapped["Tenant"] = relationship("Tenant")
+    partner: Mapped["Partner"] = relationship("Partner")
     user: Mapped["User"] = relationship("User")

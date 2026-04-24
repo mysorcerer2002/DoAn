@@ -118,10 +118,10 @@ class Campaign(Base, TimestampMixin):
             "source NOT IN ('signup','birthday') OR template_id IS NOT NULL",
             name="ck_campaigns_template_required_for_system_source",
         ),
-        Index("ix_campaigns_tenant_active", "tenant_id", "is_active"),
+        Index("ix_campaigns_partner_active", "partner_id", "is_active"),
         Index(
             "ix_campaigns_pending_approval",
-            "tenant_id",
+            "partner_id",
             "created_at",
             postgresql_where=text(
                 "approval_status = 'pending_approval' AND deleted_at IS NULL"
@@ -137,7 +137,7 @@ class Campaign(Base, TimestampMixin):
         ),
         Index(
             "ix_campaigns_active_approved",
-            "tenant_id",
+            "partner_id",
             "starts_at",
             "ends_at",
             postgresql_where=text(
@@ -148,8 +148,8 @@ class Campaign(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
@@ -193,7 +193,7 @@ class Campaign(Base, TimestampMixin):
     realized_cost: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
 
     authorization_id: Mapped[int | None] = mapped_column(
-        ForeignKey("tenant_authorizations.id", ondelete="SET NULL"),
+        ForeignKey("partner_authorizations.id", ondelete="SET NULL"),
         nullable=True,
     )
     service_fee_total: Mapped[int] = mapped_column(

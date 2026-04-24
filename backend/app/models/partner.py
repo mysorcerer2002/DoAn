@@ -11,14 +11,14 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
-class TenantStatus(str, enum.Enum):
+class PartnerStatus(str, enum.Enum):
     PENDING = "pending"
     ACTIVE = "active"
     SUSPENDED = "suspended"
 
 
-class TenantCategory(str, enum.Enum):
-    """Phân loại tenant để customer dễ khám phá + UI accent khác nhau."""
+class PartnerCategory(str, enum.Enum):
+    """Phân loại partner để customer dễ khám phá + UI accent khác nhau."""
 
     CAFE = "cafe"  # Cafe/coffee shop
     FOOD = "food"  # Nhà hàng, fast-food, street food
@@ -27,8 +27,8 @@ class TenantCategory(str, enum.Enum):
     OTHER = "other"
 
 
-class Tenant(Base, TimestampMixin):
-    __tablename__ = "tenants"
+class Partner(Base, TimestampMixin):
+    __tablename__ = "partners"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -36,14 +36,14 @@ class Tenant(Base, TimestampMixin):
     owner_user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    status: Mapped[TenantStatus] = mapped_column(
+    status: Mapped[PartnerStatus] = mapped_column(
         String(20),
-        default=TenantStatus.PENDING,
+        default=PartnerStatus.PENDING,
         nullable=False,
     )
-    category: Mapped[TenantCategory] = mapped_column(
+    category: Mapped[PartnerCategory] = mapped_column(
         String(20),
-        default=TenantCategory.OTHER,
+        default=PartnerCategory.OTHER,
         nullable=False,
         server_default="other",
         index=True,

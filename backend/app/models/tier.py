@@ -10,8 +10,8 @@ class Tier(Base, TimestampMixin):
     __tablename__ = "tiers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     min_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -22,5 +22,5 @@ class Tier(Base, TimestampMixin):
     )
 
     __table_args__ = (
-        Index("ix_tiers_tenant_min_points", "tenant_id", "min_points"),
+        Index("ix_tiers_partner_min_points", "partner_id", "min_points"),
     )

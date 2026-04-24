@@ -1,8 +1,8 @@
-"""TenantAuthorization — giấy uỷ quyền điện tử shop uỷ cho công ty ops.
+"""PartnerAuthorization — giấy uỷ quyền điện tử shop uỷ cho công ty ops.
 
 M8 của plan voucher rebuild v2.2 (section 4.1). Shop ký văn bản uỷ quyền
 công ty nộp hồ sơ Sở CT thay mình. v1 scope cố định `per_campaign`
-(mỗi campaign 1 uỷ quyền riêng); framework scope tenant-wide defer sau.
+(mỗi campaign 1 uỷ quyền riêng); framework scope partner-wide defer sau.
 
 Signature method v1: `click_to_sign` (dev/demo) hoặc `otp_email` (prod —
 OTP gửi qua email owner). `digital_cert` + `otp_sms` defer khoá luận.
@@ -51,32 +51,32 @@ class SignatureMethod(str, enum.Enum):
     OTP_EMAIL = "otp_email"
 
 
-class TenantAuthorization(Base, TimestampMixin):
-    __tablename__ = "tenant_authorizations"
+class PartnerAuthorization(Base, TimestampMixin):
+    __tablename__ = "partner_authorizations"
     __table_args__ = (
         CheckConstraint(
             "scope IN ('per_campaign')",
-            name="ck_tenant_authorizations_scope",
+            name="ck_partner_authorizations_scope",
         ),
         CheckConstraint(
             "signature_method IN ('click_to_sign','otp_email')",
-            name="ck_tenant_authorizations_signature_method",
+            name="ck_partner_authorizations_signature_method",
         ),
         CheckConstraint(
             "scope <> 'per_campaign' OR campaign_id IS NOT NULL",
-            name="ck_tenant_authorizations_per_campaign_requires_campaign",
+            name="ck_partner_authorizations_per_campaign_requires_campaign",
         ),
         CheckConstraint(
             "valid_until > valid_from",
-            name="ck_tenant_authorizations_valid_window",
+            name="ck_partner_authorizations_valid_window",
         ),
         CheckConstraint(
             "retention_until >= signed_at + INTERVAL '10 years'",
-            name="ck_tenant_authorizations_retention_10y",
+            name="ck_partner_authorizations_retention_10y",
         ),
         Index(
-            "ux_tenant_authorizations_active_per_campaign",
-            "tenant_id",
+            "ux_partner_authorizations_active_per_campaign",
+            "partner_id",
             "campaign_id",
             unique=True,
             postgresql_where=text(
@@ -86,8 +86,8 @@ class TenantAuthorization(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
     scope: Mapped[str] = mapped_column(String(30), nullable=False)
     campaign_id: Mapped[int | None] = mapped_column(

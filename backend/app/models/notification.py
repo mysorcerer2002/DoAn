@@ -8,7 +8,7 @@ from app.models.base import Base, TimestampMixin
 
 
 class Notification(Base, TimestampMixin):
-    """Thông báo in-app — user_id + tenant_id (optional)."""
+    """Thông báo in-app — user_id + partner_id (optional)."""
 
     __tablename__ = "notifications"
     __table_args__ = (
@@ -16,8 +16,8 @@ class Notification(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int | None] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=True
+    partner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=True
     )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True

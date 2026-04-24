@@ -58,16 +58,16 @@ class CampaignIssuance(Base, TimestampMixin):
         ),
         Index("ix_campaign_issuances_campaign", "campaign_id"),
         Index(
-            "ix_campaign_issuances_tenant_active",
-            "tenant_id",
+            "ix_campaign_issuances_partner_active",
+            "partner_id",
             "created_at",
             postgresql_where=text("deleted_at IS NULL"),
         ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
     campaign_id: Mapped[int] = mapped_column(
         ForeignKey("campaigns.id", ondelete="RESTRICT"), nullable=False

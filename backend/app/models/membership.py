@@ -8,7 +8,7 @@ from sqlalchemy.sql import func
 from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models.tenant import Tenant
+    from app.models.partner import Partner
     from app.models.tier import Tier
     from app.models.user import User
 
@@ -16,14 +16,14 @@ if TYPE_CHECKING:
 class Membership(Base, TimestampMixin):
     __tablename__ = "memberships"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "user_id", name="uq_memberships_tenant_user"),
+        UniqueConstraint("partner_id", "user_id", name="uq_memberships_partner_user"),
         CheckConstraint("points_balance >= 0", name="ck_memberships_balance_nonneg"),
         CheckConstraint("total_points_earned >= 0", name="ck_memberships_total_nonneg"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -43,6 +43,6 @@ class Membership(Base, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
 
-    tenant: Mapped["Tenant"] = relationship("Tenant")
+    partner: Mapped["Partner"] = relationship("Partner")
     user: Mapped["User"] = relationship("User")
     current_tier: Mapped["Tier | None"] = relationship("Tier", foreign_keys=[current_tier_id])

@@ -98,8 +98,8 @@ class CampaignServiceFee(Base, TimestampMixin):
             postgresql_where=text("status NOT IN ('waived','refunded')"),
         ),
         Index(
-            "ix_campaign_service_fees_tenant_status",
-            "tenant_id",
+            "ix_campaign_service_fees_partner_status",
+            "partner_id",
             "status",
         ),
     )
@@ -108,8 +108,8 @@ class CampaignServiceFee(Base, TimestampMixin):
     campaign_id: Mapped[int] = mapped_column(
         ForeignKey("campaigns.id", ondelete="RESTRICT"), nullable=False
     )
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
     fee_type: Mapped[str] = mapped_column(String(30), nullable=False)
     amount: Mapped[int] = mapped_column(BigInteger, nullable=False)

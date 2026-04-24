@@ -30,12 +30,12 @@ class PointLedger(Base, TimestampMixin):
     __table_args__ = (
         CheckConstraint("balance_after >= 0", name="ck_point_ledger_balance_nonneg"),
         Index("ix_point_ledger_membership_created", "membership_id", "created_at"),
-        Index("ix_point_ledger_tenant_created", "tenant_id", "created_at"),
+        Index("ix_point_ledger_partner_created", "partner_id", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
     membership_id: Mapped[int] = mapped_column(
         ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False

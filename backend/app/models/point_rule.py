@@ -10,8 +10,8 @@ class PointRule(Base, TimestampMixin):
     __tablename__ = "point_rules"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     points_per_unit: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), nullable=False
@@ -24,8 +24,8 @@ class PointRule(Base, TimestampMixin):
 
     __table_args__ = (
         Index(
-            "uq_point_rules_tenant_active",
-            "tenant_id",
+            "uq_point_rules_partner_active",
+            "partner_id",
             unique=True,
             postgresql_where="is_active = true",
         ),

@@ -22,14 +22,14 @@ class Redemption(Base, TimestampMixin):
     __table_args__ = (
         CheckConstraint("points_spent > 0", name="ck_redemptions_points_positive"),
         UniqueConstraint(
-            "tenant_id", "redemption_code", name="uq_redemptions_tenant_code"
+            "partner_id", "redemption_code", name="uq_redemptions_partner_code"
         ),
-        Index("ix_redemptions_tenant_status", "tenant_id", "status"),
+        Index("ix_redemptions_partner_status", "partner_id", "status"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
     membership_id: Mapped[int] = mapped_column(
         ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False, index=True

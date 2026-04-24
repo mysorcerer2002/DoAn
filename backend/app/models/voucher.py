@@ -38,11 +38,11 @@ class IssueSource(str, enum.Enum):
 
 
 class Voucher(Base, TimestampMixin):
-    """Voucher — code UNIQUE per tenant, partial unique index chống claim trùng."""
+    """Voucher — code UNIQUE per partner, partial unique index chống claim trùng."""
 
     __tablename__ = "vouchers"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "code", name="uq_vouchers_tenant_code"),
+        UniqueConstraint("partner_id", "code", name="uq_vouchers_partner_code"),
         CheckConstraint(
             "status IN ('issued','used','expired','cancelled')",
             name="ck_vouchers_status",
@@ -68,8 +68,8 @@ class Voucher(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
     campaign_id: Mapped[int] = mapped_column(
         ForeignKey("campaigns.id", ondelete="RESTRICT"), nullable=False

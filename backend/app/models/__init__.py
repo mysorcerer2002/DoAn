@@ -23,10 +23,10 @@ from app.models.campaign_service_fee import (
     FeeType,
 )
 from app.models.campaign_template import CampaignTemplate, ProgramForm
-from app.models.tenant_authorization import (
+from app.models.partner_authorization import (
     AuthorizationScope,
     SignatureMethod,
-    TenantAuthorization,
+    PartnerAuthorization,
 )
 from app.models.membership import Membership
 from app.models.notification import Notification
@@ -34,9 +34,9 @@ from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
 from app.models.redemption import Redemption, RedemptionStatus
 from app.models.reward import Reward
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_settings_audit import TenantSettingsAudit
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus, PartnerCategory
+from app.models.partner_settings_audit import PartnerSettingsAudit
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
@@ -44,8 +44,8 @@ from app.models.verification_code import VerificationCode, VerificationCodePurpo
 from app.models.voucher import IssueSource, Voucher, VoucherStatus
 
 __all__ = [
-    "User", "Tenant", "TenantStatus", "TenantStaff", "TenantStaffRole",
-    "Tier", "PointRule", "TenantSettingsAudit",
+    "User", "Partner", "PartnerStatus", "PartnerCategory", "PartnerStaff", "PartnerStaffRole",
+    "Tier", "PointRule", "PartnerSettingsAudit",
     "VerificationCode", "VerificationCodePurpose",
     "Membership", "Transaction", "TransactionMethod",
     "PointLedger", "LedgerReason", "LedgerRefType",
@@ -56,7 +56,7 @@ __all__ = [
     "CampaignIssuance", "IssueMode",
     "CampaignRegulatorySubmission", "RegulatoryDocType",
     "CampaignApprovalEvent", "ApprovalEventType",
-    "TenantAuthorization", "AuthorizationScope", "SignatureMethod",
+    "PartnerAuthorization", "AuthorizationScope", "SignatureMethod",
     "CampaignServiceFee", "FeeType", "FeeStatus", "EInvoiceProvider",
     "CampaignFeeSchedule",
     "Voucher", "VoucherStatus", "IssueSource", "Notification",

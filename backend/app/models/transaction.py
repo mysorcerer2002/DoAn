@@ -30,13 +30,13 @@ class Transaction(Base, TimestampMixin):
             "net_amount <= gross_amount", name="ck_transactions_net_le_gross"
         ),
         CheckConstraint("points_earned >= 0", name="ck_transactions_points_nonneg"),
-        Index("ix_transactions_tenant_created", "tenant_id", "created_at"),
+        Index("ix_transactions_partner_created", "partner_id", "created_at"),
         Index("ix_transactions_membership_created", "membership_id", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(
-        ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
     membership_id: Mapped[int] = mapped_column(
         ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False
