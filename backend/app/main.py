@@ -106,6 +106,8 @@ async def _global_exception_handler(request, exc: Exception):
             detail = "Email đã được sử dụng"
         elif "slug" in msg_low and ("unique" in msg_low or "duplicate" in msg_low):
             detail = "Slug đã tồn tại"
+        elif "receipt_code" in msg_low and ("unique" in msg_low or "duplicate" in msg_low):
+            detail = "Mã hoá đơn đã tồn tại cho đối tác này"
         elif "partner_user" in msg_low or "partner_staff" in msg_low:
             detail = "User đã thuộc đối tác này"
         elif "duplicate key" in msg_low:
