@@ -21,6 +21,8 @@ import type {
   PartnerSettings,
   PartnerUpdateRequest,
   PlatformStatsResponse,
+  PointRuleResponse,
+  PointRuleUpdateRequest,
   RewardCreateRequest,
   RewardResponse,
   RewardUpdateRequest,
@@ -28,6 +30,7 @@ import type {
   StaffAddResponse,
   StaffResponse,
   TierResponse,
+  TierUpdateRequest,
   TransactionResponse,
   TransactionWithMemberResponse,
   VoucherResponse,
@@ -121,6 +124,16 @@ export const transactionsApi = {
 // ==================== Partner Tiers ====================
 export const tiersApi = {
   list: () => api.get<TierResponse[]>("/partner/tiers"),
+  update: (id: number, data: TierUpdateRequest) =>
+    api.patch<TierResponse>(`/partner/tiers/${id}`, data),
+};
+
+// ==================== Point Rules ====================
+export const pointRulesApi = {
+  getActive: () => api.get<PointRuleResponse | null>("/partner/point-rules/active"),
+  list: () => api.get<PointRuleResponse[]>("/partner/point-rules"),
+  update: (id: number, data: PointRuleUpdateRequest) =>
+    api.patch<PointRuleResponse>(`/partner/point-rules/${id}`, data),
 };
 
 // ==================== Admin ====================

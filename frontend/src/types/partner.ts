@@ -259,12 +259,40 @@ export interface DashboardResponse {
 // Tiers
 export interface TierResponse {
   id: number;
-  tenant_id: number;
+  partner_id: number;
   name: string;
   min_points: number;
-  color: string | null;
+  earn_multiplier: string; // Decimal serialised as string by backend
+  perks: Record<string, unknown>;
   is_active: boolean;
-  deleted_at: string | null;
+}
+
+export interface TierUpdateRequest {
+  name?: string;
+  min_points?: number;
+  earn_multiplier?: string;
+  perks?: Record<string, unknown>;
+  is_active?: boolean;
+}
+
+// Point Rules
+export interface PointRuleResponse {
+  id: number;
+  partner_id: number;
+  points_per_unit: string; // Decimal serialised as string
+  unit_amount: number;
+  min_amount: number;
+  use_tiers: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface PointRuleUpdateRequest {
+  points_per_unit?: string;
+  unit_amount?: number;
+  min_amount?: number;
+  use_tiers?: boolean;
+  is_active?: boolean;
 }
 
 // Settings

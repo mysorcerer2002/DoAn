@@ -9,6 +9,11 @@ import {
   useUpdateSettings,
   useUpdateTenant,
 } from "@/lib/hooks/use-partner";
+import {
+  useActivePointRule,
+  usePartnerTiers,
+} from "@/lib/hooks/use-partner-settings";
+import { PointRuleForm, TierMultiplierRow } from "@/components/partner/settings-form";
 
 type TenantForm = {
   name: string;
@@ -32,6 +37,8 @@ type SettingsForm = {
 export default function MerchantSettingsPage() {
   const { data: tenant, isLoading: loadingTenant } = useMyPartner();
   const { data: settings, isLoading: loadingSettings } = useMyPartnerSettings();
+  const { data: activeRule, isLoading: loadingRule } = useActivePointRule();
+  const { data: tiers, isLoading: loadingTiers } = usePartnerTiers();
   const updateTenant = useUpdateTenant();
   const updateSettings = useUpdateSettings();
 
@@ -122,7 +129,7 @@ export default function MerchantSettingsPage() {
     }
   };
 
-  if (loadingTenant || loadingSettings) {
+  if (loadingTenant || loadingSettings || loadingRule || loadingTiers) {
     return (
       <main className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-brand-indigo" />
@@ -396,6 +403,34 @@ export default function MerchantSettingsPage() {
           </button>
         </section>
       </div>
+
+      {/* Quy tắc tích điểm */}
+      {activeRule && (
+        <div className="mt-6">
+          <PointRuleForm rule={activeRule} />
+        </div>
+      )}
+
+      {/* Hệ số tích điểm theo hạng */}
+      {activeRule?.use_tiers && tiers && tiers.length > 0 && (
+        <div className="mt-6">
+          <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+            <h2 className="font-headline text-[18px] font-bold text-slate-800">
+              Tỷ lệ tích điểm theo hạng
+            </h2>
+            <p className="mt-1 text-[12px] text-slate-500">
+              Hệ số nhân áp dụng cho từng hạng thành viên (0.50 – 5.00)
+            </p>
+            <div className="mt-4 space-y-2">
+              {[...tiers]
+                .sort((a, b) => a.min_points - b.min_points)
+                .map((tier) => (
+                  <TierMultiplierRow key={tier.id} tier={tier} />
+                ))}
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
