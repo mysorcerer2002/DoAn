@@ -330,6 +330,11 @@ async def _seed_transactions_and_ledger(
         created_at = now - timedelta(days=days_ago, hours=hours_ago)
         gross = rng.choice([45_000, 65_000, 85_000, 120_000, 150_000, 180_000, 250_000])
         points_earned = gross // 10_000
+        receipt_code = (
+            f"HD-{partner.slug.upper()[:6]}-{i + 1:04d}"
+            if rng.random() < 0.7
+            else None
+        )
 
         txn = Transaction(
             partner_id=partner.id,
@@ -340,6 +345,7 @@ async def _seed_transactions_and_ledger(
             points_earned=points_earned,
             method=TransactionMethod.QR_CUSTOMER,
             note=f"Giao dịch #{i + 1}",
+            receipt_code=receipt_code,
         )
         txn.created_at = created_at
         db.add(txn)
