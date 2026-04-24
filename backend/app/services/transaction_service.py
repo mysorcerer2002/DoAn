@@ -251,8 +251,10 @@ class TransactionService:
         base_points = units * rule.points_per_unit
 
         multiplier = Decimal("1.00")
-        if rule.use_tiers and membership is not None and membership.current_tier is not None:
-            multiplier = membership.current_tier.earn_multiplier
+        if rule.use_tiers and membership is not None:
+            tier = getattr(membership, "current_tier", None)
+            if tier is not None:
+                multiplier = tier.earn_multiplier
 
         return int(base_points * multiplier)
 

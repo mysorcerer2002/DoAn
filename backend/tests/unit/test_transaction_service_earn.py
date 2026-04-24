@@ -54,12 +54,41 @@ def test_calculate_points_membership_null_tier_falls_back_to_1():
     ) == 10
 
 
-def test_calculate_points_truncation():
-    rule = _rule(use_tiers=True)
-    membership = _membership_with_tier(1.50)
+def test_calculate_points_truncation_floors_not_rounds():
+    # base 1000/1000 * 1.33 points_per_unit = 1.33; * multiplier 2.00 = 2.66
+    # floor → 2; round() sẽ ra 3 → test phân biệt được truncate vs round.
+    rule = _rule(points_per_unit=Decimal("1.33"), use_tiers=True)
+    membership = _membership_with_tier(2.00)
     assert TransactionService._calculate_points(
         rule, 1_000, membership=membership
-    ) == 1
+    ) == 2
+
+
+def test_calculate_points_boundary_min_multiplier():
+    rule = _rule(use_tiers=True)
+    membership = _membership_with_tier(0.50)
+    # 10_000/1000 * 1 * 0.50 = 5
+    assert TransactionService._calculate_points(
+        rule, 10_000, membership=membership
+    ) == 5
+
+
+def test_calculate_points_boundary_max_multiplier():
+    rule = _rule(use_tiers=True)
+    membership = _membership_with_tier(5.00)
+    # 10_000/1000 * 1 * 5.00 = 50
+    assert TransactionService._calculate_points(
+        rule, 10_000, membership=membership
+    ) == 50
+
+
+def test_calculate_points_membership_without_current_tier_attr():
+    # Guard: membership fresh chưa load relationship → getattr fallback
+    rule = _rule(use_tiers=True)
+    membership = SimpleNamespace()  # không có current_tier attr
+    assert TransactionService._calculate_points(
+        rule, 10_000, membership=membership
+    ) == 10
 
 
 def test_calculate_points_no_membership_kwarg_backcompat():
