@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,10 @@ class TransactionService:
         # innerjoin=True vì user_id NOT NULL → tránh OUTER JOIN + FOR UPDATE conflict
         membership = await self.db.scalar(
             select(Membership)
-            .options(joinedload(Membership.user, innerjoin=True))
+            .options(
+                joinedload(Membership.user, innerjoin=True),
+                selectinload(Membership.current_tier),
+            )
             .where(
                 Membership.id == member.membership_id,
                 Membership.partner_id == partner_id,
@@ -165,7 +168,9 @@ class TransactionService:
             partner and partner.settings and partner.settings.get("points_on_gross")
         )
         amount_for_points = request.gross_amount if points_on_gross else net_amount
-        points_earned = self._calculate_points(rule, amount_for_points)
+        points_earned = self._calculate_points(
+            rule, amount_for_points, membership=membership
+        )
 
         txn = Transaction(
             partner_id=partner_id,
@@ -234,11 +239,22 @@ class TransactionService:
         )
 
     @staticmethod
-    def _calculate_points(rule: PointRule, net_amount: int) -> int:
-        if net_amount < rule.min_amount:
+    def _calculate_points(
+        rule: PointRule,
+        amount: int,
+        *,
+        membership: "Membership | None" = None,
+    ) -> int:
+        if amount < rule.min_amount:
             return 0
-        units = Decimal(net_amount) / Decimal(rule.unit_amount)
-        return int(units * rule.points_per_unit)
+        units = Decimal(amount) / Decimal(rule.unit_amount)
+        base_points = units * rule.points_per_unit
+
+        multiplier = Decimal("1.00")
+        if rule.use_tiers and membership is not None and membership.current_tier is not None:
+            multiplier = membership.current_tier.earn_multiplier
+
+        return int(base_points * multiplier)
 
     async def _apply_voucher_if_provided(
         self,
@@ -354,7 +370,10 @@ class TransactionService:
         # Tìm membership — nếu chưa có thì auto-enroll (1 lần đăng ký dùng mọi shop)
         membership = await self.db.scalar(
             select(Membership)
-            .options(joinedload(Membership.user, innerjoin=True))
+            .options(
+                joinedload(Membership.user, innerjoin=True),
+                selectinload(Membership.current_tier),
+            )
             .where(
                 Membership.partner_id == partner_id,
                 Membership.user_id == user_id,
@@ -413,7 +432,9 @@ class TransactionService:
         if voucher_discount is not None:
             voucher_discount = min(voucher_discount, gross_amount)
         net_amount = max(0, gross_amount - (voucher_discount or 0))
-        points_earned = self._calculate_points(rule, net_amount)
+        points_earned = self._calculate_points(
+            rule, net_amount, membership=membership
+        )
 
         txn = Transaction(
             partner_id=partner_id,
@@ -503,10 +524,13 @@ class TransactionService:
             # Race: cùng lúc có request khác tạo cho (đối tác, user) này
             pass
 
-        # Reload để có lock + eager load user (dùng cho response)
+        # Reload để có lock + eager load user + current_tier (dùng cho response và multiplier)
         membership = await self.db.scalar(
             select(Membership)
-            .options(joinedload(Membership.user, innerjoin=True))
+            .options(
+                joinedload(Membership.user, innerjoin=True),
+                selectinload(Membership.current_tier),
+            )
             .where(
                 Membership.partner_id == partner_id,
                 Membership.user_id == user_id,
