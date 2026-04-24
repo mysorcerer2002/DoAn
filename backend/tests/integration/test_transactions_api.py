@@ -329,3 +329,54 @@ async def test_create_transaction_receipt_code_too_long_returns_422(client, db_s
         headers=headers,
     )
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_null_receipt_code_allows_duplicates_same_partner(
+    client, db_session
+):
+    """Partial index WHERE receipt_code IS NOT NULL — hai transaction cùng partner
+    không gửi receipt_code đều 201, không bị 409."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    resp1 = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 10000},
+        headers=headers,
+    )
+    assert resp1.status_code == 201
+    assert resp1.json()["transaction"]["receipt_code"] is None
+
+    resp2 = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 20000},
+        headers=headers,
+    )
+    assert resp2.status_code == 201
+    assert resp2.json()["transaction"]["receipt_code"] is None
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_concurrent_same_receipt_code_one_409(
+    client, db_session
+):
+    """TOCTOU-safety: hai POST đồng thời cùng receipt_code → đúng 1×201 + 1×409.
+    Partial unique index + IntegrityError handler đảm bảo không cả hai đều insert."""
+    import asyncio
+
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+    payload = {
+        "phone": "0901234567",
+        "gross_amount": 30000,
+        "receipt_code": "HD-RACE",
+    }
+
+    r1, r2 = await asyncio.gather(
+        client.post("/partner/transactions", json=payload, headers=headers),
+        client.post("/partner/transactions", json=payload, headers=headers),
+        return_exceptions=True,
+    )
+    statuses = sorted(
+        getattr(r, "status_code", 500) for r in (r1, r2)
+    )
+    assert statuses == [201, 409]
