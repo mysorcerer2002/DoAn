@@ -168,7 +168,7 @@ export const merchantVouchersApi = {
 
 // ==================== Customer Extended ====================
 export const customerApi = {
-  myLedger: (params?: { limit?: number; offset?: number }) =>
+  myLedger: (params?: { limit?: number; offset?: number; partner_slug?: string }) =>
     api.get<LedgerEntryResponse[]>("/users/me/ledger", { params }),
   myVouchers: (params?: { status?: string }) =>
     api.get<VoucherResponse[]>("/users/me/vouchers", { params }),

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, QrCode, Gift, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const HOME_SUB_ROUTES = ["/member/history", "/member/shops", "/member/vouchers"];
+const HOME_SUB_ROUTES = ["/member/history", "/member/partners", "/member/vouchers"];
 
 export function BottomNavBar() {
   const pathname = usePathname();
@@ -16,6 +16,11 @@ export function BottomNavBar() {
 
   // Hide on voucher detail pages (/member/vouchers/[id]) but keep on list page
   if (/^\/member\/vouchers\/[^/]+/.test(pathname)) {
+    return null;
+  }
+
+  // Hide on partner detail pages (/member/partners/[slug])
+  if (/^\/member\/partners\/[^/]+/.test(pathname)) {
     return null;
   }
 

@@ -168,7 +168,7 @@ export default function ProfilePage() {
           />
           <Stat
             value={(memberships?.length ?? 0).toString()}
-            label="Cửa hàng"
+            label="Đối tác"
             tone="indigo"
             border
           />

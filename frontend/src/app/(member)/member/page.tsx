@@ -152,8 +152,8 @@ export default function MemberDashboardPage() {
             <div className="space-y-2">
               <p className="text-[12px] font-medium text-indigo-50">
                 {shopCount > 0
-                  ? `Tích lũy tại ${shopCount} cửa hàng`
-                  : "Quét QR shop để bắt đầu tích điểm"}
+                  ? `Tích lũy tại ${shopCount} đối tác`
+                  : "Quét QR đối tác để bắt đầu tích điểm"}
               </p>
             </div>
           </div>
@@ -181,10 +181,10 @@ export default function MemberDashboardPage() {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-headline text-[18px] font-bold text-slate-800">
-              Cửa hàng của tôi
+              Đối tác của tôi
             </h3>
             <Link
-              href="/member/shops"
+              href="/member/partners"
               className="text-[14px] font-semibold text-brand-indigo hover:underline"
             >
               Khám phá
@@ -193,13 +193,13 @@ export default function MemberDashboardPage() {
           {shopCount === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
               <p className="text-[14px] text-slate-500">
-                Bạn chưa tham gia cửa hàng nào.
+                Chưa có giao dịch tại đối tác nào. Khám phá đối tác để bắt đầu tích điểm.
               </p>
               <Link
-                href="/member/shops"
+                href="/member/partners"
                 className="mt-3 inline-block text-[13px] font-bold text-brand-indigo hover:underline"
               >
-                Khám phá cửa hàng →
+                Khám phá đối tác →
               </Link>
             </div>
           ) : (
@@ -214,7 +214,7 @@ export default function MemberDashboardPage() {
                   </div>
                   <div className="space-y-1">
                     <h4 className="truncate text-[14px] font-bold text-slate-800">
-                      Shop #{m.tenant_id}
+                      Đối tác #{m.tenant_id}
                     </h4>
                     <p className="truncate text-[12px] text-slate-400">
                       {m.current_tier_name ?? "Chưa phân hạng"}
@@ -253,7 +253,7 @@ export default function MemberDashboardPage() {
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
               <Ticket className="mx-auto h-10 w-10 text-slate-300" />
               <p className="mt-3 text-[13px] text-slate-500">
-                Chưa có voucher nào. Tích điểm để nhận voucher từ cửa hàng.
+                Chưa có voucher nào. Tích điểm để nhận voucher từ đối tác.
               </p>
             </div>
           ) : (

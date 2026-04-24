@@ -297,10 +297,12 @@ export function useApproveTenant() {
 }
 
 // ==================== Customer extras ====================
-export function useMyLedger(params?: { limit?: number; offset?: number }) {
+export function useMyLedger(params?: { limit?: number; offset?: number; partnerSlug?: string }) {
+  const { partnerSlug, ...rest } = params ?? {};
+  const apiParams = { ...rest, ...(partnerSlug ? { partner_slug: partnerSlug } : {}) };
   return useQuery({
-    queryKey: ["customer", "ledger", params],
-    queryFn: async () => (await customerApi.myLedger(params)).data,
+    queryKey: ["customer", "ledger", apiParams],
+    queryFn: async () => (await customerApi.myLedger(apiParams)).data,
   });
 }
 

@@ -115,7 +115,7 @@ export default function RewardsPage() {
                 <span className="text-[12px] text-indigo-100">điểm</span>
               </div>
               <p className="mt-1 text-[10px] text-indigo-100/80">
-                Tổng từ {memberships?.length ?? 0} cửa hàng
+                Tổng từ {memberships?.length ?? 0} đối tác
               </p>
             </div>
             {topTier?.current_tier_name && (
@@ -134,7 +134,7 @@ export default function RewardsPage() {
           <Search className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Tìm quà theo tên hoặc cửa hàng"
+            placeholder="Tìm quà theo tên hoặc đối tác"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-9 pr-3 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
@@ -193,15 +193,15 @@ export default function RewardsPage() {
               {search
                 ? "Không tìm thấy quà phù hợp"
                 : memberships?.length === 0
-                  ? "Bạn chưa tham gia cửa hàng nào"
+                  ? "Chưa có giao dịch tại đối tác nào"
                   : "Chưa có quà nào"}
             </p>
             {memberships?.length === 0 && (
               <Link
-                href="/member/shops"
+                href="/member/partners"
                 className="mt-3 inline-block text-[13px] font-bold text-brand-indigo hover:underline"
               >
-                Khám phá cửa hàng →
+                Khám phá đối tác →
               </Link>
             )}
           </div>
