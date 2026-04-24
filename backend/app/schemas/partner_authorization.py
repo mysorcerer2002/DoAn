@@ -1,10 +1,9 @@
-"""Schemas cho partner_authorization + campaign_service_fee ở merchant API.
+"""Schemas cho partner_authorization ở merchant API.
 
 Phase 7 plan voucher rebuild v2.2.
 """
 
 from datetime import datetime
-from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -95,22 +94,3 @@ class AuthorizationRevokeRequest(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
-class CampaignServiceFeeResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    campaign_id: int
-    fee_type: str
-    amount: int
-    vat_rate: Decimal
-    vat_amount: int
-    total_with_vat: int
-    description: str
-    status: str
-    invoiced_at: datetime | None
-    paid_at: datetime | None
-    invoice_reference: str | None
-    e_invoice_provider: str
-    refund_requested_at: datetime | None
-    refunded_at: datetime | None
-    refund_reason: str | None

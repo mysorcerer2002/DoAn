@@ -16,8 +16,6 @@ class PendingCampaignRow(BaseModel):
     approval_status: str
     approval_tier: str
     estimated_cost: int
-    service_fee_total: int
-    service_fee_status: str
     starts_at: datetime
     ends_at: datetime
     authorization_id: int | None
@@ -39,8 +37,6 @@ class AdminCampaignDetailResponse(BaseModel):
     approval_tier: str
     estimated_cost: int
     realized_cost: int
-    service_fee_total: int
-    service_fee_status: str
     starts_at: datetime
     ends_at: datetime
     authorization_id: int | None

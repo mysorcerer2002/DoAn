@@ -45,25 +45,12 @@ class EnrollFormInput(BaseModel):
         return v
 
 
-class FeePreviewItem(BaseModel):
-    fee_type: str
-    description: str
-    base_amount: int
-    vat_amount: int
-    total_with_vat: int
-
-
 class CampaignEnrollPreviewResponse(BaseModel):
     template_id: int
     template_version: int
     program_form: str
     approval_tier: str
     estimated_cost: int
-    service_fee_enabled: bool
-    fees: list[FeePreviewItem]
-    fee_total_pre_vat: int
-    fee_vat_total: int
-    fee_total_with_vat: int
     auth_doc_text: str
     auth_doc_hash: str
     consent_text_version: str
@@ -90,7 +77,6 @@ class AuthorizationSignResponse(BaseModel):
     authorization_id: int
     approval_status: str
     approval_tier: str
-    service_fee_status: str
 
 
 class CampaignTemplatePublicResponse(BaseModel):
