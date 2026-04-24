@@ -15,9 +15,11 @@ export function PartnerPicker({ targetHref }: { targetHref: string }) {
   const { activePartner, setActivePartner } = usePartnerStore();
 
   const { data: partners, isLoading } = useQuery<PartnerStaffSummary[]>({
-    queryKey: ["users", "me", "partners"],
+    queryKey: ["users", "me", "partners-as-staff"],
     queryFn: async () => {
-      const res = await api.get<PartnerStaffSummary[]>("/users/me/partners");
+      const res = await api.get<PartnerStaffSummary[]>(
+        "/users/me/partners-as-staff"
+      );
       return res.data;
     },
   });

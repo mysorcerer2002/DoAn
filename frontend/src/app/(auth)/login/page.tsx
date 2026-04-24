@@ -74,12 +74,12 @@ export default function LoginPage() {
         return;
       }
       try {
-        const { data: tenants } = await api.get<PartnerStaffSummary[]>(
-          "/users/me/partners"
+        const { data: partners } = await api.get<PartnerStaffSummary[]>(
+          "/users/me/partners-as-staff"
         );
-        if (tenants.length > 0) {
+        if (partners.length > 0) {
           // Auto-select đối tác đầu tiên để tránh hiển thị picker
-          const t = tenants[0];
+          const t = partners[0];
           setActivePartner({
             id: t.id,
             name: t.name,
