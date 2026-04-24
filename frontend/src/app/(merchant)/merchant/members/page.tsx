@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { useMembers } from "@/lib/hooks/use-merchant";
-import type { MemberResponse } from "@/types/merchant";
+import { useMembers } from "@/lib/hooks/use-partner";
+import type { MemberResponse } from "@/types/partner";
 
 function formatVnd(n: number): string {
   return n.toLocaleString("vi-VN") + " ₫";

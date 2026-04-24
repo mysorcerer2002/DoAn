@@ -4,8 +4,8 @@ import { ArrowLeft, Filter, Gift, History, Loader2, Sparkles } from "lucide-reac
 import Link from "next/link";
 import { useMemo } from "react";
 
-import { useMyLedger } from "@/lib/hooks/use-merchant";
-import type { LedgerEntryResponse } from "@/types/merchant";
+import { useMyLedger } from "@/lib/hooks/use-partner";
+import type { LedgerEntryResponse } from "@/types/partner";
 
 function formatRelative(iso: string): string {
   const d = new Date(iso);

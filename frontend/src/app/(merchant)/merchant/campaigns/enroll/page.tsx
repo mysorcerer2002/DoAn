@@ -9,12 +9,12 @@ import {
   useEnrollTemplates,
   useRequestEnrollOtp,
   useSignEnroll,
-} from "@/lib/hooks/use-merchant-enroll";
+} from "@/lib/hooks/use-partner-enroll";
 import type {
   CampaignEnrollPreview,
   CampaignTemplatePublic,
   EnrollFormInput,
-} from "@/types/merchant-enroll";
+} from "@/types/partner-enroll";
 
 // ==================== Helpers ====================
 

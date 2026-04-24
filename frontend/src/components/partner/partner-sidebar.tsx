@@ -44,7 +44,7 @@ const menu: readonly MenuItem[] = [
   { href: "/merchant/settings", icon: Settings, label: "Cài đặt" },
 ];
 
-export function MerchantSidebar() {
+export function PartnerSidebar() {
   const pathname = usePathname();
   const open = useSidebarStore((s) => s.open);
   const close = useSidebarStore((s) => s.close);
@@ -81,7 +81,7 @@ export function MerchantSidebar() {
           "fixed left-0 top-0 z-30 flex h-screen w-64 flex-col bg-brand-indigo text-white transition-transform md:w-60 md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
-        aria-label="Menu điều hướng Merchant"
+        aria-label="Menu điều hướng đối tác"
       >
         <div className="px-5 pt-6">
           <div className="flex items-center justify-between gap-2.5">
@@ -93,7 +93,7 @@ export function MerchantSidebar() {
                 <p className="font-headline text-[15px] font-bold">
                   Loyalty Platform
                 </p>
-                <p className="text-[10px] text-indigo-200">Merchant Dashboard</p>
+                <p className="text-[10px] text-indigo-200">Trang chủ đối tác</p>
               </div>
             </div>
             <button

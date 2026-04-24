@@ -9,8 +9,8 @@ import {
   UserPlus,
 } from "lucide-react";
 
-import { useAdminAuditFeed } from "@/lib/hooks/use-merchant";
-import type { AuditFeedItem } from "@/types/merchant";
+import { useAdminAuditFeed } from "@/lib/hooks/use-partner";
+import type { AuditFeedItem } from "@/types/partner";
 
 const EVENT_META: Record<
   AuditFeedItem["event_type"],

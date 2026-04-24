@@ -9,11 +9,11 @@ import {
 import Link from "next/link";
 
 import { useMe } from "@/lib/hooks/use-me";
-import { useTenantStore } from "@/lib/tenant-store";
+import { usePartnerStore } from "@/lib/partner-store";
 
 export default function StaffDashboardPage() {
   const { data: user } = useMe();
-  const tenant = useTenantStore((s) => s.tenant);
+  const tenant = usePartnerStore((s) => s.tenant);
 
   const firstName = (() => {
     const full = user?.full_name?.trim() ?? "";

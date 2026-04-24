@@ -8,7 +8,7 @@ import {
   useMyTenantSettings,
   useUpdateSettings,
   useUpdateTenant,
-} from "@/lib/hooks/use-merchant";
+} from "@/lib/hooks/use-partner";
 
 type TenantForm = {
   name: string;

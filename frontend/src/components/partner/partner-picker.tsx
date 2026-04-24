@@ -6,43 +6,43 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { api } from "@/lib/api";
-import { useTenantStore } from "@/lib/tenant-store";
-import type { TenantStaffSummary } from "@/types/merchant";
+import { usePartnerStore } from "@/lib/partner-store";
+import type { PartnerStaffSummary } from "@/types/partner";
 
-/** Tự động set active tenant nếu user chỉ có 1 shop, hoặc show picker. */
-export function TenantPicker({ targetHref }: { targetHref: string }) {
+/** Tự động set active partner nếu user chỉ có 1 shop, hoặc show picker. */
+export function PartnerPicker({ targetHref }: { targetHref: string }) {
   const router = useRouter();
-  const { tenant: activeTenant, setTenant } = useTenantStore();
+  const { tenant: activePartner, setTenant } = usePartnerStore();
 
-  const { data: tenants, isLoading } = useQuery<TenantStaffSummary[]>({
-    queryKey: ["users", "me", "tenants"],
+  const { data: partners, isLoading } = useQuery<PartnerStaffSummary[]>({
+    queryKey: ["users", "me", "partners"],
     queryFn: async () => {
-      const res = await api.get<TenantStaffSummary[]>("/users/me/tenants");
+      const res = await api.get<PartnerStaffSummary[]>("/users/me/partners");
       return res.data;
     },
   });
 
   useEffect(() => {
-    if (activeTenant) {
+    if (activePartner) {
       router.replace(targetHref);
       return;
     }
-    if (tenants && tenants.length === 1) {
-      const t = tenants[0];
+    if (partners && partners.length === 1) {
+      const t = partners[0];
       setTenant({ id: t.id, name: t.name, slug: t.slug, role: t.role });
       router.replace(targetHref);
     }
-  }, [tenants, activeTenant, setTenant, router, targetHref]);
+  }, [partners, activePartner, setTenant, router, targetHref]);
 
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-slate-500">Đang tải danh sách cửa hàng...</div>
+        <div className="text-slate-500">Đang tải danh sách đối tác...</div>
       </div>
     );
   }
 
-  if (!tenants || tenants.length === 0) {
+  if (!partners || partners.length === 0) {
     return (
       <div className="mx-auto mt-16 max-w-md rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
         <Store className="mx-auto h-12 w-12 text-slate-400" />
@@ -59,10 +59,10 @@ export function TenantPicker({ targetHref }: { targetHref: string }) {
   return (
     <div className="mx-auto mt-16 max-w-md space-y-4 px-4">
       <h1 className="font-headline text-[24px] font-bold text-slate-800">
-        Chọn cửa hàng
+        Chọn đối tác
       </h1>
       <ul className="space-y-2">
-        {tenants.map((t) => (
+        {partners.map((t) => (
           <li key={t.id}>
             <button
               type="button"

@@ -10,8 +10,8 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 
-import { useMerchantVouchers } from "@/lib/hooks/use-merchant";
-import type { VoucherResponse } from "@/types/merchant";
+import { useMerchantVouchers } from "@/lib/hooks/use-partner";
+import type { VoucherResponse } from "@/types/partner";
 
 type Filter = "" | "issued" | "used" | "expired";
 

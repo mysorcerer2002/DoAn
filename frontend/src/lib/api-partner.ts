@@ -1,10 +1,10 @@
 import { api } from "@/lib/api";
 import type {
+  AdminPartnerListRow,
+  AdminPartnerMemberRow,
+  AdminPartnerStaffRow,
   AdminResetPasswordResponse,
   AdminSettingsResponse,
-  AdminTenantListRow,
-  AdminTenantMemberRow,
-  AdminTenantStaffRow,
   AdminUserDetailResponse,
   AdminUserListResponse,
   AdminUserUpdateRequest,
@@ -16,6 +16,10 @@ import type {
   DashboardResponse,
   LedgerEntryResponse,
   MemberResponse,
+  PartnerDetailResponse,
+  PartnerResponse,
+  PartnerSettings,
+  PartnerUpdateRequest,
   PlatformStatsResponse,
   RewardCreateRequest,
   RewardResponse,
@@ -23,126 +27,122 @@ import type {
   StaffAddRequest,
   StaffAddResponse,
   StaffResponse,
-  TenantDetailResponse,
-  TenantResponse,
-  TenantSettings,
-  TenantUpdateRequest,
   TierResponse,
   TransactionResponse,
   TransactionWithMemberResponse,
   VoucherResponse,
-} from "@/types/merchant";
+} from "@/types/partner";
 
-// ==================== Merchant Analytics ====================
+// ==================== Partner Analytics ====================
 export const analyticsApi = {
   dashboard: (params?: { from?: string; to?: string }) =>
-    api.get<DashboardResponse>("/merchant/analytics/dashboard", { params }),
+    api.get<DashboardResponse>("/partner/analytics/dashboard", { params }),
 };
 
-// ==================== Merchant Tenant ====================
+// ==================== Partner Tenant ====================
 export const tenantApi = {
-  getMe: () => api.get<TenantResponse>("/tenants/me"),
-  updateMe: (data: TenantUpdateRequest) =>
-    api.patch<TenantResponse>("/tenants/me", data),
-  getSettings: () => api.get<TenantSettings>("/tenants/me/settings"),
-  updateSettings: (data: Partial<TenantSettings>) =>
-    api.patch<TenantSettings>("/tenants/me/settings", data),
+  getMe: () => api.get<PartnerResponse>("/partners/me"),
+  updateMe: (data: PartnerUpdateRequest) =>
+    api.patch<PartnerResponse>("/partners/me", data),
+  getSettings: () => api.get<PartnerSettings>("/partners/me/settings"),
+  updateSettings: (data: Partial<PartnerSettings>) =>
+    api.patch<PartnerSettings>("/partners/me/settings", data),
 };
 
-// ==================== Merchant Members ====================
+// ==================== Partner Members ====================
 export const membersApi = {
   list: (params?: { limit?: number; offset?: number }) =>
-    api.get<MemberResponse[]>("/merchant/members", { params }),
-  get: (id: number) => api.get<MemberResponse>(`/merchant/members/${id}`),
+    api.get<MemberResponse[]>("/partner/members", { params }),
+  get: (id: number) => api.get<MemberResponse>(`/partner/members/${id}`),
   ledger: (id: number, limit = 50) =>
-    api.get<LedgerEntryResponse[]>(`/merchant/members/${id}/ledger`, {
+    api.get<LedgerEntryResponse[]>(`/partner/members/${id}/ledger`, {
       params: { limit },
     }),
 };
 
-// ==================== Merchant Rewards ====================
+// ==================== Partner Rewards ====================
 export const rewardsApi = {
   list: (params?: {
     active_only?: boolean;
     limit?: number;
     offset?: number;
-  }) => api.get<RewardResponse[]>("/merchant/rewards", { params }),
-  get: (id: number) => api.get<RewardResponse>(`/merchant/rewards/${id}`),
+  }) => api.get<RewardResponse[]>("/partner/rewards", { params }),
+  get: (id: number) => api.get<RewardResponse>(`/partner/rewards/${id}`),
   create: (data: RewardCreateRequest) =>
-    api.post<RewardResponse>("/merchant/rewards", data),
+    api.post<RewardResponse>("/partner/rewards", data),
   update: (id: number, data: RewardUpdateRequest) =>
-    api.patch<RewardResponse>(`/merchant/rewards/${id}`, data),
+    api.patch<RewardResponse>(`/partner/rewards/${id}`, data),
   remove: (id: number) =>
-    api.delete<RewardResponse>(`/merchant/rewards/${id}`),
+    api.delete<RewardResponse>(`/partner/rewards/${id}`),
 };
 
-// ==================== Merchant Campaigns ====================
+// ==================== Partner Campaigns ====================
 export const campaignsApi = {
   list: (params?: { active_only?: boolean }) =>
-    api.get<CampaignResponse[]>("/merchant/campaigns", { params }),
-  get: (id: number) => api.get<CampaignResponse>(`/merchant/campaigns/${id}`),
+    api.get<CampaignResponse[]>("/partner/campaigns", { params }),
+  get: (id: number) => api.get<CampaignResponse>(`/partner/campaigns/${id}`),
   roi: (id: number) =>
-    api.get<CampaignRoiResponse>(`/merchant/campaigns/${id}/roi`),
+    api.get<CampaignRoiResponse>(`/partner/campaigns/${id}/roi`),
   create: (data: CampaignCreateRequest) =>
-    api.post<CampaignResponse>("/merchant/campaigns", data),
+    api.post<CampaignResponse>("/partner/campaigns", data),
   update: (id: number, data: Partial<CampaignCreateRequest>) =>
-    api.patch<CampaignResponse>(`/merchant/campaigns/${id}`, data),
-  remove: (id: number) => api.delete(`/merchant/campaigns/${id}`),
+    api.patch<CampaignResponse>(`/partner/campaigns/${id}`, data),
+  remove: (id: number) => api.delete(`/partner/campaigns/${id}`),
 };
 
-// ==================== Merchant Staff ====================
+// ==================== Partner Staff ====================
 export const staffApi = {
   list: (params?: { limit?: number; offset?: number }) =>
-    api.get<StaffResponse[]>("/merchant/staff", { params }),
+    api.get<StaffResponse[]>("/partner/staff", { params }),
   add: (data: StaffAddRequest) =>
-    api.post<StaffAddResponse>("/merchant/staff", data),
+    api.post<StaffAddResponse>("/partner/staff", data),
   updateRole: (id: number, role: "owner" | "staff") =>
-    api.patch<StaffResponse>(`/merchant/staff/${id}`, { role }),
-  remove: (id: number) => api.delete(`/merchant/staff/${id}`),
+    api.patch<StaffResponse>(`/partner/staff/${id}`, { role }),
+  remove: (id: number) => api.delete(`/partner/staff/${id}`),
 };
 
-// ==================== Merchant Transactions ====================
+// ==================== Partner Transactions ====================
 export const transactionsApi = {
   create: (data: CreateManualTransactionRequest) =>
-    api.post<TransactionWithMemberResponse>("/merchant/transactions", data),
+    api.post<TransactionWithMemberResponse>("/partner/transactions", data),
   createFromQr: (data: {
     qr_payload: string;
     gross_amount: number;
     note?: string | null;
   }) =>
     api.post<TransactionWithMemberResponse>(
-      "/merchant/transactions/qr",
+      "/partner/transactions/qr",
       data
     ),
   list: (params?: { limit?: number; offset?: number }) =>
-    api.get<TransactionResponse[]>("/merchant/transactions", { params }),
+    api.get<TransactionResponse[]>("/partner/transactions", { params }),
 };
 
-// ==================== Merchant Tiers ====================
+// ==================== Partner Tiers ====================
 export const tiersApi = {
-  list: () => api.get<TierResponse[]>("/merchant/tiers"),
+  list: () => api.get<TierResponse[]>("/partner/tiers"),
 };
 
 // ==================== Admin ====================
 export const adminApi = {
   stats: () => api.get<PlatformStatsResponse>("/admin/stats"),
   listTenants: (params?: { status?: string }) =>
-    api.get<AdminTenantListRow[]>("/admin/tenants", { params }),
+    api.get<AdminPartnerListRow[]>("/admin/partners", { params }),
   tenantDetail: (id: number) =>
-    api.get<TenantDetailResponse>(`/admin/tenants/${id}/detail`),
+    api.get<PartnerDetailResponse>(`/admin/partners/${id}/detail`),
   tenantStaff: (id: number) =>
-    api.get<AdminTenantStaffRow[]>(`/admin/tenants/${id}/staff`),
+    api.get<AdminPartnerStaffRow[]>(`/admin/partners/${id}/staff`),
   tenantMembers: (id: number, params?: { limit?: number; offset?: number }) =>
-    api.get<AdminTenantMemberRow[]>(`/admin/tenants/${id}/members`, {
+    api.get<AdminPartnerMemberRow[]>(`/admin/partners/${id}/members`, {
       params,
     }),
   approveTenant: (id: number, approve: boolean, reason?: string) =>
-    api.post<TenantResponse>(`/admin/tenants/${id}/approve`, {
+    api.post<PartnerResponse>(`/admin/partners/${id}/approve`, {
       approve,
       reason,
     }),
   suspendTenant: (id: number) =>
-    api.post<TenantResponse>(`/admin/tenants/${id}/suspend`),
+    api.post<PartnerResponse>(`/admin/partners/${id}/suspend`),
   listUsers: (params?: {
     q?: string;
     role?: "regular" | "admin" | "super_admin";
@@ -160,10 +160,10 @@ export const adminApi = {
   settings: () => api.get<AdminSettingsResponse>("/admin/settings"),
 };
 
-// ==================== Merchant Vouchers ====================
+// ==================== Partner Vouchers ====================
 export const merchantVouchersApi = {
   list: (params?: { status?: string; limit?: number; offset?: number }) =>
-    api.get<VoucherResponse[]>("/merchant/vouchers", { params }),
+    api.get<VoucherResponse[]>("/partner/vouchers", { params }),
 };
 
 // ==================== Customer Extended ====================

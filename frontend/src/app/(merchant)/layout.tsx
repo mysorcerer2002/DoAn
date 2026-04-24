@@ -3,17 +3,17 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { MerchantSidebar } from "@/components/merchant/merchant-sidebar";
-import { TenantPicker } from "@/components/merchant/tenant-picker";
+import { PartnerSidebar } from "@/components/partner/partner-sidebar";
+import { PartnerPicker } from "@/components/partner/partner-picker";
 import { MobileTopbar } from "@/components/shared/mobile-topbar";
-import { useTenantStore } from "@/lib/tenant-store";
+import { usePartnerStore } from "@/lib/partner-store";
 import { useMe } from "@/lib/hooks/use-me";
 
 export default function MerchantLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const tenant = useTenantStore((s) => s.tenant);
-  const rehydrate = useTenantStore((s) => s.rehydrate);
+  const tenant = usePartnerStore((s) => s.tenant);
+  const rehydrate = usePartnerStore((s) => s.rehydrate);
   const [mounted, setMounted] = useState(false);
   const { data: user, isLoading, isError } = useMe();
 
@@ -51,18 +51,18 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
 
   if (!user) return null;
 
-  // Chưa chọn tenant → hiển thị picker (ngoại trừ trang picker chính nó)
+  // Chưa chọn partner → hiển thị picker (ngoại trừ trang picker chính nó)
   if (!tenant) {
     return (
       <div className="min-h-screen bg-[#f8fafc] font-body text-slate-800">
-        <TenantPicker targetHref={pathname} />
+        <PartnerPicker targetHref={pathname} />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-body text-slate-800">
-      <MerchantSidebar />
+      <PartnerSidebar />
       <div className="md:ml-60">
         <MobileTopbar title="Merchant" gradientClass="bg-brand-indigo" />
         {children}

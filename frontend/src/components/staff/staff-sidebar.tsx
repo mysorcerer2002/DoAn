@@ -9,7 +9,7 @@ import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useLogout } from "@/lib/hooks/use-logout";
 import { useSidebarStore } from "@/lib/sidebar-store";
-import { useTenantStore } from "@/lib/tenant-store";
+import { usePartnerStore } from "@/lib/partner-store";
 
 type MenuItem = {
   href: string;
@@ -31,7 +31,7 @@ export function StaffSidebar() {
   const open = useSidebarStore((s) => s.open);
   const close = useSidebarStore((s) => s.close);
   const logout = useLogout();
-  const tenant = useTenantStore((s) => s.tenant);
+  const tenant = usePartnerStore((s) => s.tenant);
 
   useEffect(() => {
     close();

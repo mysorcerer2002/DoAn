@@ -3,7 +3,7 @@
 import { Loader2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
-import { useAuthorizations } from "@/lib/hooks/use-merchant-enroll";
+import { useAuthorizations } from "@/lib/hooks/use-partner-enroll";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("vi-VN", {

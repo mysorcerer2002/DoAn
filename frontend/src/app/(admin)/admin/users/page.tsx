@@ -21,12 +21,12 @@ import {
   useAdminUsers,
   useResetAdminUserPassword,
   useUpdateAdminUser,
-} from "@/lib/hooks/use-merchant";
+} from "@/lib/hooks/use-partner";
 import { useMe } from "@/lib/hooks/use-me";
 import type {
   AdminResetPasswordResponse,
   AdminUserRow,
-} from "@/types/merchant";
+} from "@/types/partner";
 
 type SystemRole = "regular" | "admin" | "super_admin";
 

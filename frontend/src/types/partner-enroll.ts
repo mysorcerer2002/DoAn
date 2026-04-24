@@ -100,7 +100,7 @@ export interface AuthorizationSignResponse {
 
 // ==================== Authorization list/detail ====================
 
-export interface TenantAuthorizationSummary {
+export interface PartnerAuthorizationSummary {
   id: number;
   scope: string;
   campaign_id: number | null;
@@ -129,7 +129,7 @@ export interface SignaturePayloadPublic {
   rendered_pdf_hash?: string | null;
 }
 
-export interface TenantAuthorizationDetail {
+export interface PartnerAuthorizationDetail {
   id: number;
   tenant_id: number;
   scope: string;

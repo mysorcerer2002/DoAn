@@ -6,22 +6,22 @@ import {
   authorizationsApi,
   campaignFeesApi,
   enrollmentApi,
-} from "@/lib/api-merchant-enroll";
-import { useTenantStore } from "@/lib/tenant-store";
-import type { EnrollFormInput } from "@/types/merchant-enroll";
+} from "@/lib/api-partner-enroll";
+import { usePartnerStore } from "@/lib/partner-store";
+import type { EnrollFormInput } from "@/types/partner-enroll";
 
-function useTenantId(): number | null {
-  return useTenantStore((s) => s.tenant?.id ?? null);
+function usePartnerId(): number | null {
+  return usePartnerStore((s) => s.tenant?.id ?? null);
 }
 
 // ==================== Templates ====================
 
 export function useEnrollTemplates() {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "enroll-templates", tenantId],
+    queryKey: ["partner", "enroll-templates", partnerId],
     queryFn: async () => (await enrollmentApi.listTemplates()).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
@@ -56,8 +56,8 @@ export function useSignEnroll() {
       consent_checked: boolean;
     }) => enrollmentApi.sign(form, otp_code, consent_checked),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["merchant", "campaigns"] });
-      qc.invalidateQueries({ queryKey: ["merchant", "authorizations"] });
+      qc.invalidateQueries({ queryKey: ["partner", "campaigns"] });
+      qc.invalidateQueries({ queryKey: ["partner", "authorizations"] });
     },
   });
 }
@@ -65,20 +65,20 @@ export function useSignEnroll() {
 // ==================== Authorizations ====================
 
 export function useAuthorizations() {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "authorizations", tenantId],
+    queryKey: ["partner", "authorizations", partnerId],
     queryFn: async () => (await authorizationsApi.list()).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
 export function useAuthorizationDetail(id: number | null) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "authorizations", "detail", tenantId, id],
+    queryKey: ["partner", "authorizations", "detail", partnerId, id],
     queryFn: async () => (await authorizationsApi.get(id!)).data,
-    enabled: tenantId != null && id != null,
+    enabled: partnerId != null && id != null,
   });
 }
 
@@ -88,11 +88,11 @@ export function useRevokeAuthorization() {
     mutationFn: ({ id, reason }: { id: number; reason?: string }) =>
       authorizationsApi.revoke(id, reason),
     onSuccess: (_res, vars) => {
-      qc.invalidateQueries({ queryKey: ["merchant", "authorizations"] });
+      qc.invalidateQueries({ queryKey: ["partner", "authorizations"] });
       qc.invalidateQueries({
-        queryKey: ["merchant", "authorizations", "detail"],
+        queryKey: ["partner", "authorizations", "detail"],
       });
-      qc.invalidateQueries({ queryKey: ["merchant", "campaigns"] });
+      qc.invalidateQueries({ queryKey: ["partner", "campaigns"] });
     },
   });
 }
@@ -100,10 +100,10 @@ export function useRevokeAuthorization() {
 // ==================== Service fees ====================
 
 export function useCampaignServiceFees(campaignId: number | null) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "service-fees", tenantId, campaignId],
+    queryKey: ["partner", "service-fees", partnerId, campaignId],
     queryFn: async () => (await campaignFeesApi.listForCampaign(campaignId!)).data,
-    enabled: tenantId != null && campaignId != null,
+    enabled: partnerId != null && campaignId != null,
   });
 }

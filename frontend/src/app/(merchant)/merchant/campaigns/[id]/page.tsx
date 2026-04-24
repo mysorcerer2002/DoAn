@@ -23,11 +23,11 @@ import { useParams } from "next/navigation";
 import {
   useCampaignDetail,
   useCampaignRoi,
-} from "@/lib/hooks/use-merchant";
+} from "@/lib/hooks/use-partner";
 import {
   useAuthorizations,
   useCampaignServiceFees,
-} from "@/lib/hooks/use-merchant-enroll";
+} from "@/lib/hooks/use-partner-enroll";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("vi-VN", {

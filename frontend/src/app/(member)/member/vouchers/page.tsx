@@ -4,8 +4,8 @@ import { ArrowLeft, Clock, Loader2, Search, Ticket } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { useMyVouchers } from "@/lib/hooks/use-merchant";
-import type { VoucherResponse } from "@/types/merchant";
+import { useMyVouchers } from "@/lib/hooks/use-partner";
+import type { VoucherResponse } from "@/types/partner";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("vi-VN", {

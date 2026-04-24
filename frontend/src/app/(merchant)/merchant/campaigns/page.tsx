@@ -17,8 +17,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 
-import { useCampaigns, useCreateCampaign } from "@/lib/hooks/use-merchant";
-import type { CampaignResponse } from "@/types/merchant";
+import { useCampaigns, useCreateCampaign } from "@/lib/hooks/use-partner";
+import type { CampaignResponse } from "@/types/partner";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("vi-VN", {

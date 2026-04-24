@@ -1,6 +1,6 @@
-// Types cho merchant / admin / shared API responses
+// Types cho partner / admin / shared API responses
 
-export interface TenantStaffSummary {
+export interface PartnerStaffSummary {
   id: number;
   name: string;
   slug: string;
@@ -9,7 +9,7 @@ export interface TenantStaffSummary {
   role: string;
 }
 
-export interface TenantResponse {
+export interface PartnerResponse {
   id: number;
   name: string;
   slug: string;
@@ -29,7 +29,7 @@ export interface TenantResponse {
   activated_at: string | null;
 }
 
-export interface TenantUpdateRequest {
+export interface PartnerUpdateRequest {
   name?: string;
   description?: string | null;
   logo_url?: string | null;
@@ -268,7 +268,7 @@ export interface TierResponse {
 }
 
 // Settings
-export interface TenantSettings {
+export interface PartnerSettings {
   points_on_gross: boolean;
   signup_bonus_points: number;
   voucher_default_ttl_days: number;
@@ -298,7 +298,7 @@ export interface PlatformStatsResponse {
   total_transactions: number;
 }
 
-export interface TenantDetailResponse {
+export interface PartnerDetailResponse {
   id: number;
   name: string;
   slug: string;
@@ -330,7 +330,7 @@ export interface TenantDetailResponse {
   reward_count: number;
 }
 
-export interface AdminTenantListRow {
+export interface AdminPartnerListRow {
   id: number;
   name: string;
   slug: string;
@@ -349,7 +349,7 @@ export interface AdminTenantListRow {
   staff_count: number;
 }
 
-export interface AdminTenantStaffRow {
+export interface AdminPartnerStaffRow {
   user_id: number;
   full_name: string | null;
   email: string | null;
@@ -359,7 +359,7 @@ export interface AdminTenantStaffRow {
   is_active: boolean;
 }
 
-export interface AdminTenantMemberRow {
+export interface AdminPartnerMemberRow {
   membership_id: number;
   user_id: number;
   full_name: string | null;

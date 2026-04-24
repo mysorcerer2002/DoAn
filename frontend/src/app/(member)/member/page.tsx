@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { useMyVouchers } from "@/lib/hooks/use-merchant";
+import { useMyVouchers } from "@/lib/hooks/use-partner";
 import { useMe, useMyMemberships } from "@/lib/hooks/use-me";
 import type { Membership } from "@/types/auth";
 

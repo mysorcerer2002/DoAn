@@ -16,8 +16,8 @@ import {
   useAddStaff,
   useRemoveStaff,
   useStaff,
-} from "@/lib/hooks/use-merchant";
-import type { StaffResponse } from "@/types/merchant";
+} from "@/lib/hooks/use-partner";
+import type { StaffResponse } from "@/types/partner";
 
 function getInitials(name: string | null, email: string | null): string {
   const source = name ?? email ?? "?";

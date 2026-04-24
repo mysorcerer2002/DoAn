@@ -1,6 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 
-import { getActiveTenantId } from "@/lib/tenant-store";
+import { getActivePartnerId } from "@/lib/partner-store";
 import type {
   LoginRequest,
   Membership,
@@ -22,16 +22,16 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    // Auto-inject X-Tenant-Id cho /merchant/* và /tenants/me/* routes
+    // Auto-inject X-Partner-Id cho /partner/* và /partners/me/* routes
     const url = config.url ?? "";
-    const needsTenant =
-      url.startsWith("/merchant") || url.startsWith("/tenants/me");
-    const hasTenantHeader =
-      config.headers && "X-Tenant-Id" in config.headers;
-    if (needsTenant && !hasTenantHeader && config.headers) {
-      const tenantId = getActiveTenantId();
-      if (tenantId != null) {
-        config.headers["X-Tenant-Id"] = String(tenantId);
+    const needsPartner =
+      url.startsWith("/partner") || url.startsWith("/partners/me");
+    const hasPartnerHeader =
+      config.headers && "X-Partner-Id" in config.headers;
+    if (needsPartner && !hasPartnerHeader && config.headers) {
+      const partnerId = getActivePartnerId();
+      if (partnerId != null) {
+        config.headers["X-Partner-Id"] = String(partnerId);
       }
     }
   }

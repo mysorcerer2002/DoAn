@@ -10,8 +10,8 @@ import { ArrowLeft, Eye, EyeOff, Lock, UserRound } from "lucide-react";
 
 import { api, authApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
-import { useTenantStore } from "@/lib/tenant-store";
-import type { TenantStaffSummary } from "@/types/merchant";
+import { usePartnerStore } from "@/lib/partner-store";
+import type { PartnerStaffSummary } from "@/types/partner";
 
 // Normalize identifier client-side để UX nhất quán: nhập "+84 987 654 321"
 // vẫn detect là phone VN. Backend cũng normalize, nhưng feedback sớm giúp
@@ -48,7 +48,7 @@ export default function LoginPage() {
   const router = useRouter();
   const setTokens = useAuthStore((s) => s.setTokens);
   const fetchMe = useAuthStore((s) => s.fetchMe);
-  const setTenant = useTenantStore((s) => s.setTenant);
+  const setTenant = usePartnerStore((s) => s.setTenant);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -74,8 +74,8 @@ export default function LoginPage() {
         return;
       }
       try {
-        const { data: tenants } = await api.get<TenantStaffSummary[]>(
-          "/users/me/tenants"
+        const { data: tenants } = await api.get<PartnerStaffSummary[]>(
+          "/users/me/partners"
         );
         if (tenants.length > 0) {
           // Auto-select tenant đầu tiên để tránh hiển thị picker

@@ -9,12 +9,12 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-import { useDashboard } from "@/lib/hooks/use-merchant";
+import { useDashboard } from "@/lib/hooks/use-partner";
 import type {
   CampaignRoiPoint,
   DailyTransactionPoint,
   TierDistributionPoint,
-} from "@/types/merchant";
+} from "@/types/partner";
 
 function formatVnd(n: number): string {
   return n.toLocaleString("vi-VN") + " ₫";

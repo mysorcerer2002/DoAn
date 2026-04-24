@@ -6,12 +6,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { MobileTopbar } from "@/components/shared/mobile-topbar";
 import { StaffSidebar } from "@/components/staff/staff-sidebar";
 import { useMe } from "@/lib/hooks/use-me";
-import { useTenantStore } from "@/lib/tenant-store";
+import { usePartnerStore } from "@/lib/partner-store";
 
 export default function StaffLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const tenant = useTenantStore((s) => s.tenant);
-  const rehydrate = useTenantStore((s) => s.rehydrate);
+  const tenant = usePartnerStore((s) => s.tenant);
+  const rehydrate = usePartnerStore((s) => s.rehydrate);
   const [mounted, setMounted] = useState(false);
   const { data: user, isLoading, isError } = useMe();
 

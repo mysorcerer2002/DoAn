@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import { usePlatformStats } from "@/lib/hooks/use-merchant";
+import { usePlatformStats } from "@/lib/hooks/use-partner";
 
 export default function AdminDashboardPage() {
   const { data, isLoading, isError } = usePlatformStats();

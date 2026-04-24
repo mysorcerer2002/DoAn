@@ -10,7 +10,7 @@ import {
   Timer,
 } from "lucide-react";
 
-import { useAdminSettings } from "@/lib/hooks/use-merchant";
+import { useAdminSettings } from "@/lib/hooks/use-partner";
 
 export default function AdminSettingsPage() {
   const { data, isLoading } = useAdminSettings();

@@ -14,7 +14,7 @@ import { useState } from "react";
 import {
   useAuthorizationDetail,
   useRevokeAuthorization,
-} from "@/lib/hooks/use-merchant-enroll";
+} from "@/lib/hooks/use-partner-enroll";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";

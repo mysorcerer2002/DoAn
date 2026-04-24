@@ -18,8 +18,8 @@ import {
   useDeleteReward,
   useRewards,
   useUpdateReward,
-} from "@/lib/hooks/use-merchant";
-import type { RewardResponse } from "@/types/merchant";
+} from "@/lib/hooks/use-partner";
+import type { RewardResponse } from "@/types/partner";
 
 type FormState = {
   id: number | null;

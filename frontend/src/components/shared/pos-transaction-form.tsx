@@ -20,8 +20,8 @@ import { api } from "@/lib/api";
 import {
   useCreateQrTransaction,
   useCreateTransaction,
-} from "@/lib/hooks/use-merchant";
-import type { TransactionWithMemberResponse } from "@/types/merchant";
+} from "@/lib/hooks/use-partner";
+import type { TransactionWithMemberResponse } from "@/types/partner";
 
 type PadKey =
   | "0" | "1" | "2" | "3" | "4"
@@ -165,7 +165,7 @@ export function PosTransactionForm({
     setVoucherChecking(true);
     try {
       const { data } = await api.get<VoucherCheckResponse>(
-        `/merchant/vouchers/check/${voucherCode.trim().toUpperCase()}`,
+        `/partner/vouchers/check/${voucherCode.trim().toUpperCase()}`,
         { params: { gross_amount: Number(amount) || 0 } }
       );
       setVoucherCheck(data);

@@ -29,13 +29,13 @@ import {
   useAdminTenantStaff,
   useAdminTenants,
   useApproveTenant,
-} from "@/lib/hooks/use-merchant";
+} from "@/lib/hooks/use-partner";
 import type {
-  AdminTenantListRow,
-  AdminTenantMemberRow,
-  AdminTenantStaffRow,
-  TenantDetailResponse,
-} from "@/types/merchant";
+  AdminPartnerListRow,
+  AdminPartnerMemberRow,
+  AdminPartnerStaffRow,
+  PartnerDetailResponse,
+} from "@/types/partner";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("vi-VN", {
@@ -187,7 +187,7 @@ export default function AdminTenantsPage() {
                 </tr>
               </thead>
               <tbody>
-                {tenants?.map((t: AdminTenantListRow, idx) => (
+                {tenants?.map((t: AdminPartnerListRow, idx) => (
                   <tr
                     key={t.id}
                     onClick={() => setSelectedTenantId(t.id)}
@@ -456,7 +456,7 @@ function TabButton({
   );
 }
 
-function OverviewTab({ detail }: { detail: TenantDetailResponse }) {
+function OverviewTab({ detail }: { detail: PartnerDetailResponse }) {
   return (
     <div className="space-y-5">
       <section>
@@ -705,7 +705,7 @@ function MembersTab({ tenantId }: { tenantId: number }) {
           </tr>
         </thead>
         <tbody>
-          {data.map((m: AdminTenantMemberRow) => (
+          {data.map((m: AdminPartnerMemberRow) => (
             <tr
               key={m.membership_id}
               className="border-b border-slate-50 last:border-b-0"
@@ -765,7 +765,7 @@ function StaffTab({ tenantId }: { tenantId: number }) {
 
   return (
     <div className="space-y-2">
-      {data.map((s: AdminTenantStaffRow) => (
+      {data.map((s: AdminPartnerStaffRow) => (
         <div
           key={s.user_id}
           className="flex items-center justify-between rounded-xl border border-slate-100 px-4 py-3"

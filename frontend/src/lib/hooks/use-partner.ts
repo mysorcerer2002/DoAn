@@ -13,84 +13,84 @@ import {
   staffApi,
   tenantApi,
   transactionsApi,
-} from "@/lib/api-merchant";
-import { useTenantStore } from "@/lib/tenant-store";
+} from "@/lib/api-partner";
+import { usePartnerStore } from "@/lib/partner-store";
 import type {
   AdminUserUpdateRequest,
   CampaignCreateRequest,
   CreateManualTransactionRequest,
+  PartnerSettings,
+  PartnerUpdateRequest,
   RewardCreateRequest,
   RewardUpdateRequest,
   StaffAddRequest,
-  TenantSettings,
-  TenantUpdateRequest,
-} from "@/types/merchant";
+} from "@/types/partner";
 
-function useTenantId(): number | null {
-  return useTenantStore((s) => s.tenant?.id ?? null);
+function usePartnerId(): number | null {
+  return usePartnerStore((s) => s.tenant?.id ?? null);
 }
 
 // ==================== Analytics ====================
 export function useDashboard(params?: { from?: string; to?: string }) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "dashboard", tenantId, params?.from, params?.to],
+    queryKey: ["partner", "dashboard", partnerId, params?.from, params?.to],
     queryFn: async () => (await analyticsApi.dashboard(params)).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
 // ==================== Tenant / Settings ====================
 export function useMyTenant() {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "tenant", tenantId],
+    queryKey: ["partner", "tenant", partnerId],
     queryFn: async () => (await tenantApi.getMe()).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
 export function useMyTenantSettings() {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "settings", tenantId],
+    queryKey: ["partner", "settings", partnerId],
     queryFn: async () => (await tenantApi.getSettings()).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
 export function useUpdateTenant() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: TenantUpdateRequest) => tenantApi.updateMe(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant", "tenant"] }),
+    mutationFn: (data: PartnerUpdateRequest) => tenantApi.updateMe(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "tenant"] }),
   });
 }
 
 export function useUpdateSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<TenantSettings>) => tenantApi.updateSettings(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant", "settings"] }),
+    mutationFn: (data: Partial<PartnerSettings>) => tenantApi.updateSettings(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "settings"] }),
   });
 }
 
 // ==================== Members ====================
 export function useMembers(params?: { limit?: number; offset?: number }) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "members", tenantId, params?.limit, params?.offset],
+    queryKey: ["partner", "members", partnerId, params?.limit, params?.offset],
     queryFn: async () => (await membersApi.list(params)).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
 export function useMemberDetail(id: number | null) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "members", tenantId, id],
+    queryKey: ["partner", "members", partnerId, id],
     queryFn: async () => (await membersApi.get(id!)).data,
-    enabled: tenantId != null && id != null,
+    enabled: partnerId != null && id != null,
   });
 }
 
@@ -100,11 +100,11 @@ export function useRewards(params?: {
   limit?: number;
   offset?: number;
 }) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "rewards", tenantId, params],
+    queryKey: ["partner", "rewards", partnerId, params],
     queryFn: async () => (await rewardsApi.list(params)).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
@@ -112,7 +112,7 @@ export function useCreateReward() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: RewardCreateRequest) => rewardsApi.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant", "rewards"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "rewards"] }),
   });
 }
 
@@ -121,7 +121,7 @@ export function useUpdateReward() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: RewardUpdateRequest }) =>
       rewardsApi.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant", "rewards"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "rewards"] }),
   });
 }
 
@@ -129,17 +129,17 @@ export function useDeleteReward() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => rewardsApi.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant", "rewards"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "rewards"] }),
   });
 }
 
 // ==================== Campaigns ====================
 export function useCampaigns(params?: { active_only?: boolean }) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "campaigns", tenantId, params],
+    queryKey: ["partner", "campaigns", partnerId, params],
     queryFn: async () => (await campaignsApi.list(params)).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
@@ -147,35 +147,35 @@ export function useCreateCampaign() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CampaignCreateRequest) => campaignsApi.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant", "campaigns"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "campaigns"] }),
   });
 }
 
 export function useCampaignDetail(id: number | null) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "campaigns", "detail", tenantId, id],
+    queryKey: ["partner", "campaigns", "detail", partnerId, id],
     queryFn: async () => (await campaignsApi.get(id as number)).data,
-    enabled: tenantId != null && id != null,
+    enabled: partnerId != null && id != null,
   });
 }
 
 export function useCampaignRoi(id: number | null) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "campaigns", "roi", tenantId, id],
+    queryKey: ["partner", "campaigns", "roi", partnerId, id],
     queryFn: async () => (await campaignsApi.roi(id as number)).data,
-    enabled: tenantId != null && id != null,
+    enabled: partnerId != null && id != null,
   });
 }
 
 // ==================== Staff ====================
 export function useStaff() {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "staff", tenantId],
+    queryKey: ["partner", "staff", partnerId],
     queryFn: async () => (await staffApi.list()).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
@@ -183,7 +183,7 @@ export function useAddStaff() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: StaffAddRequest) => staffApi.add(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant", "staff"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "staff"] }),
   });
 }
 
@@ -191,17 +191,17 @@ export function useRemoveStaff() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => staffApi.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant", "staff"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "staff"] }),
   });
 }
 
 // ==================== Transactions ====================
 export function useTransactions(params?: { limit?: number; offset?: number }) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "transactions", tenantId, params],
+    queryKey: ["partner", "transactions", partnerId, params],
     queryFn: async () => (await transactionsApi.list(params)).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }
 
@@ -211,9 +211,9 @@ export function useCreateTransaction() {
     mutationFn: (data: CreateManualTransactionRequest) =>
       transactionsApi.create(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["merchant", "transactions"] });
-      qc.invalidateQueries({ queryKey: ["merchant", "dashboard"] });
-      qc.invalidateQueries({ queryKey: ["merchant", "members"] });
+      qc.invalidateQueries({ queryKey: ["partner", "transactions"] });
+      qc.invalidateQueries({ queryKey: ["partner", "dashboard"] });
+      qc.invalidateQueries({ queryKey: ["partner", "members"] });
     },
   });
 }
@@ -227,9 +227,9 @@ export function useCreateQrTransaction() {
       note?: string | null;
     }) => transactionsApi.createFromQr(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["merchant", "transactions"] });
-      qc.invalidateQueries({ queryKey: ["merchant", "dashboard"] });
-      qc.invalidateQueries({ queryKey: ["merchant", "members"] });
+      qc.invalidateQueries({ queryKey: ["partner", "transactions"] });
+      qc.invalidateQueries({ queryKey: ["partner", "dashboard"] });
+      qc.invalidateQueries({ queryKey: ["partner", "members"] });
     },
   });
 }
@@ -244,36 +244,36 @@ export function usePlatformStats() {
 
 export function useAdminTenants(status?: string) {
   return useQuery({
-    queryKey: ["admin", "tenants", status],
+    queryKey: ["admin", "partners", status],
     queryFn: async () => (await adminApi.listTenants({ status })).data,
   });
 }
 
-export function useAdminTenantDetail(tenantId: number | null) {
+export function useAdminTenantDetail(partnerId: number | null) {
   return useQuery({
-    queryKey: ["admin", "tenants", "detail", tenantId],
-    queryFn: async () => (await adminApi.tenantDetail(tenantId as number)).data,
-    enabled: tenantId != null,
+    queryKey: ["admin", "partners", "detail", partnerId],
+    queryFn: async () => (await adminApi.tenantDetail(partnerId as number)).data,
+    enabled: partnerId != null,
   });
 }
 
-export function useAdminTenantStaff(tenantId: number | null) {
+export function useAdminTenantStaff(partnerId: number | null) {
   return useQuery({
-    queryKey: ["admin", "tenants", "staff", tenantId],
-    queryFn: async () => (await adminApi.tenantStaff(tenantId as number)).data,
-    enabled: tenantId != null,
+    queryKey: ["admin", "partners", "staff", partnerId],
+    queryFn: async () => (await adminApi.tenantStaff(partnerId as number)).data,
+    enabled: partnerId != null,
   });
 }
 
 export function useAdminTenantMembers(
-  tenantId: number | null,
+  partnerId: number | null,
   params?: { limit?: number; offset?: number },
 ) {
   return useQuery({
-    queryKey: ["admin", "tenants", "members", tenantId, params],
+    queryKey: ["admin", "partners", "members", partnerId, params],
     queryFn: async () =>
-      (await adminApi.tenantMembers(tenantId as number, params)).data,
-    enabled: tenantId != null,
+      (await adminApi.tenantMembers(partnerId as number, params)).data,
+    enabled: partnerId != null,
   });
 }
 
@@ -290,7 +290,7 @@ export function useApproveTenant() {
       reason?: string;
     }) => adminApi.approveTenant(id, approve, reason),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "tenants"] });
+      qc.invalidateQueries({ queryKey: ["admin", "partners"] });
       qc.invalidateQueries({ queryKey: ["admin", "stats"] });
     },
   });
@@ -366,16 +366,16 @@ export function useAdminSettings() {
   });
 }
 
-// ==================== Merchant Vouchers ====================
+// ==================== Partner Vouchers ====================
 export function useMerchantVouchers(params?: {
   status?: string;
   limit?: number;
   offset?: number;
 }) {
-  const tenantId = useTenantId();
+  const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["merchant", "vouchers", tenantId, params],
+    queryKey: ["partner", "vouchers", partnerId, params],
     queryFn: async () => (await merchantVouchersApi.list(params)).data,
-    enabled: tenantId != null,
+    enabled: partnerId != null,
   });
 }

@@ -18,8 +18,8 @@ import {
   useAdminTenants,
   useAdminUsers,
   usePlatformStats,
-} from "@/lib/hooks/use-merchant";
-import type { AuditFeedItem } from "@/types/merchant";
+} from "@/lib/hooks/use-partner";
+import type { AuditFeedItem } from "@/types/partner";
 
 function formatRelative(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
