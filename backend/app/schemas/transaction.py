@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -67,3 +68,50 @@ class NoMembershipResponse(BaseModel):
     phone: str | None
     full_name: str | None
     is_member: bool = False
+
+
+# ── C2: GET list/detail + PATCH ───────────────────────────────────────────────
+
+
+class TransactionListItem(BaseModel):
+    id: int
+    created_at: datetime
+    receipt_code: str | None
+    membership_display_name: str
+    staff_display_name: str | None
+    gross_amount: int
+    voucher_discount_amount: int | None
+    net_amount: int
+    points_earned: int
+    method: str
+    voucher_code: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class TransactionListResponse(BaseModel):
+    items: list[TransactionListItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class TransactionDetailResponse(TransactionListItem):
+    note: str | None
+    legal_discount_ratio: Decimal | None
+
+
+class TransactionUpdateRequest(BaseModel):
+    receipt_code: str | None = Field(default=None, max_length=50)
+    note: str | None = None
+
+    @field_validator("receipt_code", mode="before")
+    @classmethod
+    def _normalize_receipt_code(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "":
+                return None
+        return v

@@ -83,7 +83,7 @@ async def test_create_transaction_invalid_phone(client, db_session):
 
 @pytest.mark.asyncio
 async def test_list_transactions(client, db_session):
-    """Tạo 2 giao dịch rồi list ra đúng số lượng."""
+    """Tạo 2 giao dịch rồi list ra đúng số lượng — response shape mới paginated."""
     _tenant, _owner, headers = await _setup_shop_with_rule(db_session)
 
     await client.post(
@@ -100,7 +100,9 @@ async def test_list_transactions(client, db_session):
     resp = await client.get("/partner/transactions", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 2
+    assert data["total"] == 2
+    assert len(data["items"]) == 2
+    assert data["page"] == 1
 
 
 @pytest.mark.asyncio
@@ -194,7 +196,9 @@ async def test_transaction_cross_tenant_isolation(client, db_session):
     # Partner B list -> phải rỗng
     resp = await client.get("/partner/transactions", headers=headers_b)
     assert resp.status_code == 200
-    assert resp.json() == []
+    data = resp.json()
+    assert data["total"] == 0
+    assert data["items"] == []
 
 
 # ── receipt_code tests ────────────────────────────────────────────────────────
@@ -380,3 +384,257 @@ async def test_create_transaction_concurrent_same_receipt_code_one_409(
         getattr(r, "status_code", 500) for r in (r1, r2)
     )
     assert statuses == [201, 409]
+
+
+# ── C2: GET list paginated / detail / PATCH ───────────────────────────────────
+
+
+async def _create_txn(client, headers, phone="0901234567", amount=10000, receipt_code=None):
+    """Helper nhỏ: tạo 1 giao dịch, trả về response JSON."""
+    payload = {"phone": phone, "gross_amount": amount}
+    if receipt_code is not None:
+        payload["receipt_code"] = receipt_code
+    resp = await client.post("/partner/transactions", json=payload, headers=headers)
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+@pytest.mark.asyncio
+async def test_list_transactions_pagination(client, db_session):
+    """50 giao dịch, GET ?page=1&page_size=20 → total=50, items=20."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    for i in range(50):
+        # Dùng phone khác nhau để tránh cùng membership, nhưng format VN hợp lệ
+        # 10 số bắt đầu 09
+        phone = f"090{i:07d}"
+        await _create_txn(client, headers, phone=phone, amount=10000)
+
+    resp = await client.get("/partner/transactions?page=1&page_size=20", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 50
+    assert data["page"] == 1
+    assert data["page_size"] == 20
+    assert len(data["items"]) == 20
+
+
+@pytest.mark.asyncio
+async def test_list_filter_by_staff(client, db_session):
+    """Filter ?staff_id= trả đúng giao dịch của staff đó."""
+    partner, owner, headers_owner = await _setup_shop_with_rule(db_session)
+
+    # Tạo staff user B
+    staff_b = User(email="staffb@example.com", password_hash="x", is_active=True)
+    db_session.add(staff_b)
+    await db_session.flush()
+    db_session.add(
+        PartnerStaff(partner_id=partner.id, user_id=staff_b.id, role=PartnerStaffRole.STAFF)
+    )
+    await db_session.flush()
+
+    from app.core.security import create_access_token
+    token_b = create_access_token(user_id=staff_b.id)
+    headers_b = {
+        "Authorization": f"Bearer {token_b}",
+        "X-Partner-Id": str(partner.id),
+    }
+
+    # Owner tạo 1 txn, staff_b tạo 1 txn
+    await _create_txn(client, headers_owner, phone="0901111111", amount=10000)
+    await _create_txn(client, headers_b, phone="0902222222", amount=20000)
+
+    resp = await client.get(
+        f"/partner/transactions?staff_id={staff_b.id}", headers=headers_owner
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_cross_partner_isolation(client, db_session):
+    """Partner A tạo txn, Partner B GET list → items=[], total=0."""
+    _partner_a, _owner_a, headers_a = await _setup_shop_with_rule(db_session)
+
+    owner_b = User(email="partnerb@example.com", password_hash="x", is_active=True)
+    db_session.add(owner_b)
+    await db_session.flush()
+    partner_b = Partner(
+        name="PartnerB-C2",
+        slug="partner-b-c2",
+        owner_user_id=owner_b.id,
+        status=PartnerStatus.ACTIVE,
+        settings={},
+    )
+    db_session.add(partner_b)
+    await db_session.flush()
+    db_session.add(
+        PartnerStaff(partner_id=partner_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER)
+    )
+    from app.models.point_rule import PointRule
+    db_session.add(
+        PointRule(
+            partner_id=partner_b.id,
+            points_per_unit=1,
+            unit_amount=1000,
+            min_amount=0,
+            is_active=True,
+        )
+    )
+    await db_session.flush()
+
+    from app.core.security import create_access_token
+    token_b = create_access_token(user_id=owner_b.id)
+    headers_b = {
+        "Authorization": f"Bearer {token_b}",
+        "X-Partner-Id": str(partner_b.id),
+    }
+
+    await _create_txn(client, headers_a, phone="0901234567", amount=10000)
+
+    resp = await client.get("/partner/transactions", headers=headers_b)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 0
+    assert data["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_detail_includes_note(client, db_session):
+    """GET /{id} trả về note trong response detail."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    resp_create = await client.post(
+        "/partner/transactions",
+        json={"phone": "0901234567", "gross_amount": 50000, "note": "xin chào"},
+        headers=headers,
+    )
+    assert resp_create.status_code == 201
+    txn_id = resp_create.json()["transaction"]["id"]
+
+    resp = await client.get(f"/partner/transactions/{txn_id}", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["note"] == "xin chào"
+    assert data["id"] == txn_id
+
+
+@pytest.mark.asyncio
+async def test_get_detail_404_other_partner(client, db_session):
+    """Partner B GET /{id} của Partner A → 404."""
+    partner_a, _owner_a, headers_a = await _setup_shop_with_rule(db_session)
+
+    owner_b = User(email="detail404b@example.com", password_hash="x", is_active=True)
+    db_session.add(owner_b)
+    await db_session.flush()
+    partner_b = Partner(
+        name="DetailB-404",
+        slug="detail-b-404",
+        owner_user_id=owner_b.id,
+        status=PartnerStatus.ACTIVE,
+        settings={},
+    )
+    db_session.add(partner_b)
+    await db_session.flush()
+    db_session.add(
+        PartnerStaff(partner_id=partner_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER)
+    )
+    await db_session.flush()
+
+    from app.core.security import create_access_token
+    token_b = create_access_token(user_id=owner_b.id)
+    headers_b = {
+        "Authorization": f"Bearer {token_b}",
+        "X-Partner-Id": str(partner_b.id),
+    }
+
+    txn_data = await _create_txn(client, headers_a, phone="0901234567", amount=10000)
+    txn_id = txn_data["transaction"]["id"]
+
+    resp = await client.get(f"/partner/transactions/{txn_id}", headers=headers_b)
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_patch_as_owner_updates_receipt_code(client, db_session):
+    """Owner PATCH {receipt_code} → 200, response echo receipt_code."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    txn_data = await _create_txn(client, headers, phone="0901234567", amount=10000)
+    txn_id = txn_data["transaction"]["id"]
+
+    resp = await client.patch(
+        f"/partner/transactions/{txn_id}",
+        json={"receipt_code": "FIXED-001"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["receipt_code"] == "FIXED-001"
+
+
+@pytest.mark.asyncio
+async def test_patch_as_staff_forbidden(client, db_session):
+    """Staff (không phải owner) PATCH → 403."""
+    partner, owner, headers_owner = await _setup_shop_with_rule(db_session)
+
+    staff_user = User(email="staff403@example.com", password_hash="x", is_active=True)
+    db_session.add(staff_user)
+    await db_session.flush()
+    db_session.add(
+        PartnerStaff(partner_id=partner.id, user_id=staff_user.id, role=PartnerStaffRole.STAFF)
+    )
+    await db_session.flush()
+
+    from app.core.security import create_access_token
+    token_staff = create_access_token(user_id=staff_user.id)
+    headers_staff = {
+        "Authorization": f"Bearer {token_staff}",
+        "X-Partner-Id": str(partner.id),
+    }
+
+    txn_data = await _create_txn(client, headers_owner, phone="0901234567", amount=10000)
+    txn_id = txn_data["transaction"]["id"]
+
+    resp = await client.patch(
+        f"/partner/transactions/{txn_id}",
+        json={"receipt_code": "STAFF-TRY"},
+        headers=headers_staff,
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_patch_receipt_code_to_null(client, db_session):
+    """Owner PATCH {receipt_code: null} → 200, null echo."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    txn_data = await _create_txn(client, headers, phone="0901234567", amount=10000, receipt_code="OLD-CODE")
+    txn_id = txn_data["transaction"]["id"]
+
+    resp = await client.patch(
+        f"/partner/transactions/{txn_id}",
+        json={"receipt_code": None},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["receipt_code"] is None
+
+
+@pytest.mark.asyncio
+async def test_patch_duplicate_receipt_code_409(client, db_session):
+    """PATCH txn B để dùng receipt_code của txn A → 409."""
+    _partner, _owner, headers = await _setup_shop_with_rule(db_session)
+
+    txn_a = await _create_txn(client, headers, phone="0901111111", amount=10000, receipt_code="AAA")
+    txn_b = await _create_txn(client, headers, phone="0902222222", amount=20000, receipt_code="BBB")
+
+    txn_b_id = txn_b["transaction"]["id"]
+
+    resp = await client.patch(
+        f"/partner/transactions/{txn_b_id}",
+        json={"receipt_code": "AAA"},
+        headers=headers,
+    )
+    assert resp.status_code == 409

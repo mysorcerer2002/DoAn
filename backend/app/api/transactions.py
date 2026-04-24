@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,8 +18,15 @@ from app.models.user import User
 from app.schemas.transaction import (
     CreateManualTransactionRequest,
     CreateQrCustomerTransactionRequest,
-    TransactionResponse,
+    TransactionDetailResponse,
+    TransactionListResponse,
+    TransactionUpdateRequest,
     TransactionWithMemberResponse,
+)
+from app.services.partner_transaction_service import (
+    DuplicateReceiptCodeError,
+    PartnerTransactionService,
+    TransactionNotFoundError,
 )
 from app.services.transaction_service import (
     InvalidVoucherError,
@@ -89,16 +98,56 @@ async def create_qr_transaction(
         ) from e
 
 
-@router.get("", response_model=list[TransactionResponse])
+@router.get("", response_model=TransactionListResponse)
 async def list_transactions(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    staff_id: int | None = None,
+    q: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_staff_in_partner),
+) -> TransactionListResponse:
+    svc = PartnerTransactionService(db)
+    return await svc.list(
+        partner_id=partner_id,
+        page=page,
+        page_size=page_size,
+        date_from=date_from,
+        date_to=date_to,
+        staff_id=staff_id,
+        q=q,
+    )
+
+
+@router.get("/{transaction_id}", response_model=TransactionDetailResponse)
+async def get_transaction(
+    transaction_id: int,
+    db: AsyncSession = Depends(get_db),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_staff_in_partner),
+) -> TransactionDetailResponse:
+    svc = PartnerTransactionService(db)
+    try:
+        return await svc.get_detail(partner_id, transaction_id)
+    except TransactionNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.patch("/{transaction_id}", response_model=TransactionDetailResponse)
+async def update_transaction(
+    transaction_id: int,
+    payload: TransactionUpdateRequest,
+    db: AsyncSession = Depends(get_db),
     partner_id: int = Depends(get_partner_id),
     _role: PartnerStaffRole = Depends(require_owner_in_partner),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
-    db: AsyncSession = Depends(get_db),
-) -> list[TransactionResponse]:
-    service = TransactionService(db)
-    rows = await service.list_transactions(
-        partner_id=partner_id, limit=limit, offset=offset
-    )
-    return [TransactionResponse.model_validate(t) for t in rows]
+) -> TransactionDetailResponse:
+    svc = PartnerTransactionService(db)
+    try:
+        return await svc.update(partner_id, transaction_id, payload)
+    except TransactionNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except DuplicateReceiptCodeError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e

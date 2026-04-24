@@ -1,5 +1,6 @@
 import enum
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
@@ -11,9 +12,14 @@ from sqlalchemy import (
     String,
     text as sa_text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.membership import Membership
+    from app.models.user import User
+    from app.models.voucher import Voucher
 
 
 class TransactionMethod(str, enum.Enum):
@@ -72,4 +78,14 @@ class Transaction(Base, TimestampMixin):
             persisted=True,
         ),
         nullable=True,
+    )
+
+    membership: Mapped["Membership"] = relationship(
+        "Membership", foreign_keys=[membership_id], lazy="noload"
+    )
+    staff: Mapped["User | None"] = relationship(
+        "User", foreign_keys=[staff_id], lazy="noload"
+    )
+    voucher: Mapped["Voucher | None"] = relationship(
+        "Voucher", foreign_keys=[voucher_id], lazy="noload"
     )
