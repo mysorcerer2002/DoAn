@@ -31,7 +31,7 @@ export function StaffSidebar() {
   const open = useSidebarStore((s) => s.open);
   const close = useSidebarStore((s) => s.close);
   const logout = useLogout();
-  const tenant = usePartnerStore((s) => s.tenant);
+  const partner = usePartnerStore((s) => s.activePartner);
 
   useEffect(() => {
     close();
@@ -84,13 +84,13 @@ export function StaffSidebar() {
             </button>
           </div>
 
-          {tenant && (
+          {partner && (
             <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-3">
               <p className="truncate text-[10px] uppercase tracking-wider text-emerald-200">
                 Cửa hàng
               </p>
               <p className="truncate text-[13px] font-bold text-white">
-                {tenant.name}
+                {partner.name}
               </p>
             </div>
           )}

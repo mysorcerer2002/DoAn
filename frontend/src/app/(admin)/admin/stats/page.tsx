@@ -118,7 +118,7 @@ export default function AdminStatsPage() {
         />
       </section>
 
-      {/* Tenant status distribution + User role distribution */}
+      {/* Trạng thái đối tác + Phân bố vai trò */}
       <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <header className="mb-5">
@@ -202,17 +202,17 @@ export default function AdminStatsPage() {
           </header>
           <ul className="space-y-3">
             <EventRow
-              label="Tenant được duyệt"
+              label="Đối tác được duyệt"
               count={eventCount.tenant_approved ?? 0}
               color="text-emerald-600"
             />
             <EventRow
-              label="Tenant bị đình chỉ"
+              label="Đối tác bị đình chỉ"
               count={eventCount.tenant_suspended ?? 0}
               color="text-red-600"
             />
             <EventRow
-              label="Tenant mới"
+              label="Đối tác mới"
               count={eventCount.tenant_created ?? 0}
               color="text-brand-indigo"
             />
@@ -274,7 +274,7 @@ export default function AdminStatsPage() {
             Danh sách đối tác
           </h2>
           <p className="text-[12px] text-slate-400">
-            Tất cả tenant trên platform
+            Tất cả đối tác trên platform
           </p>
         </header>
         {!tenants || tenants.length === 0 ? (

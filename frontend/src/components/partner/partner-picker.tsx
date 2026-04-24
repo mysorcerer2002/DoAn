@@ -12,7 +12,7 @@ import type { PartnerStaffSummary } from "@/types/partner";
 /** Tự động set active partner nếu user chỉ có 1 shop, hoặc show picker. */
 export function PartnerPicker({ targetHref }: { targetHref: string }) {
   const router = useRouter();
-  const { tenant: activePartner, setTenant } = usePartnerStore();
+  const { activePartner, setActivePartner } = usePartnerStore();
 
   const { data: partners, isLoading } = useQuery<PartnerStaffSummary[]>({
     queryKey: ["users", "me", "partners"],
@@ -29,10 +29,10 @@ export function PartnerPicker({ targetHref }: { targetHref: string }) {
     }
     if (partners && partners.length === 1) {
       const t = partners[0];
-      setTenant({ id: t.id, name: t.name, slug: t.slug, role: t.role });
+      setActivePartner({ id: t.id, name: t.name, slug: t.slug, role: t.role });
       router.replace(targetHref);
     }
-  }, [partners, activePartner, setTenant, router, targetHref]);
+  }, [partners, activePartner, setActivePartner, router, targetHref]);
 
   if (isLoading) {
     return (
@@ -67,7 +67,7 @@ export function PartnerPicker({ targetHref }: { targetHref: string }) {
             <button
               type="button"
               onClick={() => {
-                setTenant({ id: t.id, name: t.name, slug: t.slug, role: t.role });
+                setActivePartner({ id: t.id, name: t.name, slug: t.slug, role: t.role });
                 router.replace(targetHref);
               }}
               className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-4 text-left transition-colors hover:border-brand-indigo hover:bg-brand-indigo/5"

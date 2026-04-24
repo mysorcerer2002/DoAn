@@ -39,7 +39,7 @@ export const analyticsApi = {
     api.get<DashboardResponse>("/partner/analytics/dashboard", { params }),
 };
 
-// ==================== Partner Tenant ====================
+// ==================== Partner info / Settings ====================
 export const tenantApi = {
   getMe: () => api.get<PartnerResponse>("/partners/me"),
   updateMe: (data: PartnerUpdateRequest) =>

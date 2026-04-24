@@ -141,7 +141,7 @@ export default function RewardsPage() {
           />
         </section>
 
-        {/* Tenant filter pills */}
+        {/* Partner filter pills */}
         {tenants.length > 0 && (
           <section className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
             <button

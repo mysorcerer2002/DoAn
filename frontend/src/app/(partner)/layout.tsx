@@ -12,7 +12,7 @@ import { useMe } from "@/lib/hooks/use-me";
 export default function MerchantLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const tenant = usePartnerStore((s) => s.tenant);
+  const partner = usePartnerStore((s) => s.activePartner);
   const rehydrate = usePartnerStore((s) => s.rehydrate);
   const [mounted, setMounted] = useState(false);
   const { data: user, isLoading, isError } = useMe();
@@ -36,10 +36,10 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
 
   // Staff không có quyền vào /partner → redirect /staff
   useEffect(() => {
-    if (mounted && tenant && tenant.role === "staff") {
+    if (mounted && partner && partner.role === "staff") {
       router.replace("/staff");
     }
-  }, [mounted, tenant, router]);
+  }, [mounted, partner, router]);
 
   if (!mounted || isLoading) {
     return (
@@ -52,7 +52,7 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
   if (!user) return null;
 
   // Chưa chọn partner → hiển thị picker (ngoại trừ trang picker chính nó)
-  if (!tenant) {
+  if (!partner) {
     return (
       <div className="min-h-screen bg-[#f8fafc] font-body text-slate-800">
         <PartnerPicker targetHref={pathname} />

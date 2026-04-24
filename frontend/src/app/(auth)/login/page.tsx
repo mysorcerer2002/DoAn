@@ -48,7 +48,7 @@ export default function LoginPage() {
   const router = useRouter();
   const setTokens = useAuthStore((s) => s.setTokens);
   const fetchMe = useAuthStore((s) => s.fetchMe);
-  const setTenant = usePartnerStore((s) => s.setTenant);
+  const setActivePartner = usePartnerStore((s) => s.setActivePartner);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -78,9 +78,9 @@ export default function LoginPage() {
           "/users/me/partners"
         );
         if (tenants.length > 0) {
-          // Auto-select tenant đầu tiên để tránh hiển thị picker
+          // Auto-select đối tác đầu tiên để tránh hiển thị picker
           const t = tenants[0];
-          setTenant({
+          setActivePartner({
             id: t.id,
             name: t.name,
             slug: t.slug,

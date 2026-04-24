@@ -6,16 +6,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { usePartnerStore } from "@/lib/partner-store";
 
-/** Logout: clear token + tenant + cache + redirect /login. */
+/** Logout: clear token + partner + cache + redirect /login. */
 export function useLogout() {
   const router = useRouter();
   const qc = useQueryClient();
   const logoutStore = useAuthStore((s) => s.logout);
-  const setTenant = usePartnerStore((s) => s.setTenant);
+  const setActivePartner = usePartnerStore((s) => s.setActivePartner);
 
   return () => {
     logoutStore();
-    setTenant(null);
+    setActivePartner(null);
     qc.clear();
     router.replace("/login");
   };

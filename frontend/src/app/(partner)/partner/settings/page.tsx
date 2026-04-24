@@ -4,8 +4,8 @@ import { CheckCircle2, Loader2, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
-  useMyTenant,
-  useMyTenantSettings,
+  useMyPartner,
+  useMyPartnerSettings,
   useUpdateSettings,
   useUpdateTenant,
 } from "@/lib/hooks/use-partner";
@@ -30,8 +30,8 @@ type SettingsForm = {
 };
 
 export default function MerchantSettingsPage() {
-  const { data: tenant, isLoading: loadingTenant } = useMyTenant();
-  const { data: settings, isLoading: loadingSettings } = useMyTenantSettings();
+  const { data: tenant, isLoading: loadingTenant } = useMyPartner();
+  const { data: settings, isLoading: loadingSettings } = useMyPartnerSettings();
   const updateTenant = useUpdateTenant();
   const updateSettings = useUpdateSettings();
 
@@ -149,7 +149,7 @@ export default function MerchantSettingsPage() {
       )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Tenant info */}
+        {/* Partner info */}
         <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <h2 className="font-headline text-[18px] font-bold text-slate-800">
             Thông tin cửa hàng

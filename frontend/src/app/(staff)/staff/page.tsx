@@ -13,7 +13,7 @@ import { usePartnerStore } from "@/lib/partner-store";
 
 export default function StaffDashboardPage() {
   const { data: user } = useMe();
-  const tenant = usePartnerStore((s) => s.tenant);
+  const partner = usePartnerStore((s) => s.activePartner);
 
   const firstName = (() => {
     const full = user?.full_name?.trim() ?? "";
@@ -30,7 +30,7 @@ export default function StaffDashboardPage() {
           Chào {firstName} 👋
         </h1>
         <p className="mt-1 text-[14px] text-slate-500">
-          Sẵn sàng phục vụ khách hàng tại {tenant?.name ?? "cửa hàng"}
+          Sẵn sàng phục vụ khách hàng tại {partner?.name ?? "cửa hàng"}
         </p>
       </header>
 
@@ -72,10 +72,10 @@ export default function StaffDashboardPage() {
           </div>
           <div className="flex-1">
             <h3 className="font-headline text-[16px] font-bold text-slate-800">
-              {tenant?.name ?? "Cửa hàng"}
+              {partner?.name ?? "Cửa hàng"}
             </h3>
             <p className="mt-1 font-mono text-[11px] text-slate-400">
-              slug: {tenant?.slug}
+              slug: {partner?.slug}
             </p>
             <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
               Vai trò: Nhân viên

@@ -19,7 +19,7 @@ const EVENT_META: Record<
   tenant_created: {
     icon: Building2,
     color: "bg-indigo-50 text-brand-indigo",
-    label: "Tenant mới",
+    label: "Đối tác mới",
   },
   tenant_approved: {
     icon: CheckCircle2,

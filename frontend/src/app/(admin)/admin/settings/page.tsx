@@ -152,8 +152,8 @@ export default function AdminSettingsPage() {
                   Cơ sở dữ liệu
                 </h3>
                 <p className="mt-1 text-[12px] text-slate-600">
-                  PostgreSQL 15 — multi-tenant column-based isolation via
-                  X-Tenant-Id header. Migrations Alembic chạy tự động khi
+                  PostgreSQL 15 — multi-partner column-based isolation via
+                  X-Partner-Id header. Migrations Alembic chạy tự động khi
                   container khởi động.
                 </p>
               </div>

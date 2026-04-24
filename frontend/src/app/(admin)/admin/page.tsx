@@ -86,7 +86,7 @@ export default function AdminDashboardPage() {
           label="Đối tác đang hoạt động"
           value={data.total_tenants}
           tone="indigo"
-          sub={`${data.total_tenants} tenants tổng cộng`}
+          sub={`${data.total_tenants} đối tác tổng cộng`}
         />
         <SecondaryStat
           icon={Users}
@@ -111,7 +111,7 @@ export default function AdminDashboardPage() {
           icon={Store}
           iconBg="bg-indigo-50 text-brand-indigo"
           title="Quản lý đối tác"
-          desc="Duyệt đăng ký, suspend, xem chi tiết từng tenant"
+          desc="Duyệt đăng ký, suspend, xem chi tiết từng đối tác"
         />
         <ActionCard
           href="/admin/stats"

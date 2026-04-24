@@ -12,8 +12,8 @@ type StoredPartner = {
 };
 
 interface PartnerState {
-  tenant: StoredPartner | null;
-  setTenant: (tenant: StoredPartner | null) => void;
+  activePartner: StoredPartner | null;
+  setActivePartner: (partner: StoredPartner | null) => void;
   rehydrate: () => void;
 }
 
@@ -29,22 +29,22 @@ function readStored(): StoredPartner | null {
 }
 
 export const usePartnerStore = create<PartnerState>((set) => ({
-  tenant: null,
+  activePartner: null,
 
-  setTenant: (tenant) => {
+  setActivePartner: (partner) => {
     if (typeof window !== "undefined") {
-      if (tenant) {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(tenant));
+      if (partner) {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(partner));
       } else {
         sessionStorage.removeItem(STORAGE_KEY);
       }
     }
-    set({ tenant });
+    set({ activePartner: partner });
   },
 
   rehydrate: () => {
     const stored = readStored();
-    if (stored) set({ tenant: stored });
+    if (stored) set({ activePartner: stored });
   },
 }));
 

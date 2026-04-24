@@ -11,7 +11,7 @@ import { usePartnerStore } from "@/lib/partner-store";
 import type { EnrollFormInput } from "@/types/partner-enroll";
 
 function usePartnerId(): number | null {
-  return usePartnerStore((s) => s.tenant?.id ?? null);
+  return usePartnerStore((s) => s.activePartner?.id ?? null);
 }
 
 // ==================== Templates ====================

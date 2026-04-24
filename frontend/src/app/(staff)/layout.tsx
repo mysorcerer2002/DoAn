@@ -10,7 +10,7 @@ import { usePartnerStore } from "@/lib/partner-store";
 
 export default function StaffLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const tenant = usePartnerStore((s) => s.tenant);
+  const partner = usePartnerStore((s) => s.activePartner);
   const rehydrate = usePartnerStore((s) => s.rehydrate);
   const [mounted, setMounted] = useState(false);
   const { data: user, isLoading, isError } = useMe();
@@ -34,10 +34,10 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
 
   // Nếu user là owner, chuyển sang /partner (không nên ở /staff)
   useEffect(() => {
-    if (mounted && tenant && tenant.role === "owner") {
+    if (mounted && partner && partner.role === "owner") {
       router.replace("/partner");
     }
-  }, [mounted, tenant, router]);
+  }, [mounted, partner, router]);
 
   if (!mounted || isLoading) {
     return (
@@ -49,7 +49,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
 
   if (!user) return null;
 
-  if (!tenant) {
+  if (!partner) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 text-center">
         <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6">

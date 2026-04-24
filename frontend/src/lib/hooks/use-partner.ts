@@ -27,7 +27,7 @@ import type {
 } from "@/types/partner";
 
 function usePartnerId(): number | null {
-  return usePartnerStore((s) => s.tenant?.id ?? null);
+  return usePartnerStore((s) => s.activePartner?.id ?? null);
 }
 
 // ==================== Analytics ====================
@@ -40,17 +40,17 @@ export function useDashboard(params?: { from?: string; to?: string }) {
   });
 }
 
-// ==================== Tenant / Settings ====================
-export function useMyTenant() {
+// ==================== Partner / Settings ====================
+export function useMyPartner() {
   const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["partner", "tenant", partnerId],
+    queryKey: ["partner", "me", partnerId],
     queryFn: async () => (await tenantApi.getMe()).data,
     enabled: partnerId != null,
   });
 }
 
-export function useMyTenantSettings() {
+export function useMyPartnerSettings() {
   const partnerId = usePartnerId();
   return useQuery({
     queryKey: ["partner", "settings", partnerId],
@@ -63,7 +63,7 @@ export function useUpdateTenant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: PartnerUpdateRequest) => tenantApi.updateMe(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "tenant"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "me"] }),
   });
 }
 
