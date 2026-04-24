@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType
 from app.models.point_rule import PointRule
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 from app.schemas.transaction import CreateManualTransactionRequest
 from app.services.ledger_service import LedgerService
@@ -18,14 +18,14 @@ async def membership_for_invariant(db_session):
     user = User(email="inv@example.com", password_hash="x", is_active=True)
     db_session.add(user)
     await db_session.flush()
-    tenant = Tenant(
+    partner = Partner(
         name="T", slug="t", owner_user_id=user.id,
-        status=TenantStatus.ACTIVE, settings={}
+        status=PartnerStatus.ACTIVE, settings={}
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
     m = Membership(
-        tenant_id=tenant.id, user_id=user.id,
+        partner_id=partner.id, user_id=user.id,
         points_balance=0, total_points_earned=0,
         joined_at=datetime.now(timezone.utc)
     )
@@ -40,7 +40,7 @@ async def test_invariant_after_earn(db_session, membership_for_invariant):
     service = LedgerService(db_session)
     m.points_balance = 100
     await service.log_entry(
-        tenant_id=m.tenant_id, membership_id=m.id,
+        partner_id=m.partner_id, membership_id=m.id,
         delta=100, reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL, ref_id=None,
         new_balance=100,
@@ -55,14 +55,14 @@ async def test_invariant_after_earn_and_redeem(db_session, membership_for_invari
     service = LedgerService(db_session)
     m.points_balance = 100
     await service.log_entry(
-        tenant_id=m.tenant_id, membership_id=m.id,
+        partner_id=m.partner_id, membership_id=m.id,
         delta=100, reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL, ref_id=None,
         new_balance=100,
     )
     m.points_balance = 60
     await service.log_entry(
-        tenant_id=m.tenant_id, membership_id=m.id,
+        partner_id=m.partner_id, membership_id=m.id,
         delta=-40, reason=LedgerReason.REDEEM,
         ref_type=LedgerRefType.MANUAL, ref_id=None,
         new_balance=60,
@@ -78,25 +78,25 @@ async def test_invariant_e2e_via_transaction_service(db_session):
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="E2E",
         slug="e2e-inv",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     rule = PointRule(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         points_per_unit=2,
         unit_amount=1000,
         min_amount=0,
@@ -110,7 +110,7 @@ async def test_invariant_e2e_via_transaction_service(db_session):
     # Tạo 3 giao dịch liên tiếp cho cùng 1 SĐT
     for amount in [10_000, 25_000, 50_000]:
         result = await tx_service.create_manual(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             staff_id=owner.id,
             request=CreateManualTransactionRequest(
                 phone="0901234567", gross_amount=amount

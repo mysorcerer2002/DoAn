@@ -1,4 +1,4 @@
-"""Integration tests cho /admin endpoints — test scope: reconcile + tenant approve."""
+"""Integration tests cho /admin endpoints — test scope: reconcile + partner approve."""
 
 import pytest
 from httpx import AsyncClient
@@ -6,8 +6,8 @@ from httpx import AsyncClient
 from app.core.security import create_access_token
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 pytestmark = pytest.mark.asyncio
@@ -25,42 +25,42 @@ async def _make_admin(db_session, email: str = "admin@x.com") -> User:
     return admin
 
 
-async def _make_tenant_with_member(db_session) -> tuple[Tenant, Membership]:
+async def _make_partner_with_member(db_session) -> tuple[Partner, Membership]:
     owner = User(email="owner-r@x.com", password_hash="x", is_active=True)
     db_session.add(owner)
     await db_session.flush()
-    tenant = Tenant(
+    partner = Partner(
         name="Recon Shop",
         slug="recon-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
     db_session.add(
-        TenantStaff(tenant_id=tenant.id, user_id=owner.id, role=TenantStaffRole.OWNER)
+        PartnerStaff(partner_id=partner.id, user_id=owner.id, role=PartnerStaffRole.OWNER)
     )
     member = Membership(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         user_id=owner.id,
         points_balance=100,
         total_points_earned=100,
     )
     db_session.add(member)
     await db_session.flush()
-    return tenant, member
+    return partner, member
 
 
 async def test_reconcile_membership_consistent(client: AsyncClient, db_session):
     """C1 fix: /admin/reconcile/{id} không crash với TypeError."""
     admin = await _make_admin(db_session)
-    tenant, member = await _make_tenant_with_member(db_session)
+    partner, member = await _make_partner_with_member(db_session)
 
     # Add 1 ledger entry khớp với balance
     db_session.add(
         PointLedger(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             membership_id=member.id,
             delta=100,
             reason=LedgerReason.EARN,
@@ -108,10 +108,10 @@ async def test_reconcile_requires_super_admin(client: AsyncClient, db_session):
 async def test_admin_approve_already_active_returns_409(client: AsyncClient, db_session):
     """C6 fix Section 2: invalid status transition → 409 thay vì 200."""
     admin = await _make_admin(db_session, email="admin-tt@x.com")
-    tenant, _ = await _make_tenant_with_member(db_session)
+    partner, _ = await _make_partner_with_member(db_session)
     # tenant đã ACTIVE → approve lại nên 409
     response = await client.post(
-        f"/admin/tenants/{tenant.id}/approve",
+        f"/admin/partners/{partner.id}/approve",
         json={"approve": True},
         headers={"Authorization": f"Bearer {create_access_token(user_id=admin.id)}"},
     )

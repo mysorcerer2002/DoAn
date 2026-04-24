@@ -8,86 +8,95 @@ from fastapi import Query
 from app.core.db import get_db
 from app.core.deps import (
     get_current_user,
-    get_tenant_id,
-    require_owner_in_tenant,
-    require_staff_in_tenant,
+    get_partner_id,
+    require_owner_in_partner,
+    require_staff_in_partner,
 )
 from app.core.limiter import limiter
 from app.models.membership import Membership
 from app.models.point_ledger import PointLedger
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaffRole
 from app.models.reward import Reward
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaffRole
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
 from app.schemas.ledger import LedgerEntryResponse
 from app.schemas.member import MemberResponse
-from app.schemas.tenant import (
-    TenantCreateRequest,
-    TenantResponse,
-    TenantStaffSummary,
-    TenantUpdateRequest,
+from app.schemas.partner import (
+    MyPartnerSummary,
+    PartnerCreateRequest,
+    PartnerDetailForMember,
+    PartnerResponse,
+    PartnerStaffSummary,
+    PartnerUpdateRequest,
 )
 from app.schemas.voucher import VoucherResponse
-from app.services.tenant_service import TenantNotFoundError, TenantService
+from app.services.partner_service import PartnerNotFoundError, PartnerService
 
-merchant_router = APIRouter(prefix="/merchant", tags=["merchant"])
-tenants_router = APIRouter(prefix="/tenants", tags=["tenants"])
+partner_router = APIRouter(prefix="/partner", tags=["partner"])
+partners_router = APIRouter(prefix="/partners", tags=["partners"])
 users_router = APIRouter(prefix="/users", tags=["users"])
 
 
-@merchant_router.post(
+@partner_router.post(
     "/register",
-    response_model=TenantResponse,
+    response_model=PartnerResponse,
     status_code=status.HTTP_201_CREATED,
 )
 @limiter.limit("10/minute")
-async def register_tenant(
+async def register_partner(
     request: Request,
-    body: TenantCreateRequest,
+    body: PartnerCreateRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> TenantResponse:
-    """Owner đăng ký doanh nghiệp mới (status=pending, chờ Super Admin duyệt)."""
-    service = TenantService(db)
-    tenant = await service.create_tenant(owner=current_user, request=body)
-    return TenantResponse.model_validate(tenant)
+) -> PartnerResponse:
+    """Owner đăng ký đối tác mới (status=pending, chờ Super Admin duyệt)."""
+    service = PartnerService(db)
+    partner = await service.create_partner(owner=current_user, request=body)
+    return PartnerResponse.model_validate(partner)
 
 
-@users_router.get("/me/tenants", response_model=list[TenantStaffSummary])
-async def list_my_tenants(
+@users_router.get("/me/partners-as-staff", response_model=list[PartnerStaffSummary])
+async def list_my_partners_as_staff(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[TenantStaffSummary]:
-    """List tenant mà user là staff/owner. Frontend dùng để chọn tenant sau login."""
-    service = TenantService(db)
-    rows = await service.list_tenants_for_user(user_id=user.id)
-    return [TenantStaffSummary.model_validate(row) for row in rows]
+) -> list[PartnerStaffSummary]:
+    """List partner mà user là staff/owner. Frontend dùng để chọn partner sau login."""
+    service = PartnerService(db)
+    rows = await service.list_partners_for_user(user_id=user.id)
+    return [PartnerStaffSummary.model_validate(row) for row in rows]
 
 
 @users_router.get("/me/ledger", response_model=list[LedgerEntryResponse])
 async def list_my_ledger(
     user: User = Depends(get_current_user),
+    partner_slug: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[LedgerEntryResponse]:
-    """Lịch sử tích điểm của current user qua TẤT CẢ tenant họ tham gia.
+    """Lịch sử tích điểm của current user.
 
-    Dùng cho trang `/member/history` hiển thị timeline toàn bộ hoạt động
-    tích điểm / đổi quà / điều chỉnh điểm.
+    Nếu partner_slug được truyền, chỉ lấy ledger của partner đó.
+    Ngược lại, lấy toàn bộ qua TẤT CẢ partner user tham gia.
     """
-    # Lấy membership_ids của user
+    membership_query = select(Membership).where(
+        Membership.user_id == user.id,
+        Membership.archived_at.is_(None),
+    )
+    if partner_slug is not None:
+        partner = await db.scalar(
+            select(Partner).where(Partner.slug == partner_slug)
+        )
+        if partner is None:
+            raise HTTPException(status_code=404, detail="Partner not found")
+        membership_query = membership_query.where(
+            Membership.partner_id == partner.id
+        )
+
     membership_ids = [
         row.id
-        for row in (
-            await db.scalars(
-                select(Membership).where(
-                    Membership.user_id == user.id,
-                    Membership.archived_at.is_(None),
-                )
-            )
-        ).all()
+        for row in (await db.scalars(membership_query)).all()
     ]
     if not membership_ids:
         return []
@@ -112,7 +121,7 @@ def _voucher_to_response(v: Voucher) -> VoucherResponse:
         discount_type_str = dt.value if hasattr(dt, "value") else str(dt)
     return VoucherResponse(
         id=v.id,
-        tenant_id=v.tenant_id,
+        partner_id=v.partner_id,
         campaign_id=v.campaign_id,
         membership_id=v.membership_id,
         code=v.code,
@@ -133,15 +142,12 @@ def _voucher_to_response(v: Voucher) -> VoucherResponse:
 
 
 @users_router.get("/me/vouchers", response_model=list[VoucherResponse])
-async def list_my_vouchers_all_tenants(
+async def list_my_vouchers_all_partners(
     user: User = Depends(get_current_user),
     status: VoucherStatus | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> list[VoucherResponse]:
-    """Voucher của current user qua TẤT CẢ tenant họ là member.
-
-    Dùng cho trang `/member/vouchers` hiển thị toàn bộ voucher (không chỉ 1 shop).
-    """
+    """Voucher của current user qua TẤT CẢ partner họ là member."""
     membership_ids = [
         row.id
         for row in (
@@ -172,18 +178,14 @@ async def list_my_memberships(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[MemberResponse]:
-    """List tất cả membership của current user (các shop user đã tham gia).
-
-    Customer-facing endpoint: dùng cho trang `/member` để hiển thị
-    danh sách shop mình là thành viên + points balance per shop.
-    """
+    """List tất cả membership của current user (các shop user đã tham gia)."""
     rows = (
         await db.scalars(
             select(Membership)
             .options(
                 joinedload(Membership.user),
                 joinedload(Membership.current_tier),
-                joinedload(Membership.tenant),
+                joinedload(Membership.partner),
             )
             .where(
                 Membership.user_id == user.id,
@@ -195,7 +197,7 @@ async def list_my_memberships(
     return [
         MemberResponse(
             membership_id=m.id,
-            tenant_id=m.tenant_id,
+            partner_id=m.partner_id,
             user_id=m.user_id,
             user_phone=m.user.phone,
             user_full_name=m.user.full_name,
@@ -212,59 +214,79 @@ async def list_my_memberships(
     ]
 
 
-@users_router.get("/me/shops")
-async def list_shops_for_discovery(
+@users_router.get("/me/partners", response_model=list[MyPartnerSummary])
+async def list_my_partners(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[dict]:
-    """Tất cả shop ACTIVE trên platform + flag is_member/current_tier nếu user đã tham gia.
+) -> list[MyPartnerSummary]:
+    """Tất cả partner ACTIVE trên platform (không kèm membership info).
 
-    Dùng cho trang `/member/shops` để customer khám phá và thấy shop nào đã là thành viên.
+    Dùng cho trang `/member/partners` để customer khám phá shop.
     """
-    # Lấy membership của user map theo tenant_id
-    from app.models.tier import Tier
-
-    user_memberships = (
-        await db.execute(
-            select(Membership, Tier.name.label("tier_name"))
-            .join(Tier, Membership.current_tier_id == Tier.id, isouter=True)
-            .where(
-                Membership.user_id == user.id,
-                Membership.archived_at.is_(None),
-            )
-        )
-    ).all()
-    member_map = {
-        m.tenant_id: {
-            "points_balance": m.points_balance,
-            "tier_name": tier_name,
-        }
-        for m, tier_name in user_memberships
-    }
-
-    # Tất cả tenant active
-    tenants = (
+    partners = (
         await db.scalars(
-            select(Tenant)
-            .where(Tenant.status == TenantStatus.ACTIVE)
-            .order_by(Tenant.name.asc())
+            select(Partner)
+            .where(Partner.status == PartnerStatus.ACTIVE)
+            .order_by(Partner.name.asc())
         )
     ).all()
 
     return [
-        {
-            "id": t.id,
-            "name": t.name,
-            "slug": t.slug,
-            "category": t.category,
-            "description": t.description,
-            "logo_url": t.logo_url,
-            "is_member": t.id in member_map,
-            "points_balance": member_map.get(t.id, {}).get("points_balance"),
-            "tier_name": member_map.get(t.id, {}).get("tier_name"),
-        }
-        for t in tenants
+        MyPartnerSummary(
+            id=p.id,
+            name=p.name,
+            slug=p.slug,
+            category=str(p.category.value if hasattr(p.category, "value") else p.category),
+            description=p.description,
+            logo_url=p.logo_url,
+        )
+        for p in partners
     ]
+
+
+@users_router.get("/me/partners/{slug}", response_model=PartnerDetailForMember)
+async def get_partner_detail_for_member(
+    slug: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PartnerDetailForMember:
+    """Chi tiết partner cho khách hàng.
+
+    Nếu user là member của partner, trả thêm points_balance, tier, v.v.
+    """
+    partner = await db.scalar(
+        select(Partner).where(Partner.slug == slug, Partner.status == PartnerStatus.ACTIVE)
+    )
+    if partner is None:
+        raise HTTPException(status_code=404, detail="Partner not found")
+
+    membership = await db.scalar(
+        select(Membership).options(joinedload(Membership.current_tier)).where(
+            Membership.partner_id == partner.id,
+            Membership.user_id == user.id,
+            Membership.archived_at.is_(None),
+        )
+    )
+
+    return PartnerDetailForMember(
+        id=partner.id,
+        name=partner.name,
+        slug=partner.slug,
+        category=str(partner.category.value if hasattr(partner.category, "value") else partner.category),
+        description=partner.description,
+        logo_url=partner.logo_url,
+        contact_phone=partner.contact_phone,
+        contact_email=partner.contact_email,
+        address=partner.address,
+        website=partner.website,
+        business_hours=partner.business_hours,
+        is_member=membership is not None,
+        points_balance=membership.points_balance if membership else None,
+        total_points_earned=membership.total_points_earned if membership else None,
+        current_tier_name=membership.current_tier.name if membership and membership.current_tier else None,
+        joined_at=membership.joined_at if membership else None,
+        last_activity_at=membership.last_activity_at if membership else None,
+    )
 
 
 @users_router.get("/me/rewards")
@@ -272,15 +294,11 @@ async def list_my_rewards(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
-    """Rewards active của TẤT CẢ tenant mà current user là member.
-
-    Dùng cho trang `/member/rewards` để customer thấy quà available cross-shop.
-    Trả kèm points_balance của membership để frontend biết đủ điểm hay chưa.
-    """
+    """Rewards active của TẤT CẢ partner mà current user là member."""
     memberships_rows = (
         await db.execute(
-            select(Membership, Tenant.name, Tenant.slug)
-            .join(Tenant, Membership.tenant_id == Tenant.id)
+            select(Membership, Partner.name, Partner.slug)
+            .join(Partner, Membership.partner_id == Partner.id)
             .where(
                 Membership.user_id == user.id,
                 Membership.archived_at.is_(None),
@@ -290,15 +308,15 @@ async def list_my_rewards(
     if not memberships_rows:
         return []
 
-    tenant_points = {m.tenant_id: m.points_balance for m, _, _ in memberships_rows}
-    tenant_names = {m.tenant_id: (name, slug) for m, name, slug in memberships_rows}
-    tenant_ids = list(tenant_points.keys())
+    partner_points = {m.partner_id: m.points_balance for m, _, _ in memberships_rows}
+    partner_names = {m.partner_id: (name, slug) for m, name, slug in memberships_rows}
+    partner_ids = list(partner_points.keys())
 
     rewards = (
         await db.scalars(
             select(Reward)
             .where(
-                Reward.tenant_id.in_(tenant_ids),
+                Reward.partner_id.in_(partner_ids),
                 Reward.deleted_at.is_(None),
                 Reward.is_active.is_(True),
             )
@@ -309,74 +327,68 @@ async def list_my_rewards(
     return [
         {
             "id": r.id,
-            "tenant_id": r.tenant_id,
-            "tenant_name": tenant_names[r.tenant_id][0],
-            "tenant_slug": tenant_names[r.tenant_id][1],
+            "partner_id": r.partner_id,
+            "partner_name": partner_names[r.partner_id][0],
+            "partner_slug": partner_names[r.partner_id][1],
             "name": r.name,
             "description": r.description,
             "points_cost": r.points_cost,
             "stock": r.stock,
             "image_url": r.image_url,
-            "user_points_balance": tenant_points[r.tenant_id],
-            "can_redeem": tenant_points[r.tenant_id] >= r.points_cost,
+            "user_points_balance": partner_points[r.partner_id],
+            "can_redeem": partner_points[r.partner_id] >= r.points_cost,
         }
         for r in rewards
     ]
 
 
-@tenants_router.get("/me", response_model=TenantResponse)
-async def get_my_tenant(
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+@partners_router.get("/me", response_model=PartnerResponse)
+async def get_my_partner(
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_staff_in_partner),
     db: AsyncSession = Depends(get_db),
-) -> TenantResponse:
-    """Lấy thông tin tenant theo header X-Tenant-Id. Yêu cầu là staff của tenant."""
-    service = TenantService(db)
+) -> PartnerResponse:
+    """Lấy thông tin partner theo header X-Partner-Id. Yêu cầu là staff của partner."""
+    service = PartnerService(db)
     try:
-        tenant = await service.get_tenant_by_id(tenant_id)
-    except TenantNotFoundError as e:
+        partner = await service.get_partner_by_id(partner_id)
+    except PartnerNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-    if tenant.status != TenantStatus.ACTIVE:
+    if partner.status != PartnerStatus.ACTIVE:
         raise HTTPException(
             status_code=403,
-            detail=f"Tenant is {tenant.status}, not active",
+            detail=f"Partner is {partner.status}, not active",
         )
 
-    return TenantResponse.model_validate(tenant)
+    return PartnerResponse.model_validate(partner)
 
 
-@tenants_router.patch("/me", response_model=TenantResponse)
-async def update_my_tenant(
-    body: TenantUpdateRequest,
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+@partners_router.patch("/me", response_model=PartnerResponse)
+async def update_my_partner(
+    body: PartnerUpdateRequest,
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
-) -> TenantResponse:
+) -> PartnerResponse:
     """Owner update thông tin shop (tên, mô tả, logo)."""
-    service = TenantService(db)
+    service = PartnerService(db)
     try:
-        tenant = await service.update_tenant(tenant_id=tenant_id, request=body)
-    except TenantNotFoundError as e:
+        partner = await service.update_partner(partner_id=partner_id, request=body)
+    except PartnerNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    return TenantResponse.model_validate(tenant)
+    return PartnerResponse.model_validate(partner)
 
 
-@merchant_router.get("/vouchers/check/{code}")
+@partner_router.get("/vouchers/check/{code}")
 async def check_voucher_by_code(
     code: str,
     gross_amount: int = Query(default=0, ge=0),
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_staff_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Staff/owner check voucher code: trả info + tính discount preview cho gross_amount.
-
-    Dùng ở POS form khi nhập mã voucher → hiển thị tên + giảm giá ngay.
-    Không sử dụng (mark used) — chỉ preview.
-
-    Toàn bộ logic ở `VoucherService.check_voucher_for_use` để reuse + dễ test.
-    """
+    """Staff/owner check voucher code: trả info + tính discount preview cho gross_amount."""
     from app.services.voucher_service import (
         VoucherExpiredError,
         VoucherInvalidStatusError,
@@ -387,7 +399,7 @@ async def check_voucher_by_code(
     service = VoucherService(db)
     try:
         return await service.check_voucher_for_use(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             code=code,
             gross_amount=gross_amount,
         )
@@ -397,20 +409,20 @@ async def check_voucher_by_code(
         raise HTTPException(status_code=409, detail=str(e)) from e
 
 
-@merchant_router.get("/vouchers", response_model=list[VoucherResponse])
-async def list_tenant_vouchers(
+@partner_router.get("/vouchers", response_model=list[VoucherResponse])
+async def list_partner_vouchers(
     vstatus: VoucherStatus | None = Query(default=None, alias="status"),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> list[VoucherResponse]:
-    """Merchant xem tất cả voucher đã phát cho tenant này."""
+    """Merchant xem tất cả voucher đã phát cho partner này."""
     stmt = (
         select(Voucher)
         .options(joinedload(Voucher.campaign))
-        .where(Voucher.tenant_id == tenant_id)
+        .where(Voucher.partner_id == partner_id)
         .order_by(Voucher.issued_at.desc())
         .limit(limit)
         .offset(offset)

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.models.campaign_template import CampaignTemplate
-from app.models.tenant import Tenant, TenantStatus
+from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 from app.models.verification_code import VerificationCodePurpose
 from app.schemas.campaign_enrollment import EnrollFormInput
@@ -31,19 +31,19 @@ from app.services.verification_code_service import (
 # ---------------------------------------------------------------------------
 
 async def _setup(db_session):
-    """Tạo owner + tenant + template cố định."""
+    """Tạo owner + partner + template cố định."""
     owner = User(email="enroll_owner@test.com", password_hash="x", is_active=True)
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="Enroll Shop",
         slug="enroll-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     tpl = CampaignTemplate(
@@ -70,7 +70,7 @@ async def _setup(db_session):
     db_session.add(tpl)
     await db_session.flush()
 
-    return owner, tenant, tpl
+    return owner, partner, tpl
 
 
 def _base_form(template_id: int, discount_value: int, max_issuances: int) -> EnrollFormInput:
@@ -92,11 +92,11 @@ def _base_form(template_id: int, discount_value: int, max_issuances: int) -> Enr
 @pytest.mark.asyncio
 async def test_preview_auto_tier_for_small_fixed(db_session):
     """disc=10_000, issuances=10 → cost=100_000 ≤ 500_000 → tier=none."""
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
     svc = CampaignEnrollmentService(db_session)
     form = _base_form(tpl.id, discount_value=10_000, max_issuances=10)
 
-    result = await svc.preview(tenant_id=tenant.id, user_id=owner.id, form=form)
+    result = await svc.preview(partner_id=partner.id, user_id=owner.id, form=form)
 
     assert result.approval_tier == "none"
     assert result.estimated_cost == 100_000
@@ -105,11 +105,11 @@ async def test_preview_auto_tier_for_small_fixed(db_session):
 @pytest.mark.asyncio
 async def test_preview_notify_tier_for_medium_fixed(db_session):
     """disc=10_000, issuances=100 → cost=1_000_000 → tier=notify_so_ct."""
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
     svc = CampaignEnrollmentService(db_session)
     form = _base_form(tpl.id, discount_value=10_000, max_issuances=100)
 
-    result = await svc.preview(tenant_id=tenant.id, user_id=owner.id, form=form)
+    result = await svc.preview(partner_id=partner.id, user_id=owner.id, form=form)
 
     assert result.approval_tier == "notify_so_ct"
     assert result.estimated_cost == 1_000_000
@@ -118,7 +118,7 @@ async def test_preview_notify_tier_for_medium_fixed(db_session):
 @pytest.mark.asyncio
 async def test_preview_full_dossier_tier_for_large_fixed(db_session):
     """disc=50_000, issuances=500 → cost=25_000_000 > 2_000_000 → full_dossier."""
-    owner, tenant, _ = await _setup(db_session)
+    owner, partner, _ = await _setup(db_session)
 
     # Template lớn hơn cho bài này
     tpl_large = CampaignTemplate(
@@ -148,7 +148,7 @@ async def test_preview_full_dossier_tier_for_large_fixed(db_session):
     svc = CampaignEnrollmentService(db_session)
     form = _base_form(tpl_large.id, discount_value=50_000, max_issuances=500)
 
-    result = await svc.preview(tenant_id=tenant.id, user_id=owner.id, form=form)
+    result = await svc.preview(partner_id=partner.id, user_id=owner.id, form=form)
 
     assert result.approval_tier == "full_dossier"
     assert result.estimated_cost == 25_000_000
@@ -157,7 +157,7 @@ async def test_preview_full_dossier_tier_for_large_fixed(db_session):
 @pytest.mark.asyncio
 async def test_preview_percent_requires_max_discount_cap(db_session):
     """percent template với max_discount_value_cap=100_000; form max_discount=200_000 → FormValidationError."""
-    owner, tenant, _ = await _setup(db_session)
+    owner, partner, _ = await _setup(db_session)
 
     tpl_pct = CampaignTemplate(
         code="tpl-percent",
@@ -195,7 +195,7 @@ async def test_preview_percent_requires_max_discount_cap(db_session):
     svc = CampaignEnrollmentService(db_session)
 
     with pytest.raises(FormValidationError) as exc_info:
-        await svc.preview(tenant_id=tenant.id, user_id=owner.id, form=form)
+        await svc.preview(partner_id=partner.id, user_id=owner.id, form=form)
 
     assert "max_discount" in str(exc_info.value)
 
@@ -203,7 +203,7 @@ async def test_preview_percent_requires_max_discount_cap(db_session):
 @pytest.mark.asyncio
 async def test_preview_rejects_ends_before_starts(db_session):
     """ends_at <= starts_at → FormValidationError."""
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
     svc = CampaignEnrollmentService(db_session)
 
     now = datetime.now(timezone.utc)
@@ -216,29 +216,29 @@ async def test_preview_rejects_ends_before_starts(db_session):
     )
 
     with pytest.raises(FormValidationError):
-        await svc.preview(tenant_id=tenant.id, user_id=owner.id, form=form)
+        await svc.preview(partner_id=partner.id, user_id=owner.id, form=form)
 
 
 @pytest.mark.asyncio
 async def test_preview_rejects_discount_above_template_cap(db_session):
     """discount_value=30_000 > max_discount_fixed_cap=20_000 → FormValidationError."""
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
     svc = CampaignEnrollmentService(db_session)
     form = _base_form(tpl.id, discount_value=30_000, max_issuances=10)
 
     with pytest.raises(FormValidationError):
-        await svc.preview(tenant_id=tenant.id, user_id=owner.id, form=form)
+        await svc.preview(partner_id=partner.id, user_id=owner.id, form=form)
 
 
 @pytest.mark.asyncio
 async def test_preview_rejects_max_issuances_above_cap(db_session):
     """max_issuances=300 > max_issuances_cap=200 → FormValidationError."""
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
     svc = CampaignEnrollmentService(db_session)
     form = _base_form(tpl.id, discount_value=10_000, max_issuances=300)
 
     with pytest.raises(FormValidationError):
-        await svc.preview(tenant_id=tenant.id, user_id=owner.id, form=form)
+        await svc.preview(partner_id=partner.id, user_id=owner.id, form=form)
 
 
 # ---------------------------------------------------------------------------
@@ -248,7 +248,7 @@ async def test_preview_rejects_max_issuances_above_cap(db_session):
 @pytest.mark.asyncio
 async def test_sign_and_enroll_auto_approved_on_tier_none(db_session):
     """tier=none → campaign auto_approved sau OTP hợp lệ."""
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
 
     form = _base_form(tpl.id, discount_value=10_000, max_issuances=10)
     ctx_hash = form_commitment(form)
@@ -263,7 +263,7 @@ async def test_sign_and_enroll_auto_approved_on_tier_none(db_session):
 
     svc = CampaignEnrollmentService(db_session)
     response = await svc.sign_and_enroll(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         user_id=owner.id,
         form=form,
         client_ip="127.0.0.1",
@@ -281,7 +281,7 @@ async def test_sign_and_enroll_auto_approved_on_tier_none(db_session):
 @pytest.mark.asyncio
 async def test_sign_and_enroll_pending_for_notify_tier(db_session):
     """cost 1_000_000 → tier=notify_so_ct → approval_status=pending_approval."""
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
 
     form = _base_form(tpl.id, discount_value=10_000, max_issuances=100)
     ctx_hash = form_commitment(form)
@@ -296,7 +296,7 @@ async def test_sign_and_enroll_pending_for_notify_tier(db_session):
 
     svc = CampaignEnrollmentService(db_session)
     response = await svc.sign_and_enroll(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         user_id=owner.id,
         form=form,
         client_ip="127.0.0.1",
@@ -316,13 +316,13 @@ async def test_sign_and_enroll_pending_for_notify_tier(db_session):
 @pytest.mark.asyncio
 async def test_sign_requires_consent_checked(db_session):
     """consent_checked=False → ConsentRequiredError trước khi check OTP."""
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
     form = _base_form(tpl.id, discount_value=10_000, max_issuances=10)
     svc = CampaignEnrollmentService(db_session)
 
     with pytest.raises(ConsentRequiredError):
         await svc.sign_and_enroll(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             user_id=owner.id,
             form=form,
             client_ip=None,
@@ -348,7 +348,7 @@ async def test_sign_rejects_tampered_form(db_session, mutate_field, mutate_value
     Parametrize qua 3 field khác nhau để chứng form_commitment cover toàn bộ form,
     không chỉ 1 field cố định.
     """
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
 
     now = datetime.now(timezone.utc)
     base_kwargs = dict(
@@ -374,7 +374,7 @@ async def test_sign_rejects_tampered_form(db_session, mutate_field, mutate_value
     svc = CampaignEnrollmentService(db_session)
     with pytest.raises(InvalidCodeError):
         await svc.sign_and_enroll(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             user_id=owner.id,
             form=form_b,  # hash khác form_a
             client_ip=None,
@@ -387,13 +387,13 @@ async def test_sign_rejects_tampered_form(db_session, mutate_field, mutate_value
 @pytest.mark.asyncio
 async def test_sign_rejects_wrong_otp_code(db_session):
     """otp_code không tồn tại → InvalidCodeError."""
-    owner, tenant, tpl = await _setup(db_session)
+    owner, partner, tpl = await _setup(db_session)
     form = _base_form(tpl.id, discount_value=10_000, max_issuances=10)
     svc = CampaignEnrollmentService(db_session)
 
     with pytest.raises(InvalidCodeError):
         await svc.sign_and_enroll(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             user_id=owner.id,
             form=form,
             client_ip=None,

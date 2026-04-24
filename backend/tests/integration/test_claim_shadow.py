@@ -1,15 +1,15 @@
 import pytest
 
 from app.core.security import create_access_token
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 from app.models.verification_code import VerificationCodePurpose
 from app.services.verification_code_service import VerificationCodeService
 
 
-async def _make_active_tenant_with_owner(db_session):
-    """Tạo owner + tenant active + staff link, trả (tenant, owner, token)."""
+async def _make_active_partner_with_owner(db_session):
+    """Tạo owner + partner active + staff link, trả (partner, owner, token)."""
     owner = User(
         email="owner-claim@example.com",
         password_hash="$2b$12$dummy",
@@ -20,26 +20,26 @@ async def _make_active_tenant_with_owner(db_session):
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="ClaimShop",
         slug="claim-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     await db_session.flush()
     token = create_access_token(user_id=owner.id)
-    return tenant, owner, token
+    return partner, owner, token
 
 
 @pytest.mark.asyncio
@@ -195,16 +195,16 @@ async def test_claim_shadow_for_non_shadow_user_returns_401(client, db_session):
 
 @pytest.mark.asyncio
 async def test_e2e_owner_adds_staff_then_staff_claims_and_logs_in(client, db_session):
-    """E2E: Owner thêm staff → staff claim → staff login → staff truy cập tenant."""
-    tenant, _owner, owner_token = await _make_active_tenant_with_owner(db_session)
+    """E2E: Owner thêm staff → staff claim → staff login → staff truy cập partner."""
+    partner, _owner, owner_token = await _make_active_partner_with_owner(db_session)
 
     # Owner thêm staff mới
     add_resp = await client.post(
-        "/merchant/staff",
+        "/partner/staff",
         json={"email": "newstaff@example.com", "full_name": "Staff", "role": "staff"},
         headers={
             "Authorization": f"Bearer {owner_token}",
-            "X-Tenant-Id": str(tenant.id),
+            "X-Partner-Id": str(partner.id),
         },
     )
     assert add_resp.status_code == 201
@@ -232,12 +232,12 @@ async def test_e2e_owner_adds_staff_then_staff_claims_and_logs_in(client, db_ses
     )
     assert login_resp.status_code == 200
 
-    # Staff truy cập tenant info (GET /tenants/me)
+    # Staff truy cập tenant info (GET /partners/me)
     me_resp = await client.get(
-        "/tenants/me",
+        "/partners/me",
         headers={
             "Authorization": f"Bearer {staff_token}",
-            "X-Tenant-Id": str(tenant.id),
+            "X-Partner-Id": str(partner.id),
         },
     )
     assert me_resp.status_code == 200

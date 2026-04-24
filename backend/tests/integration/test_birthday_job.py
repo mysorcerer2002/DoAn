@@ -13,22 +13,22 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
 from app.models.notification import Notification
-from app.models.tenant import Tenant, TenantStatus
+from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
 
 
 async def _setup_birthday(db_session, birthday: date):
-    """Tạo tenant + user có sinh nhật + membership + birthday campaign."""
+    """Tạo partner + user có sinh nhật + membership + birthday campaign."""
     owner = User(email="bday@example.com", password_hash="x", is_active=True)
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="BdayShop", slug="bday-shop",
-        owner_user_id=owner.id, status=TenantStatus.ACTIVE, settings={},
+        owner_user_id=owner.id, status=PartnerStatus.ACTIVE, settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     user = User(
@@ -39,7 +39,7 @@ async def _setup_birthday(db_session, birthday: date):
     await db_session.flush()
 
     membership = Membership(
-        tenant_id=tenant.id, user_id=user.id,
+        partner_id=partner.id, user_id=user.id,
         points_balance=0, total_points_earned=0,
         joined_at=datetime.now(timezone.utc),
     )
@@ -48,7 +48,7 @@ async def _setup_birthday(db_session, birthday: date):
 
     now = datetime.now(timezone.utc)
     campaign = Campaign(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         name="Happy Birthday",
         discount_type=DiscountType.FIXED,
         discount_value=50000,
@@ -62,7 +62,7 @@ async def _setup_birthday(db_session, birthday: date):
     db_session.add(campaign)
     await db_session.flush()
 
-    return tenant, user, membership, campaign
+    return partner, user, membership, campaign
 
 
 @pytest.mark.asyncio
@@ -71,7 +71,7 @@ async def test_birthday_job_issues_voucher(db_session):
     today = datetime.now(VN_TZ).date()
     birthday = date(1990, today.month, today.day)
 
-    tenant, user, membership, campaign = await _setup_birthday(db_session, birthday)
+    partner, user, membership, campaign = await _setup_birthday(db_session, birthday)
     await db_session.commit()
 
     from app.jobs import birthday_voucher
@@ -104,7 +104,7 @@ async def test_birthday_job_idempotent(db_session):
     today = datetime.now(VN_TZ).date()
     birthday = date(1990, today.month, today.day)
 
-    tenant, user, membership, campaign = await _setup_birthday(db_session, birthday)
+    partner, user, membership, campaign = await _setup_birthday(db_session, birthday)
     await db_session.commit()
 
     from app.jobs import birthday_voucher
@@ -154,7 +154,7 @@ async def test_birthday_job_different_day(db_session):
     tomorrow = today + timedelta(days=1)
     birthday = date(1990, tomorrow.month, tomorrow.day)
 
-    tenant, user, membership, campaign = await _setup_birthday(db_session, birthday)
+    partner, user, membership, campaign = await _setup_birthday(db_session, birthday)
     await db_session.commit()
 
     from app.jobs import birthday_voucher

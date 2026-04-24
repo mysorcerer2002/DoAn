@@ -7,15 +7,15 @@ import pytest
 from app.core.security import create_access_token
 from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
 
 
 async def _setup_analytics(db_session):
-    """Tạo owner, tenant, member, transactions cho test analytics API."""
+    """Tạo owner, partner, member, transactions cho test analytics API."""
     now = datetime.now(timezone.utc)
 
     owner = User(email="analytics-api@test.com", password_hash="x", is_active=True)
@@ -23,27 +23,27 @@ async def _setup_analytics(db_session):
     db_session.add_all([owner, member_user])
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="AnalyticsAPIShop",
         slug="analytics-api-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     await db_session.flush()
 
     membership = Membership(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         user_id=member_user.id,
         joined_at=now,
         points_balance=100,
@@ -56,7 +56,7 @@ async def _setup_analytics(db_session):
     for i in range(2):
         db_session.add(
             Transaction(
-                tenant_id=tenant.id,
+                partner_id=partner.id,
                 membership_id=membership.id,
                 staff_id=owner.id,
                 gross_amount=50000,
@@ -71,17 +71,17 @@ async def _setup_analytics(db_session):
     token = create_access_token(user_id=owner.id)
     headers = {
         "Authorization": f"Bearer {token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
-    return tenant, owner, headers
+    return partner, owner, headers
 
 
 @pytest.mark.asyncio
 async def test_dashboard_api(client, db_session):
-    tenant, _, headers = await _setup_analytics(db_session)
+    partner, _, headers = await _setup_analytics(db_session)
 
     resp = await client.get(
-        "/merchant/analytics/dashboard",
+        "/partner/analytics/dashboard",
         headers=headers,
     )
     assert resp.status_code == 200
@@ -101,7 +101,7 @@ async def test_dashboard_api_with_date_range(client, db_session):
     _, _, headers = await _setup_analytics(db_session)
 
     resp = await client.get(
-        "/merchant/analytics/dashboard",
+        "/partner/analytics/dashboard",
         params={"from": "2020-01-01", "to": "2020-01-07"},
         headers=headers,
     )
@@ -122,28 +122,28 @@ async def test_dashboard_api_requires_owner(client, db_session):
     db_session.add_all([owner, staff_user])
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="DashTestShop",
         slug="dash-test-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=staff_user.id,
-            role=TenantStaffRole.STAFF,
+            role=PartnerStaffRole.STAFF,
         )
     )
     await db_session.flush()
@@ -151,10 +151,10 @@ async def test_dashboard_api_requires_owner(client, db_session):
     staff_token = create_access_token(user_id=staff_user.id)
     headers = {
         "Authorization": f"Bearer {staff_token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
     resp = await client.get(
-        "/merchant/analytics/dashboard",
+        "/partner/analytics/dashboard",
         headers=headers,
     )
     assert resp.status_code == 403
@@ -164,7 +164,7 @@ async def test_dashboard_api_requires_owner(client, db_session):
 
 
 async def _setup_admin(db_session):
-    """Tạo super admin + tenant cho test admin endpoints."""
+    """Tạo super admin + partner cho test admin endpoints."""
     now = datetime.now(timezone.utc)
 
     admin = User(
@@ -176,14 +176,14 @@ async def _setup_admin(db_session):
     db_session.add(admin)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="AdminTestShop",
         slug="admin-test-shop",
         owner_user_id=admin.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     # Thêm 1 member + 1 transaction cho stats
@@ -192,7 +192,7 @@ async def _setup_admin(db_session):
     await db_session.flush()
 
     membership = Membership(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         user_id=member_user.id,
         joined_at=now,
         points_balance=50,
@@ -202,7 +202,7 @@ async def _setup_admin(db_session):
     await db_session.flush()
 
     txn = Transaction(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         staff_id=admin.id,
         gross_amount=100000,
@@ -215,20 +215,20 @@ async def _setup_admin(db_session):
 
     token = create_access_token(user_id=admin.id)
     headers = {"Authorization": f"Bearer {token}"}
-    return tenant, admin, member_user, headers
+    return partner, admin, member_user, headers
 
 
 @pytest.mark.asyncio
 async def test_tenant_detail(client, db_session):
-    tenant, _, _, headers = await _setup_admin(db_session)
+    partner, _, _, headers = await _setup_admin(db_session)
 
     resp = await client.get(
-        f"/admin/tenants/{tenant.id}/detail",
+        f"/admin/partners/{partner.id}/detail",
         headers=headers,
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["id"] == tenant.id
+    assert data["id"] == partner.id
     assert data["name"] == "AdminTestShop"
     assert data["member_count"] == 1
     assert data["transaction_count"] == 1
@@ -240,18 +240,18 @@ async def test_tenant_detail_not_found(client, db_session):
     _, _, _, headers = await _setup_admin(db_session)
 
     resp = await client.get(
-        "/admin/tenants/99999/detail",
+        "/admin/partners/99999/detail",
         headers=headers,
     )
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_suspend_tenant(client, db_session):
-    tenant, _, _, headers = await _setup_admin(db_session)
+async def test_suspend_partner(client, db_session):
+    partner, _, _, headers = await _setup_admin(db_session)
 
     resp = await client.post(
-        f"/admin/tenants/{tenant.id}/suspend",
+        f"/admin/partners/{partner.id}/suspend",
         headers=headers,
     )
     assert resp.status_code == 200
@@ -260,11 +260,11 @@ async def test_suspend_tenant(client, db_session):
 
 
 @pytest.mark.asyncio
-async def test_suspend_tenant_not_found(client, db_session):
+async def test_suspend_partner_not_found(client, db_session):
     _, _, _, headers = await _setup_admin(db_session)
 
     resp = await client.post(
-        "/admin/tenants/99999/suspend",
+        "/admin/partners/99999/suspend",
         headers=headers,
     )
     assert resp.status_code == 404
@@ -300,26 +300,26 @@ async def test_platform_stats_requires_admin(client, db_session):
 
 @pytest.mark.asyncio
 async def test_admin_cross_tenant_detail(client, db_session):
-    """Admin có thể xem detail của bất kỳ tenant nào."""
-    tenant, _, _, headers = await _setup_admin(db_session)
+    """Admin có thể xem detail của bất kỳ partner nào."""
+    partner, _, _, headers = await _setup_admin(db_session)
 
     # Tạo thêm tenant B
     owner_b = User(email="otherowner@test.com", password_hash="x", is_active=True)
     db_session.add(owner_b)
     await db_session.flush()
 
-    tenant_b = Tenant(
+    tenant_b = Partner(
         name="OtherShopAdmin",
         slug="other-shop-admin",
         owner_user_id=owner_b.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
     db_session.add(tenant_b)
     await db_session.flush()
 
     resp = await client.get(
-        f"/admin/tenants/{tenant_b.id}/detail",
+        f"/admin/partners/{tenant_b.id}/detail",
         headers=headers,
     )
     assert resp.status_code == 200
@@ -335,7 +335,7 @@ async def test_dashboard_api_max_range_rejected(client, db_session):
     _, _, headers = await _setup_analytics(db_session)
 
     resp = await client.get(
-        "/merchant/analytics/dashboard",
+        "/partner/analytics/dashboard",
         params={"from": "2020-01-01", "to": "2026-12-31"},
         headers=headers,
     )
@@ -353,20 +353,20 @@ async def test_dashboard_api_cross_tenant_forbidden(client, db_session):
     )
     db_session.add(owner_b)
     await db_session.flush()
-    tenant_b = Tenant(
+    tenant_b = Partner(
         name="ShopB",
         slug="shop-b-dash-cross",
         owner_user_id=owner_b.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
     db_session.add(tenant_b)
     await db_session.flush()
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant_b.id,
+        PartnerStaff(
+            partner_id=tenant_b.id,
             user_id=owner_b.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     await db_session.flush()
@@ -374,10 +374,10 @@ async def test_dashboard_api_cross_tenant_forbidden(client, db_session):
 
     token_a = create_access_token(user_id=owner_a.id)
     resp = await client.get(
-        "/merchant/analytics/dashboard",
+        "/partner/analytics/dashboard",
         headers={
             "Authorization": f"Bearer {token_a}",
-            "X-Tenant-Id": str(tenant_b.id),
+            "X-Partner-Id": str(tenant_b.id),
         },
     )
     assert resp.status_code == 403
@@ -389,7 +389,7 @@ async def test_dashboard_api_invalid_date_range_returns_422(client, db_session):
     _, _, headers = await _setup_analytics(db_session)
 
     resp = await client.get(
-        "/merchant/analytics/dashboard",
+        "/partner/analytics/dashboard",
         params={"from": "2025-02-01", "to": "2025-01-01"},
         headers=headers,
     )

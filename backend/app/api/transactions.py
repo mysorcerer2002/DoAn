@@ -5,13 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 from app.core.deps import (
     get_current_user,
-    get_tenant_id,
-    require_owner_in_tenant,
-    require_staff_in_tenant,
+    get_partner_id,
+    require_owner_in_partner,
+    require_staff_in_partner,
 )
 from app.core.limiter import limiter
 from app.core.phone import InvalidPhoneError
-from app.models.tenant_staff import TenantStaffRole
+from app.models.partner_staff import PartnerStaffRole
 from app.models.user import User
 from app.schemas.transaction import (
     CreateManualTransactionRequest,
@@ -26,7 +26,7 @@ from app.services.transaction_service import (
     TransactionService,
 )
 
-router = APIRouter(prefix="/merchant/transactions", tags=["merchant-transactions"])
+router = APIRouter(prefix="/partner/transactions", tags=["partner-transactions"])
 
 
 @router.post("", response_model=TransactionWithMemberResponse, status_code=201)
@@ -34,15 +34,15 @@ router = APIRouter(prefix="/merchant/transactions", tags=["merchant-transactions
 async def create_manual_transaction(
     request: Request,
     body: CreateManualTransactionRequest,
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_staff_in_partner),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> TransactionWithMemberResponse:
     service = TransactionService(db)
     try:
         return await service.create_manual(
-            tenant_id=tenant_id, staff_id=user.id, request=body
+            partner_id=partner_id, staff_id=user.id, request=body
         )
     except InvalidPhoneError as e:
         raise HTTPException(status_code=422, detail=f"Invalid phone: {e}") from e
@@ -61,8 +61,8 @@ async def create_manual_transaction(
 async def create_qr_transaction(
     request: Request,
     body: CreateQrCustomerTransactionRequest,
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_staff_in_partner),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> TransactionWithMemberResponse:
@@ -74,7 +74,7 @@ async def create_qr_transaction(
     service = TransactionService(db)
     try:
         return await service.create_qr_customer(
-            tenant_id=tenant_id, staff_id=user.id, request=body
+            partner_id=partner_id, staff_id=user.id, request=body
         )
     except ValueError as e:
         # QR invalid / expired / không decode được
@@ -91,14 +91,14 @@ async def create_qr_transaction(
 
 @router.get("", response_model=list[TransactionResponse])
 async def list_transactions(
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
     service = TransactionService(db)
     rows = await service.list_transactions(
-        tenant_id=tenant_id, limit=limit, offset=offset
+        partner_id=partner_id, limit=limit, offset=offset
     )
     return [TransactionResponse.model_validate(t) for t in rows]

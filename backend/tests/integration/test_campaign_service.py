@@ -6,7 +6,7 @@ import pytest
 
 from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
-from app.models.tenant import Tenant, TenantStatus
+from app.models.partner import Partner, PartnerStatus
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
@@ -14,26 +14,26 @@ from app.schemas.campaign import CampaignCreateRequest, CampaignUpdateRequest
 from app.services.campaign_service import CampaignNotFoundError, CampaignService
 
 
-async def _make_tenant(db_session) -> tuple:
+async def _make_partner(db_session) -> tuple:
     owner = User(email="camp@example.com", password_hash="x", is_active=True)
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="CampShop",
         slug="camp-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
-    return tenant, owner
+    return partner, owner
 
 
 @pytest.mark.asyncio
 async def test_create_campaign(db_session):
-    tenant, _ = await _make_tenant(db_session)
+    partner, _ = await _make_partner(db_session)
     svc = CampaignService(db_session)
 
     now = datetime.now(timezone.utc)
@@ -48,7 +48,7 @@ async def test_create_campaign(db_session):
         starts_at=now,
         ends_at=now + timedelta(days=30),
     )
-    campaign = await svc.create_campaign(tenant_id=tenant.id, request=req)
+    campaign = await svc.create_campaign(partner_id=partner.id, request=req)
     assert campaign.id is not None
     assert campaign.name == "Summer Sale"
     assert campaign.discount_type == DiscountType.PERCENT
@@ -59,13 +59,13 @@ async def test_create_campaign(db_session):
 
 @pytest.mark.asyncio
 async def test_list_campaigns_exclude_deleted(db_session):
-    tenant, _ = await _make_tenant(db_session)
+    partner, _ = await _make_partner(db_session)
     svc = CampaignService(db_session)
 
     now = datetime.now(timezone.utc)
     for i in range(3):
         await svc.create_campaign(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             request=CampaignCreateRequest(
                 name=f"Campaign {i}",
                 discount_type="fixed",
@@ -75,25 +75,25 @@ async def test_list_campaigns_exclude_deleted(db_session):
             ),
         )
 
-    campaigns = await svc.list_campaigns(tenant_id=tenant.id)
+    campaigns = await svc.list_campaigns(partner_id=partner.id)
     assert len(campaigns) == 3
 
     # Soft delete one
-    await svc.soft_delete_campaign(tenant_id=tenant.id, campaign_id=campaigns[0].id)
+    await svc.soft_delete_campaign(partner_id=partner.id, campaign_id=campaigns[0].id)
     await db_session.flush()
 
-    campaigns = await svc.list_campaigns(tenant_id=tenant.id)
+    campaigns = await svc.list_campaigns(partner_id=partner.id)
     assert len(campaigns) == 2
 
 
 @pytest.mark.asyncio
 async def test_update_campaign(db_session):
-    tenant, _ = await _make_tenant(db_session)
+    partner, _ = await _make_partner(db_session)
     svc = CampaignService(db_session)
 
     now = datetime.now(timezone.utc)
     campaign = await svc.create_campaign(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         request=CampaignCreateRequest(
             name="Original",
             discount_type="fixed",
@@ -104,7 +104,7 @@ async def test_update_campaign(db_session):
     )
 
     updated = await svc.update_campaign(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         campaign_id=campaign.id,
         request=CampaignUpdateRequest(name="Updated", is_active=False),
     )
@@ -114,12 +114,12 @@ async def test_update_campaign(db_session):
 
 @pytest.mark.asyncio
 async def test_soft_delete_campaign(db_session):
-    tenant, _ = await _make_tenant(db_session)
+    partner, _ = await _make_partner(db_session)
     svc = CampaignService(db_session)
 
     now = datetime.now(timezone.utc)
     campaign = await svc.create_campaign(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         request=CampaignCreateRequest(
             name="ToDelete",
             discount_type="percent",
@@ -129,33 +129,33 @@ async def test_soft_delete_campaign(db_session):
         ),
     )
 
-    await svc.soft_delete_campaign(tenant_id=tenant.id, campaign_id=campaign.id)
+    await svc.soft_delete_campaign(partner_id=partner.id, campaign_id=campaign.id)
     await db_session.flush()
 
     with pytest.raises(CampaignNotFoundError):
-        await svc.get_campaign(tenant_id=tenant.id, campaign_id=campaign.id)
+        await svc.get_campaign(partner_id=partner.id, campaign_id=campaign.id)
 
 
 @pytest.mark.asyncio
 async def test_campaign_not_found(db_session):
-    tenant, _ = await _make_tenant(db_session)
+    partner, _ = await _make_partner(db_session)
     svc = CampaignService(db_session)
 
     with pytest.raises(CampaignNotFoundError):
-        await svc.get_campaign(tenant_id=tenant.id, campaign_id=99999)
+        await svc.get_campaign(partner_id=partner.id, campaign_id=99999)
 
 
 @pytest.mark.asyncio
 async def test_cross_tenant_isolation(db_session):
-    """Tenant A không thấy campaign của Tenant B."""
-    tenant_a, _ = await _make_tenant(db_session)
+    """Partner A không thấy campaign của Partner B."""
+    partner_a, _ = await _make_partner(db_session)
 
     owner_b = User(email="campb@example.com", password_hash="x", is_active=True)
     db_session.add(owner_b)
     await db_session.flush()
-    tenant_b = Tenant(
+    tenant_b = Partner(
         name="CampShopB", slug="camp-shop-b",
-        owner_user_id=owner_b.id, status=TenantStatus.ACTIVE, settings={},
+        owner_user_id=owner_b.id, status=PartnerStatus.ACTIVE, settings={},
     )
     db_session.add(tenant_b)
     await db_session.flush()
@@ -163,7 +163,7 @@ async def test_cross_tenant_isolation(db_session):
     svc = CampaignService(db_session)
     now = datetime.now(timezone.utc)
     await svc.create_campaign(
-        tenant_id=tenant_a.id,
+        partner_id=tenant_a.id,
         request=CampaignCreateRequest(
             name="A Campaign",
             discount_type="fixed",
@@ -173,20 +173,20 @@ async def test_cross_tenant_isolation(db_session):
         ),
     )
 
-    # Tenant B should see 0 campaigns
-    campaigns = await svc.list_campaigns(tenant_id=tenant_b.id)
+    # Partner B should see 0 campaigns
+    campaigns = await svc.list_campaigns(partner_id=tenant_b.id)
     assert len(campaigns) == 0
 
 
 @pytest.mark.asyncio
 async def test_campaign_roi(db_session):
     """Test ROI calculation."""
-    tenant, owner = await _make_tenant(db_session)
+    partner, owner = await _make_partner(db_session)
     svc = CampaignService(db_session)
 
     now = datetime.now(timezone.utc)
     campaign = await svc.create_campaign(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         request=CampaignCreateRequest(
             name="ROI Test",
             discount_type="fixed",
@@ -202,7 +202,7 @@ async def test_campaign_roi(db_session):
     await db_session.flush()
 
     membership = Membership(
-        tenant_id=tenant.id, user_id=user.id,
+        partner_id=partner.id, user_id=user.id,
         points_balance=0, total_points_earned=0,
         joined_at=datetime.now(timezone.utc),
     )
@@ -210,7 +210,7 @@ async def test_campaign_roi(db_session):
     await db_session.flush()
 
     voucher = Voucher(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         campaign_id=campaign.id,
         membership_id=membership.id,
         code="TESTCODE",
@@ -227,7 +227,7 @@ async def test_campaign_roi(db_session):
 
     # Transaction dùng voucher
     txn = Transaction(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         staff_id=owner.id,
         gross_amount=100000,
@@ -240,7 +240,7 @@ async def test_campaign_roi(db_session):
     db_session.add(txn)
     await db_session.flush()
 
-    roi = await svc.get_campaign_roi(tenant_id=tenant.id, campaign_id=campaign.id)
+    roi = await svc.get_campaign_roi(partner_id=partner.id, campaign_id=campaign.id)
     assert roi.vouchers_issued == 1
     assert roi.vouchers_used == 1
     assert roi.total_discount_amount == 10000

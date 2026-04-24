@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.core.security import create_access_token
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 
@@ -15,21 +15,21 @@ async def _setup_shop(db_session):
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="CampAPIShop",
         slug="camp-api-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     await db_session.flush()
@@ -37,9 +37,9 @@ async def _setup_shop(db_session):
     token = create_access_token(user_id=owner.id)
     headers = {
         "Authorization": f"Bearer {token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
-    return tenant, owner, headers
+    return partner, owner, headers
 
 
 def _campaign_payload(**overrides):
@@ -60,7 +60,7 @@ async def test_create_campaign_api(client, db_session):
     _, _, headers = await _setup_shop(db_session)
 
     resp = await client.post(
-        "/merchant/campaigns",
+        "/partner/campaigns",
         json=_campaign_payload(name="Summer Sale", discount_value=15),
         headers=headers,
     )
@@ -75,10 +75,10 @@ async def test_create_campaign_api(client, db_session):
 async def test_list_campaigns_api(client, db_session):
     _, _, headers = await _setup_shop(db_session)
 
-    await client.post("/merchant/campaigns", json=_campaign_payload(name="A"), headers=headers)
-    await client.post("/merchant/campaigns", json=_campaign_payload(name="B"), headers=headers)
+    await client.post("/partner/campaigns", json=_campaign_payload(name="A"), headers=headers)
+    await client.post("/partner/campaigns", json=_campaign_payload(name="B"), headers=headers)
 
-    resp = await client.get("/merchant/campaigns", headers=headers)
+    resp = await client.get("/partner/campaigns", headers=headers)
     assert resp.status_code == 200
     assert len(resp.json()) == 2
 
@@ -88,13 +88,13 @@ async def test_get_campaign_api(client, db_session):
     _, _, headers = await _setup_shop(db_session)
 
     create_resp = await client.post(
-        "/merchant/campaigns",
+        "/partner/campaigns",
         json=_campaign_payload(name="Single"),
         headers=headers,
     )
     campaign_id = create_resp.json()["id"]
 
-    resp = await client.get(f"/merchant/campaigns/{campaign_id}", headers=headers)
+    resp = await client.get(f"/partner/campaigns/{campaign_id}", headers=headers)
     assert resp.status_code == 200
     assert resp.json()["name"] == "Single"
 
@@ -104,14 +104,14 @@ async def test_update_campaign_api(client, db_session):
     _, _, headers = await _setup_shop(db_session)
 
     create_resp = await client.post(
-        "/merchant/campaigns",
+        "/partner/campaigns",
         json=_campaign_payload(name="Original"),
         headers=headers,
     )
     campaign_id = create_resp.json()["id"]
 
     resp = await client.patch(
-        f"/merchant/campaigns/{campaign_id}",
+        f"/partner/campaigns/{campaign_id}",
         json={"name": "Updated", "is_active": False},
         headers=headers,
     )
@@ -125,17 +125,17 @@ async def test_delete_campaign_api(client, db_session):
     _, _, headers = await _setup_shop(db_session)
 
     create_resp = await client.post(
-        "/merchant/campaigns",
+        "/partner/campaigns",
         json=_campaign_payload(name="ToDelete"),
         headers=headers,
     )
     campaign_id = create_resp.json()["id"]
 
-    resp = await client.delete(f"/merchant/campaigns/{campaign_id}", headers=headers)
+    resp = await client.delete(f"/partner/campaigns/{campaign_id}", headers=headers)
     assert resp.status_code == 204
 
     # Verify not returned
-    resp = await client.get(f"/merchant/campaigns/{campaign_id}", headers=headers)
+    resp = await client.get(f"/partner/campaigns/{campaign_id}", headers=headers)
     assert resp.status_code == 404
 
 
@@ -144,14 +144,14 @@ async def test_campaign_roi_api(client, db_session):
     _, _, headers = await _setup_shop(db_session)
 
     create_resp = await client.post(
-        "/merchant/campaigns",
+        "/partner/campaigns",
         json=_campaign_payload(name="ROI Campaign"),
         headers=headers,
     )
     campaign_id = create_resp.json()["id"]
 
     resp = await client.get(
-        f"/merchant/campaigns/{campaign_id}/roi",
+        f"/partner/campaigns/{campaign_id}/roi",
         headers=headers,
     )
     assert resp.status_code == 200
@@ -164,5 +164,5 @@ async def test_campaign_roi_api(client, db_session):
 async def test_campaign_404(client, db_session):
     _, _, headers = await _setup_shop(db_session)
 
-    resp = await client.get("/merchant/campaigns/99999", headers=headers)
+    resp = await client.get("/partner/campaigns/99999", headers=headers)
     assert resp.status_code == 404

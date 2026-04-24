@@ -75,12 +75,12 @@ async def client(db_session) -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def clear_tenant_cache():
-    from app.core.tenant_cache import tenant_role_cache
+async def clear_partner_cache():
+    from app.core.partner_cache import partner_role_cache
 
-    tenant_role_cache.clear()
+    partner_role_cache.clear()
     yield
-    tenant_role_cache.clear()
+    partner_role_cache.clear()
 
 
 @pytest_asyncio.fixture(autouse=True)

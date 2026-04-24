@@ -4,55 +4,55 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 from app.core.deps import (
     get_current_user,
-    get_tenant_id,
-    require_owner_in_tenant,
-    require_staff_in_tenant,
+    get_partner_id,
+    require_owner_in_partner,
+    require_staff_in_partner,
 )
-from app.models.tenant_staff import TenantStaffRole
+from app.models.partner_staff import PartnerStaffRole
 from app.models.user import User
 from app.schemas.settings import (
+    PartnerSettings,
     SettingsAuditEntry,
     SettingsUpdateRequest,
-    TenantSettings,
 )
 from app.services.settings_service import SettingsService
 
-router = APIRouter(prefix="/tenants/me/settings", tags=["tenants-settings"])
+router = APIRouter(prefix="/partners/me/settings", tags=["partners-settings"])
 
 
-@router.get("", response_model=TenantSettings)
+@router.get("", response_model=PartnerSettings)
 async def get_settings(
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_staff_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_staff_in_partner),
     db: AsyncSession = Depends(get_db),
-) -> TenantSettings:
-    """Đọc shop settings — bất kỳ staff nào của tenant đều có quyền."""
+) -> PartnerSettings:
+    """Đọc shop settings — bất kỳ staff nào của partner đều có quyền."""
     service = SettingsService(db)
-    return await service.get_settings(tenant_id=tenant_id)
+    return await service.get_settings(partner_id=partner_id)
 
 
-@router.patch("", response_model=TenantSettings)
+@router.patch("", response_model=PartnerSettings)
 async def update_settings(
     request: SettingsUpdateRequest,
-    tenant_id: int = Depends(get_tenant_id),
+    partner_id: int = Depends(get_partner_id),
     user: User = Depends(get_current_user),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
-) -> TenantSettings:
+) -> PartnerSettings:
     service = SettingsService(db)
     return await service.update_settings(
-        tenant_id=tenant_id, user_id=user.id, request=request
+        partner_id=partner_id, user_id=user.id, request=request
     )
 
 
 @router.get("/audit", response_model=list[SettingsAuditEntry])
 async def list_audit(
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> list[SettingsAuditEntry]:
     service = SettingsService(db)
-    rows = await service.list_audit(tenant_id=tenant_id)
+    rows = await service.list_audit(partner_id=partner_id)
     return [
         SettingsAuditEntry(
             id=r.id,

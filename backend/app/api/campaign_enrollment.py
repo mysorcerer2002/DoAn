@@ -1,11 +1,11 @@
-"""API endpoints Phase 6 — flow enroll campaign cho merchant.
+"""API endpoints Phase 6 — flow enroll campaign cho đối tác.
 
-- GET `/merchant/campaign-templates` — list template active.
-- POST `/merchant/campaigns/enroll/preview` — preview cost + fee + auth doc.
-- POST `/merchant/authorizations/request-otp` — gửi OTP email.
-- POST `/merchant/authorizations/sign` — verify OTP + tạo chain entity.
+- GET `/partner/campaign-templates` — list template active.
+- POST `/partner/campaigns/enroll/preview` — preview cost + fee + auth doc.
+- POST `/partner/authorizations/request-otp` — gửi OTP email.
+- POST `/partner/authorizations/sign` — verify OTP + tạo chain entity.
 
-Tất cả yêu cầu owner trong tenant (`require_owner_in_tenant`) — staff không
+Tất cả yêu cầu owner trong partner (`require_owner_in_partner`) — staff không
 được ký uỷ quyền pháp lý.
 """
 
@@ -13,13 +13,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_current_user, get_tenant_id, require_owner_in_tenant
+from app.core.deps import get_current_user, get_partner_id, require_owner_in_partner
 from app.core.email import (
     dev_code_leak_enabled,
     mask_email,
     send_otp_email,
 )
-from app.models.tenant_staff import TenantStaffRole
+from app.models.partner_staff import PartnerStaffRole
 from app.models.user import User
 from app.models.verification_code import VerificationCodePurpose
 from app.schemas.campaign_enrollment import (
@@ -50,12 +50,12 @@ router = APIRouter(tags=["merchant-enrollment"])
 
 
 @router.get(
-    "/merchant/campaign-templates",
+    "/partner/campaign-templates",
     response_model=list[CampaignTemplatePublicResponse],
 )
 async def list_merchant_templates(
-    _tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    _partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> list[CampaignTemplatePublicResponse]:
     # Chỉ trả template source='manual' — shop không được enroll template
@@ -68,19 +68,19 @@ async def list_merchant_templates(
 
 
 @router.post(
-    "/merchant/campaigns/enroll/preview",
+    "/partner/campaigns/enroll/preview",
     response_model=CampaignEnrollPreviewResponse,
 )
 async def preview_enrollment(
     form: EnrollFormInput,
-    tenant_id: int = Depends(get_tenant_id),
+    partner_id: int = Depends(get_partner_id),
     user: User = Depends(get_current_user),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> CampaignEnrollPreviewResponse:
     try:
         return await CampaignEnrollmentService(db).preview(
-            tenant_id=tenant_id, user_id=user.id, form=form
+            partner_id=partner_id, user_id=user.id, form=form
         )
     except TemplateInvalidError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -89,21 +89,21 @@ async def preview_enrollment(
 
 
 @router.post(
-    "/merchant/authorizations/request-otp",
+    "/partner/authorizations/request-otp",
     response_model=AuthorizationOtpResponse,
 )
 async def request_authorization_otp(
     body: AuthorizationOtpRequest,
-    tenant_id: int = Depends(get_tenant_id),
+    partner_id: int = Depends(get_partner_id),
     user: User = Depends(get_current_user),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> AuthorizationOtpResponse:
     # Validate form + preview trước khi phát OTP — tránh user nhận code rồi
     # mới biết form sai cap.
     try:
         await CampaignEnrollmentService(db).preview(
-            tenant_id=tenant_id, user_id=user.id, form=body.form
+            partner_id=partner_id, user_id=user.id, form=body.form
         )
     except TemplateInvalidError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -139,16 +139,16 @@ async def request_authorization_otp(
 
 
 @router.post(
-    "/merchant/authorizations/sign",
+    "/partner/authorizations/sign",
     response_model=AuthorizationSignResponse,
     status_code=201,
 )
 async def sign_authorization(
     body: AuthorizationSignRequest,
     request: Request,
-    tenant_id: int = Depends(get_tenant_id),
+    partner_id: int = Depends(get_partner_id),
     user: User = Depends(get_current_user),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> AuthorizationSignResponse:
     client_ip = request.client.host if request.client else None
@@ -156,7 +156,7 @@ async def sign_authorization(
 
     try:
         return await CampaignEnrollmentService(db).sign_and_enroll(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             user_id=user.id,
             form=body.form,
             client_ip=client_ip,

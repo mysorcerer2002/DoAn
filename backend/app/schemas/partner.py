@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -93,3 +94,37 @@ class PartnerStaffSummary(BaseModel):
     logo_url: str | None = None
     status: PartnerStatus
     role: str  # owner | staff (PartnerStaffRole.value)
+
+
+class MyPartnerSummary(BaseModel):
+    """Tóm tắt partner ACTIVE cho customer browse — không kèm membership info."""
+
+    id: int
+    name: str
+    slug: str
+    category: str
+    description: str | None = None
+    logo_url: str | None = None
+
+
+class PartnerDetailForMember(BaseModel):
+    """Chi tiết partner cho customer — kèm membership-conditional fields."""
+
+    id: int
+    name: str
+    slug: str
+    category: str
+    description: str | None = None
+    logo_url: str | None = None
+    contact_phone: str | None = None
+    contact_email: str | None = None
+    address: str | None = None
+    website: str | None = None
+    business_hours: str | None = None
+    is_member: bool
+    # Chỉ có giá trị khi is_member=True
+    points_balance: int | None = None
+    total_points_earned: int | None = None
+    current_tier_name: str | None = None
+    joined_at: datetime | None = None
+    last_activity_at: datetime | None = None

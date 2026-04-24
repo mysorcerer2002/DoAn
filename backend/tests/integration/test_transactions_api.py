@@ -2,8 +2,8 @@ import pytest
 
 from app.core.security import create_access_token
 from app.models.point_rule import PointRule
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 
@@ -13,25 +13,25 @@ async def _setup_shop_with_rule(db_session):
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="ShopTx",
         slug="shop-tx",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     rule = PointRule(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         points_per_unit=1,
         unit_amount=1000,
         min_amount=0,
@@ -43,9 +43,9 @@ async def _setup_shop_with_rule(db_session):
     token = create_access_token(user_id=owner.id)
     headers = {
         "Authorization": f"Bearer {token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
-    return tenant, owner, headers
+    return partner, owner, headers
 
 
 @pytest.mark.asyncio
@@ -54,7 +54,7 @@ async def test_create_transaction_success(client, db_session):
     _tenant, _owner, headers = await _setup_shop_with_rule(db_session)
 
     resp = await client.post(
-        "/merchant/transactions",
+        "/partner/transactions",
         json={"phone": "0901234567", "gross_amount": 50000, "note": "Mua hàng"},
         headers=headers,
     )
@@ -74,7 +74,7 @@ async def test_create_transaction_invalid_phone(client, db_session):
     _tenant, _owner, headers = await _setup_shop_with_rule(db_session)
 
     resp = await client.post(
-        "/merchant/transactions",
+        "/partner/transactions",
         json={"phone": "12345", "gross_amount": 10000},
         headers=headers,
     )
@@ -87,17 +87,17 @@ async def test_list_transactions(client, db_session):
     _tenant, _owner, headers = await _setup_shop_with_rule(db_session)
 
     await client.post(
-        "/merchant/transactions",
+        "/partner/transactions",
         json={"phone": "0901234567", "gross_amount": 10000},
         headers=headers,
     )
     await client.post(
-        "/merchant/transactions",
+        "/partner/transactions",
         json={"phone": "0907654321", "gross_amount": 20000},
         headers=headers,
     )
 
-    resp = await client.get("/merchant/transactions", headers=headers)
+    resp = await client.get("/partner/transactions", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 2
@@ -105,26 +105,26 @@ async def test_list_transactions(client, db_session):
 
 @pytest.mark.asyncio
 async def test_create_transaction_no_rule_returns_409(client, db_session):
-    """Tenant không có point rule -> 409."""
+    """Partner không có point rule -> 409."""
     owner = User(email="norule@example.com", password_hash="x", is_active=True)
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="NoRule",
         slug="no-rule",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     await db_session.flush()
@@ -132,11 +132,11 @@ async def test_create_transaction_no_rule_returns_409(client, db_session):
     token = create_access_token(user_id=owner.id)
     headers = {
         "Authorization": f"Bearer {token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
 
     resp = await client.post(
-        "/merchant/transactions",
+        "/partner/transactions",
         json={"phone": "0901234567", "gross_amount": 10000},
         headers=headers,
     )
@@ -152,25 +152,25 @@ async def test_transaction_cross_tenant_isolation(client, db_session):
     owner_b = User(email="shopb@example.com", password_hash="x", is_active=True)
     db_session.add(owner_b)
     await db_session.flush()
-    tenant_b = Tenant(
+    tenant_b = Partner(
         name="ShopB",
         slug="shop-b",
         owner_user_id=owner_b.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
     db_session.add(tenant_b)
     await db_session.flush()
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant_b.id,
+        PartnerStaff(
+            partner_id=tenant_b.id,
             user_id=owner_b.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     db_session.add(
         PointRule(
-            tenant_id=tenant_b.id,
+            partner_id=tenant_b.id,
             points_per_unit=1,
             unit_amount=1000,
             min_amount=0,
@@ -181,17 +181,17 @@ async def test_transaction_cross_tenant_isolation(client, db_session):
     token_b = create_access_token(user_id=owner_b.id)
     headers_b = {
         "Authorization": f"Bearer {token_b}",
-        "X-Tenant-Id": str(tenant_b.id),
+        "X-Partner-Id": str(tenant_b.id),
     }
 
-    # Tenant A tạo 1 giao dịch
+    # Partner A tạo 1 giao dịch
     await client.post(
-        "/merchant/transactions",
+        "/partner/transactions",
         json={"phone": "0901234567", "gross_amount": 10000},
         headers=headers_a,
     )
 
-    # Tenant B list -> phải rỗng
-    resp = await client.get("/merchant/transactions", headers=headers_b)
+    # Partner B list -> phải rỗng
+    resp = await client.get("/partner/transactions", headers=headers_b)
     assert resp.status_code == 200
     assert resp.json() == []

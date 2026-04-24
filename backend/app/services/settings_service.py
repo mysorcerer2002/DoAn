@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.partner import Partner
-from app.models.tenant_settings_audit import PartnerSettingsAudit
+from app.models.partner_settings_audit import PartnerSettingsAudit
 from app.schemas.settings import SettingsUpdateRequest, PartnerSettings
 
 

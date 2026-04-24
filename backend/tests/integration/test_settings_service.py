@@ -1,43 +1,43 @@
 import pytest
 from sqlalchemy import select
 
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_settings_audit import TenantSettingsAudit
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_settings_audit import PartnerSettingsAudit
 from app.models.user import User
-from app.schemas.settings import SettingsUpdateRequest, TenantSettings
+from app.schemas.settings import SettingsUpdateRequest, PartnerSettings
 from app.services.settings_service import SettingsService
 
 
 @pytest.fixture
-async def tenant_with_owner(db_session):
+async def partner_with_owner(db_session):
     user = User(email="o@example.com", password_hash="x", is_active=True)
     db_session.add(user)
     await db_session.flush()
-    tenant = Tenant(
+    partner = Partner(
         name="T", slug="t", owner_user_id=user.id,
-        status=TenantStatus.ACTIVE, settings={}
+        status=PartnerStatus.ACTIVE, settings={}
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
-    return tenant, user
+    return partner, user
 
 
 @pytest.mark.asyncio
-async def test_get_settings_returns_defaults(db_session, tenant_with_owner):
-    tenant, _user = tenant_with_owner
+async def test_get_settings_returns_defaults(db_session, partner_with_owner):
+    partner, _user = partner_with_owner
     service = SettingsService(db_session)
-    settings = await service.get_settings(tenant_id=tenant.id)
-    assert isinstance(settings, TenantSettings)
+    settings = await service.get_settings(partner_id=partner.id)
+    assert isinstance(settings, PartnerSettings)
     assert settings.points_on_gross is False
     assert settings.voucher_default_ttl_days == 30
 
 
 @pytest.mark.asyncio
-async def test_update_settings_writes_audit(db_session, tenant_with_owner):
-    tenant, user = tenant_with_owner
+async def test_update_settings_writes_audit(db_session, partner_with_owner):
+    partner, user = partner_with_owner
     service = SettingsService(db_session)
     new = await service.update_settings(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         user_id=user.id,
         request=SettingsUpdateRequest(points_on_gross=True, voucher_default_ttl_days=60),
     )
@@ -45,7 +45,7 @@ async def test_update_settings_writes_audit(db_session, tenant_with_owner):
     assert new.voucher_default_ttl_days == 60
 
     audits = await db_session.scalars(
-        select(TenantSettingsAudit).where(TenantSettingsAudit.tenant_id == tenant.id)
+        select(PartnerSettingsAudit).where(PartnerSettingsAudit.partner_id == partner.id)
     )
     audit_list = list(audits.all())
     assert len(audit_list) == 2

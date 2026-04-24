@@ -6,7 +6,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
-from app.models.tenant import Tenant, TenantStatus
+from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 
 
@@ -15,14 +15,14 @@ async def membership(db_session):
     user = User(email="u@example.com", password_hash="x", is_active=True)
     db_session.add(user)
     await db_session.flush()
-    tenant = Tenant(
+    partner = Partner(
         name="T", slug="t", owner_user_id=user.id,
-        status=TenantStatus.ACTIVE, settings={}
+        status=PartnerStatus.ACTIVE, settings={}
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
     m = Membership(
-        tenant_id=tenant.id, user_id=user.id, points_balance=0,
+        partner_id=partner.id, user_id=user.id, points_balance=0,
         total_points_earned=0, joined_at=datetime.now(timezone.utc)
     )
     db_session.add(m)
@@ -33,7 +33,7 @@ async def membership(db_session):
 @pytest.mark.asyncio
 async def test_can_insert_ledger_entry(db_session, membership):
     entry = PointLedger(
-        tenant_id=membership.tenant_id,
+        partner_id=membership.partner_id,
         membership_id=membership.id,
         delta=100,
         reason=LedgerReason.EARN,
@@ -48,7 +48,7 @@ async def test_can_insert_ledger_entry(db_session, membership):
 @pytest.mark.asyncio
 async def test_cannot_update_ledger_entry(db_session, membership):
     entry = PointLedger(
-        tenant_id=membership.tenant_id,
+        partner_id=membership.partner_id,
         membership_id=membership.id,
         delta=100, reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL, balance_after=100,
@@ -68,7 +68,7 @@ async def test_cannot_update_ledger_entry(db_session, membership):
 @pytest.mark.asyncio
 async def test_cannot_delete_ledger_entry(db_session, membership):
     entry = PointLedger(
-        tenant_id=membership.tenant_id,
+        partner_id=membership.partner_id,
         membership_id=membership.id,
         delta=100, reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL, balance_after=100,

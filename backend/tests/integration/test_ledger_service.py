@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType
-from app.models.tenant import Tenant, TenantStatus
+from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 from app.services.ledger_service import LedgerService
 
@@ -13,14 +13,14 @@ async def membership_with_balance(db_session):
     user = User(email="u@example.com", password_hash="x", is_active=True)
     db_session.add(user)
     await db_session.flush()
-    tenant = Tenant(
+    partner = Partner(
         name="T", slug="t", owner_user_id=user.id,
-        status=TenantStatus.ACTIVE, settings={}
+        status=PartnerStatus.ACTIVE, settings={}
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
     m = Membership(
-        tenant_id=tenant.id, user_id=user.id,
+        partner_id=partner.id, user_id=user.id,
         points_balance=0, total_points_earned=0,
         joined_at=datetime.now(timezone.utc)
     )
@@ -33,7 +33,7 @@ async def membership_with_balance(db_session):
 async def test_log_entry_creates_record(db_session, membership_with_balance):
     service = LedgerService(db_session)
     entry = await service.log_entry(
-        tenant_id=membership_with_balance.tenant_id,
+        partner_id=membership_with_balance.partner_id,
         membership_id=membership_with_balance.id,
         delta=100,
         reason=LedgerReason.EARN,
@@ -52,7 +52,7 @@ async def test_get_history_paginated(db_session, membership_with_balance):
     service = LedgerService(db_session)
     for i in range(5):
         await service.log_entry(
-            tenant_id=membership_with_balance.tenant_id,
+            partner_id=membership_with_balance.partner_id,
             membership_id=membership_with_balance.id,
             delta=10,
             reason=LedgerReason.EARN,
@@ -63,7 +63,7 @@ async def test_get_history_paginated(db_session, membership_with_balance):
     await db_session.flush()
 
     history = await service.get_history(
-        tenant_id=membership_with_balance.tenant_id,
+        partner_id=membership_with_balance.partner_id,
         membership_id=membership_with_balance.id,
         limit=3,
     )
@@ -76,7 +76,7 @@ async def test_reconcile_consistent(db_session, membership_with_balance):
     service = LedgerService(db_session)
     membership_with_balance.points_balance = 50
     await service.log_entry(
-        tenant_id=membership_with_balance.tenant_id,
+        partner_id=membership_with_balance.partner_id,
         membership_id=membership_with_balance.id,
         delta=50,
         reason=LedgerReason.EARN,
@@ -87,7 +87,7 @@ async def test_reconcile_consistent(db_session, membership_with_balance):
     await db_session.flush()
 
     result = await service.reconcile(
-        tenant_id=membership_with_balance.tenant_id,
+        partner_id=membership_with_balance.partner_id,
         membership_id=membership_with_balance.id,
     )
     assert result.is_consistent is True
@@ -99,7 +99,7 @@ async def test_reconcile_inconsistent_detects_diff(db_session, membership_with_b
     service = LedgerService(db_session)
     membership_with_balance.points_balance = 50
     await service.log_entry(
-        tenant_id=membership_with_balance.tenant_id,
+        partner_id=membership_with_balance.partner_id,
         membership_id=membership_with_balance.id,
         delta=100,
         reason=LedgerReason.EARN,
@@ -110,7 +110,7 @@ async def test_reconcile_inconsistent_detects_diff(db_session, membership_with_b
     await db_session.flush()
 
     result = await service.reconcile(
-        tenant_id=membership_with_balance.tenant_id,
+        partner_id=membership_with_balance.partner_id,
         membership_id=membership_with_balance.id,
     )
     assert result.is_consistent is False

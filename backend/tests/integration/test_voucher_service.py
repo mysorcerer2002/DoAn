@@ -6,7 +6,7 @@ import pytest
 
 from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
-from app.models.tenant import Tenant, TenantStatus
+from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
 from app.services.voucher_service import (
@@ -21,11 +21,11 @@ async def _setup(db_session):
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="VouchShop", slug="vouch-shop",
-        owner_user_id=owner.id, status=TenantStatus.ACTIVE, settings={},
+        owner_user_id=owner.id, status=PartnerStatus.ACTIVE, settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     user = User(phone="0900000022", password_hash="x", is_active=True)
@@ -33,7 +33,7 @@ async def _setup(db_session):
     await db_session.flush()
 
     membership = Membership(
-        tenant_id=tenant.id, user_id=user.id,
+        partner_id=partner.id, user_id=user.id,
         points_balance=0, total_points_earned=0,
         joined_at=datetime.now(timezone.utc),
     )
@@ -42,7 +42,7 @@ async def _setup(db_session):
 
     now = datetime.now(timezone.utc)
     campaign = Campaign(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         name="Test Campaign",
         discount_type=DiscountType.PERCENT,
         discount_value=10,
@@ -63,7 +63,7 @@ async def _setup(db_session):
     db_session.add(campaign)
     await db_session.flush()
 
-    return tenant, owner, user, membership, campaign
+    return partner, owner, user, membership, campaign
 
 
 @pytest.mark.asyncio
@@ -72,7 +72,7 @@ async def test_claim_voucher_success(db_session):
     svc = VoucherService(db_session)
 
     voucher = await svc.claim(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         campaign_id=campaign.id,
     )
@@ -89,14 +89,14 @@ async def test_claim_voucher_already_claimed(db_session):
     svc = VoucherService(db_session)
 
     await svc.claim(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         campaign_id=campaign.id,
     )
 
     with pytest.raises(AlreadyClaimedError):
         await svc.claim(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             membership_id=membership.id,
             campaign_id=campaign.id,
         )
@@ -111,7 +111,7 @@ async def test_claim_voucher_campaign_full(db_session):
 
     svc = VoucherService(db_session)
     await svc.claim(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         campaign_id=campaign.id,
     )
@@ -121,7 +121,7 @@ async def test_claim_voucher_campaign_full(db_session):
     db_session.add(user2)
     await db_session.flush()
     membership2 = Membership(
-        tenant_id=tenant.id, user_id=user2.id,
+        partner_id=partner.id, user_id=user2.id,
         points_balance=0, total_points_earned=0,
         joined_at=datetime.now(timezone.utc),
     )
@@ -130,7 +130,7 @@ async def test_claim_voucher_campaign_full(db_session):
 
     with pytest.raises(CampaignFullError):
         await svc.claim(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             membership_id=membership2.id,
             campaign_id=campaign.id,
         )
@@ -142,7 +142,7 @@ async def test_list_eligible_campaigns(db_session):
     svc = VoucherService(db_session)
 
     eligible = await svc.list_eligible_campaigns(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         current_tier_id=membership.current_tier_id,
     )
@@ -156,13 +156,13 @@ async def test_list_eligible_excludes_claimed(db_session):
     svc = VoucherService(db_session)
 
     await svc.claim(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         campaign_id=campaign.id,
     )
 
     eligible = await svc.list_eligible_campaigns(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         current_tier_id=membership.current_tier_id,
     )
@@ -175,13 +175,13 @@ async def test_list_my_vouchers(db_session):
     svc = VoucherService(db_session)
 
     await svc.claim(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         campaign_id=campaign.id,
     )
 
     vouchers = await svc.list_my_vouchers(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
     )
     assert len(vouchers) == 1
@@ -193,15 +193,15 @@ async def test_mark_used(db_session):
     svc = VoucherService(db_session)
 
     voucher = await svc.claim(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         campaign_id=campaign.id,
     )
 
-    await svc.mark_used(tenant_id=tenant.id, voucher_id=voucher.id)
+    await svc.mark_used(partner_id=partner.id, voucher_id=voucher.id)
     await db_session.flush()
 
-    updated = await svc.find_by_code(tenant_id=tenant.id, code=voucher.code)
+    updated = await svc.find_by_code(partner_id=partner.id, code=voucher.code)
     assert updated is not None
     assert updated.status == VoucherStatus.USED
     assert updated.used_at is not None
@@ -213,12 +213,12 @@ async def test_find_by_code(db_session):
     svc = VoucherService(db_session)
 
     voucher = await svc.claim(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         campaign_id=campaign.id,
     )
 
-    found = await svc.find_by_code(tenant_id=tenant.id, code=voucher.code)
+    found = await svc.find_by_code(partner_id=partner.id, code=voucher.code)
     assert found is not None
     assert found.id == voucher.id
 
@@ -230,16 +230,16 @@ async def test_reclaim_after_used(db_session):
     svc = VoucherService(db_session)
 
     voucher = await svc.claim(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         campaign_id=campaign.id,
     )
-    await svc.mark_used(tenant_id=tenant.id, voucher_id=voucher.id)
+    await svc.mark_used(partner_id=partner.id, voucher_id=voucher.id)
     await db_session.flush()
 
     # Partial unique index chỉ ngăn active vouchers, used thì claim lại OK
     voucher2 = await svc.claim(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         campaign_id=campaign.id,
     )

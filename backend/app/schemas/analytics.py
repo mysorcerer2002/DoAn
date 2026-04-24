@@ -91,7 +91,7 @@ class PartnerDetailResponse(BaseModel):
 
 
 class AdminPartnerListRow(BaseModel):
-    """Row cho /admin/tenants: đã kèm metric + owner để tránh N+1 ở FE.
+    """Row cho /admin/partners: đã kèm metric + owner để tránh N+1 ở FE.
 
     `active_member_count`: membership với `archived_at IS NULL` (semantic
     giống `PartnerDetailResponse.active_member_count`). `active_member_count_30d`:

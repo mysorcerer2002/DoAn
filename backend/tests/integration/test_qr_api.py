@@ -4,8 +4,8 @@ import pytest
 
 from app.core.security import create_access_token
 from app.core.qr import sign_shop_token
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 
@@ -14,28 +14,28 @@ async def _make_user_and_tenant(db_session):
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="QRShop",
         slug="qr-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     await db_session.flush()
 
     token = create_access_token(user_id=owner.id)
     headers = {"Authorization": f"Bearer {token}"}
-    return tenant, owner, headers
+    return partner, owner, headers
 
 
 @pytest.mark.asyncio
@@ -61,37 +61,37 @@ async def test_get_qr_unauthorized(client, db_session):
 @pytest.mark.asyncio
 async def test_checkin_qr_shop(client, db_session):
     """Quét QR shop (HMAC token) thành công."""
-    tenant, _owner, _headers = await _make_user_and_tenant(db_session)
+    partner, _owner, _headers = await _make_user_and_tenant(db_session)
 
-    shop_token = sign_shop_token(tenant.id)
+    shop_token = sign_shop_token(partner.id)
 
     resp = await client.get(
         "/member/checkin",
-        params={"tenant": tenant.slug, "shop_token": shop_token},
+        params={"partner": partner.slug, "shop_token": shop_token},
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["tenant_id"] == tenant.id
-    assert data["tenant_slug"] == tenant.slug
+    assert data["partner_id"] == partner.id
+    assert data["partner_slug"] == partner.slug
 
 
 @pytest.mark.asyncio
 async def test_checkin_invalid_token(client, db_session):
     """Token sai → 401."""
-    tenant, _owner, _headers = await _make_user_and_tenant(db_session)
+    partner, _owner, _headers = await _make_user_and_tenant(db_session)
 
     resp = await client.get(
         "/member/checkin",
-        params={"tenant": tenant.slug, "shop_token": "0" * 16},
+        params={"partner": partner.slug, "shop_token": "0" * 16},
     )
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_checkin_invalid_tenant(client, db_session):
-    """Tenant không tồn tại → 404."""
+    """Partner không tồn tại → 404."""
     resp = await client.get(
         "/member/checkin",
-        params={"tenant": "nonexistent-slug", "shop_token": "0" * 16},
+        params={"partner": "nonexistent-slug", "shop_token": "0" * 16},
     )
     assert resp.status_code == 404

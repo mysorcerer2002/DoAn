@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.models.tenant import Tenant, TenantStatus
+from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 from app.services.notification_service import NotificationService
 
@@ -33,17 +33,17 @@ async def test_push_notification(db_session):
 
 
 @pytest.mark.asyncio
-async def test_push_with_tenant_id(db_session):
+async def test_push_with_partner_id(db_session):
     user = await _make_user(db_session)
     owner = User(email="notifowner@example.com", password_hash="x", is_active=True)
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="NotifShop", slug="notif-shop",
-        owner_user_id=owner.id, status=TenantStatus.ACTIVE, settings={},
+        owner_user_id=owner.id, status=PartnerStatus.ACTIVE, settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     svc = NotificationService(db_session)
@@ -51,9 +51,9 @@ async def test_push_with_tenant_id(db_session):
         user_id=user.id,
         type="promo",
         title="Khuyến mãi",
-        tenant_id=tenant.id,
+        partner_id=partner.id,
     )
-    assert notif.tenant_id == tenant.id
+    assert notif.partner_id == partner.id
 
 
 @pytest.mark.asyncio

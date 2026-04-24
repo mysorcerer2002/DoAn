@@ -5,8 +5,8 @@ from app.core.security import create_access_token
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 
@@ -19,26 +19,26 @@ async def _setup_with_member(db_session):
     db_session.add_all([owner, member_user])
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="ShopM",
         slug="shop-m",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
 
     membership = Membership(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         user_id=member_user.id,
         points_balance=100,
         total_points_earned=100,
@@ -49,7 +49,7 @@ async def _setup_with_member(db_session):
 
     # Tạo 1 ledger entry để test GET ledger
     ledger = PointLedger(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         membership_id=membership.id,
         delta=100,
         reason=LedgerReason.EARN,
@@ -64,9 +64,9 @@ async def _setup_with_member(db_session):
     token = create_access_token(user_id=owner.id)
     headers = {
         "Authorization": f"Bearer {token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
-    return tenant, owner, membership, member_user, headers
+    return partner, owner, membership, member_user, headers
 
 
 @pytest.mark.asyncio
@@ -76,7 +76,7 @@ async def test_list_members(client, db_session):
         db_session
     )
 
-    resp = await client.get("/merchant/members", headers=headers)
+    resp = await client.get("/partner/members", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) >= 1
@@ -91,7 +91,7 @@ async def test_get_member_detail(client, db_session):
     )
 
     resp = await client.get(
-        f"/merchant/members/{membership.id}", headers=headers
+        f"/partner/members/{membership.id}", headers=headers
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -107,7 +107,7 @@ async def test_get_member_not_found(client, db_session):
         db_session
     )
 
-    resp = await client.get("/merchant/members/99999", headers=headers)
+    resp = await client.get("/partner/members/99999", headers=headers)
     assert resp.status_code == 404
 
 
@@ -119,7 +119,7 @@ async def test_get_member_ledger(client, db_session):
     )
 
     resp = await client.get(
-        f"/merchant/members/{membership.id}/ledger", headers=headers
+        f"/partner/members/{membership.id}/ledger", headers=headers
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -130,7 +130,7 @@ async def test_get_member_ledger(client, db_session):
 
 @pytest.mark.asyncio
 async def test_member_cross_tenant_isolation(client, db_session):
-    """Tenant B không thấy member của tenant A."""
+    """Partner B không thấy member của tenant A."""
     _tenant_a, _owner_a, membership, _member, headers_a = await _setup_with_member(
         db_session
     )
@@ -139,36 +139,36 @@ async def test_member_cross_tenant_isolation(client, db_session):
     owner_b = User(email="shopb-m@example.com", password_hash="x", is_active=True)
     db_session.add(owner_b)
     await db_session.flush()
-    tenant_b = Tenant(
+    tenant_b = Partner(
         name="ShopBM",
         slug="shop-b-m",
         owner_user_id=owner_b.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
     db_session.add(tenant_b)
     await db_session.flush()
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant_b.id,
+        PartnerStaff(
+            partner_id=tenant_b.id,
             user_id=owner_b.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     await db_session.flush()
     token_b = create_access_token(user_id=owner_b.id)
     headers_b = {
         "Authorization": f"Bearer {token_b}",
-        "X-Tenant-Id": str(tenant_b.id),
+        "X-Partner-Id": str(tenant_b.id),
     }
 
-    # Tenant B list members -> rỗng
-    resp = await client.get("/merchant/members", headers=headers_b)
+    # Partner B list members -> rỗng
+    resp = await client.get("/partner/members", headers=headers_b)
     assert resp.status_code == 200
     assert resp.json() == []
 
-    # Tenant B xem member detail của tenant A -> 404
+    # Partner B xem member detail của tenant A -> 404
     resp = await client.get(
-        f"/merchant/members/{membership.id}", headers=headers_b
+        f"/partner/members/{membership.id}", headers=headers_b
     )
     assert resp.status_code == 404

@@ -16,18 +16,18 @@ from app.models.campaign import Campaign, CampaignSource
 from app.models.membership import Membership
 from app.models.redemption import Redemption
 from app.models.reward import Reward
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff
 from app.models.tier import Tier
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.models.voucher import Voucher
 from app.schemas.analytics import (
-    AdminTenantListRow,
-    AdminTenantMemberRow,
-    AdminTenantStaffRow,
+    AdminPartnerListRow,
+    AdminPartnerMemberRow,
+    AdminPartnerStaffRow,
     PlatformStatsResponse,
-    TenantDetailResponse,
+    PartnerDetailResponse,
 )
 from app.schemas.campaign_template import (
     CampaignTemplateCreateRequest,
@@ -35,126 +35,126 @@ from app.schemas.campaign_template import (
     CampaignTemplateUpdateRequest,
 )
 from app.schemas.ledger import ReconcileResponse
-from app.schemas.tenant import TenantApprovalRequest, TenantResponse
+from app.schemas.partner import PartnerApprovalRequest, PartnerResponse
 from app.services.campaign_template_service import (
     CampaignTemplateService,
     TemplateCodeConflictError,
     TemplateNotFoundError,
 )
 from app.services.ledger_service import LedgerService
-from app.services.tenant_service import (
+from app.services.partner_service import (
     InvalidStatusTransitionError,
-    TenantNotFoundError,
-    TenantService,
+    PartnerNotFoundError,
+    PartnerService,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-@router.get("/tenants", response_model=list[AdminTenantListRow])
-async def list_tenants(
-    tenant_status: TenantStatus | None = Query(default=None, alias="status"),
+@router.get("/partners", response_model=list[AdminPartnerListRow])
+async def list_all_partners(
+    partner_status: PartnerStatus | None = Query(default=None, alias="status"),
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
-) -> list[AdminTenantListRow]:
-    """Super Admin xem danh sách tenant kèm metric tổng quan + thông tin owner."""
+) -> list[AdminPartnerListRow]:
+    """Super Admin xem danh sách partner kèm metric tổng quan + thông tin owner."""
     active_member_count_sq = (
         select(
-            Membership.tenant_id.label("tenant_id"),
+            Membership.partner_id.label("partner_id"),
             func.count().label("cnt"),
         )
         .where(Membership.archived_at.is_(None))
-        .group_by(Membership.tenant_id)
+        .group_by(Membership.partner_id)
         .subquery()
     )
     staff_count_sq = (
         select(
-            TenantStaff.tenant_id.label("tenant_id"),
+            PartnerStaff.partner_id.label("partner_id"),
             func.count().label("cnt"),
         )
-        .group_by(TenantStaff.tenant_id)
+        .group_by(PartnerStaff.partner_id)
         .subquery()
     )
     # Khách hoạt động 30 ngày: số membership distinct có giao dịch trong 30 ngày gần nhất
     since_30d = datetime.now(UTC) - timedelta(days=30)
     active_30d_sq = (
         select(
-            Transaction.tenant_id.label("tenant_id"),
+            Transaction.partner_id.label("partner_id"),
             func.count(func.distinct(Transaction.membership_id)).label("cnt"),
         )
         .where(Transaction.created_at >= since_30d)
-        .group_by(Transaction.tenant_id)
+        .group_by(Transaction.partner_id)
         .subquery()
     )
 
     stmt = (
         select(
-            Tenant,
+            Partner,
             User.full_name.label("owner_name"),
             User.email.label("owner_email"),
             func.coalesce(active_member_count_sq.c.cnt, 0).label("active_member_count"),
             func.coalesce(staff_count_sq.c.cnt, 0).label("staff_count"),
             func.coalesce(active_30d_sq.c.cnt, 0).label("active_30d_count"),
         )
-        .join(User, User.id == Tenant.owner_user_id)
-        .outerjoin(active_member_count_sq, active_member_count_sq.c.tenant_id == Tenant.id)
-        .outerjoin(staff_count_sq, staff_count_sq.c.tenant_id == Tenant.id)
-        .outerjoin(active_30d_sq, active_30d_sq.c.tenant_id == Tenant.id)
-        .order_by(Tenant.created_at.desc())
+        .join(User, User.id == Partner.owner_user_id)
+        .outerjoin(active_member_count_sq, active_member_count_sq.c.partner_id == Partner.id)
+        .outerjoin(staff_count_sq, staff_count_sq.c.partner_id == Partner.id)
+        .outerjoin(active_30d_sq, active_30d_sq.c.partner_id == Partner.id)
+        .order_by(Partner.created_at.desc())
     )
-    if tenant_status is not None:
-        stmt = stmt.where(Tenant.status == tenant_status)
+    if partner_status is not None:
+        stmt = stmt.where(Partner.status == partner_status)
 
     rows = (await db.execute(stmt)).all()
     return [
-        AdminTenantListRow(
-            id=t.id,
-            name=t.name,
-            slug=t.slug,
-            status=str(t.status.value if hasattr(t.status, "value") else t.status),
+        AdminPartnerListRow(
+            id=p.id,
+            name=p.name,
+            slug=p.slug,
+            status=str(p.status.value if hasattr(p.status, "value") else p.status),
             category=str(
-                t.category.value if hasattr(t.category, "value") else t.category
+                p.category.value if hasattr(p.category, "value") else p.category
             ),
-            logo_url=t.logo_url,
-            contact_phone=t.contact_phone,
-            contact_email=t.contact_email,
-            created_at=t.created_at,
-            activated_at=t.activated_at,
-            owner_id=t.owner_user_id,
+            logo_url=p.logo_url,
+            contact_phone=p.contact_phone,
+            contact_email=p.contact_email,
+            created_at=p.created_at,
+            activated_at=p.activated_at,
+            owner_id=p.owner_user_id,
             owner_name=owner_name,
             owner_email=owner_email,
             active_member_count=int(mc),
             active_member_count_30d=int(a30),
             staff_count=int(sc),
         )
-        for t, owner_name, owner_email, mc, sc, a30 in rows
+        for p, owner_name, owner_email, mc, sc, a30 in rows
     ]
 
 
-@router.post("/tenants/{tenant_id}/approve", response_model=TenantResponse)
-async def approve_tenant(
-    tenant_id: int,
-    body: TenantApprovalRequest,
+@router.post("/partners/{partner_id}/approve", response_model=PartnerResponse)
+async def approve_partner(
+    partner_id: int,
+    body: PartnerApprovalRequest,
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
-) -> TenantResponse:
-    """Super Admin approve/reject tenant.
+) -> PartnerResponse:
+    """Super Admin approve/reject partner.
 
     `approve=true` → ACTIVE (chỉ từ PENDING/SUSPENDED).
     `approve=false` → SUSPENDED (chỉ từ PENDING/ACTIVE).
     Trả 409 nếu transition không hợp lệ.
     """
-    service = TenantService(db)
+    service = PartnerService(db)
     try:
         if body.approve:
-            tenant = await service.approve_tenant(tenant_id=tenant_id)
+            partner = await service.approve_partner(partner_id=partner_id)
         else:
-            tenant = await service.suspend_tenant(tenant_id=tenant_id)
-    except TenantNotFoundError as e:
+            partner = await service.suspend_partner(partner_id=partner_id)
+    except PartnerNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except InvalidStatusTransitionError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
-    return TenantResponse.model_validate(tenant)
+    return PartnerResponse.model_validate(partner)
 
 
 @router.post(
@@ -173,29 +173,29 @@ async def reconcile_member_balance(
         raise HTTPException(status_code=404, detail="Membership không tồn tại")
     service = LedgerService(db)
     return await service.reconcile(
-        tenant_id=membership.tenant_id, membership_id=membership_id
+        partner_id=membership.partner_id, membership_id=membership_id
     )
 
 
-@router.get("/tenants/{tenant_id}/detail", response_model=TenantDetailResponse)
-async def get_tenant_detail(
-    tenant_id: int,
+@router.get("/partners/{partner_id}/detail", response_model=PartnerDetailResponse)
+async def get_partner_detail(
+    partner_id: int,
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
-) -> TenantDetailResponse:
-    """Super Admin xem chi tiết tenant kèm đầy đủ thống kê."""
-    service = TenantService(db)
+) -> PartnerDetailResponse:
+    """Super Admin xem chi tiết partner kèm đầy đủ thống kê."""
+    service = PartnerService(db)
     try:
-        tenant = await service.get_tenant_by_id(tenant_id)
-    except TenantNotFoundError as e:
+        partner = await service.get_partner_by_id(partner_id)
+    except PartnerNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-    owner = await db.get(User, tenant.owner_user_id)
+    owner = await db.get(User, partner.owner_user_id)
 
     total_member_count = int(
         await db.scalar(
             select(func.count()).select_from(Membership).where(
-                Membership.tenant_id == tenant_id
+                Membership.partner_id == partner_id
             )
         )
         or 0
@@ -205,7 +205,7 @@ async def get_tenant_detail(
             select(func.count())
             .select_from(Membership)
             .where(
-                Membership.tenant_id == tenant_id,
+                Membership.partner_id == partner_id,
                 Membership.archived_at.is_(None),
             )
         )
@@ -213,8 +213,8 @@ async def get_tenant_detail(
     )
     staff_count = int(
         await db.scalar(
-            select(func.count()).select_from(TenantStaff).where(
-                TenantStaff.tenant_id == tenant_id
+            select(func.count()).select_from(PartnerStaff).where(
+                PartnerStaff.partner_id == partner_id
             )
         )
         or 0
@@ -224,7 +224,7 @@ async def get_tenant_detail(
             select(
                 func.count(Transaction.id),
                 func.coalesce(func.sum(Transaction.net_amount), 0),
-            ).where(Transaction.tenant_id == tenant_id)
+            ).where(Transaction.partner_id == partner_id)
         )
     ).one()
     txn_count, total_revenue = txn_row
@@ -232,7 +232,7 @@ async def get_tenant_detail(
     campaign_count = int(
         await db.scalar(
             select(func.count()).select_from(Campaign).where(
-                Campaign.tenant_id == tenant_id,
+                Campaign.partner_id == partner_id,
                 Campaign.deleted_at.is_(None),
             )
         )
@@ -241,7 +241,7 @@ async def get_tenant_detail(
     active_campaign_count = int(
         await db.scalar(
             select(func.count()).select_from(Campaign).where(
-                Campaign.tenant_id == tenant_id,
+                Campaign.partner_id == partner_id,
                 Campaign.deleted_at.is_(None),
                 Campaign.is_active.is_(True),
             )
@@ -251,7 +251,7 @@ async def get_tenant_detail(
     voucher_count = int(
         await db.scalar(
             select(func.count()).select_from(Voucher).where(
-                Voucher.tenant_id == tenant_id
+                Voucher.partner_id == partner_id
             )
         )
         or 0
@@ -259,7 +259,7 @@ async def get_tenant_detail(
     redemption_count = int(
         await db.scalar(
             select(func.count()).select_from(Redemption).where(
-                Redemption.tenant_id == tenant_id
+                Redemption.partner_id == partner_id
             )
         )
         or 0
@@ -267,7 +267,7 @@ async def get_tenant_detail(
     reward_count = int(
         await db.scalar(
             select(func.count()).select_from(Reward).where(
-                Reward.tenant_id == tenant_id,
+                Reward.partner_id == partner_id,
                 Reward.deleted_at.is_(None),
             )
         )
@@ -275,31 +275,31 @@ async def get_tenant_detail(
     )
 
     status_val = (
-        tenant.status.value if hasattr(tenant.status, "value") else tenant.status
+        partner.status.value if hasattr(partner.status, "value") else partner.status
     )
     category_val = (
-        tenant.category.value
-        if hasattr(tenant.category, "value")
-        else tenant.category
+        partner.category.value
+        if hasattr(partner.category, "value")
+        else partner.category
     )
 
-    return TenantDetailResponse(
-        id=tenant.id,
-        name=tenant.name,
-        slug=tenant.slug,
+    return PartnerDetailResponse(
+        id=partner.id,
+        name=partner.name,
+        slug=partner.slug,
         status=str(status_val),
         category=str(category_val),
-        description=tenant.description,
-        logo_url=tenant.logo_url,
-        contact_phone=tenant.contact_phone,
-        contact_email=tenant.contact_email,
-        address=tenant.address,
-        tax_code=tenant.tax_code,
-        website=tenant.website,
-        business_hours=tenant.business_hours,
-        created_at=tenant.created_at,
-        activated_at=tenant.activated_at,
-        owner_id=tenant.owner_user_id,
+        description=partner.description,
+        logo_url=partner.logo_url,
+        contact_phone=partner.contact_phone,
+        contact_email=partner.contact_email,
+        address=partner.address,
+        tax_code=partner.tax_code,
+        website=partner.website,
+        business_hours=partner.business_hours,
+        created_at=partner.created_at,
+        activated_at=partner.activated_at,
+        owner_id=partner.owner_user_id,
         owner_name=owner.full_name if owner else None,
         owner_email=owner.email if owner else None,
         owner_phone=owner.phone if owner else None,
@@ -317,68 +317,68 @@ async def get_tenant_detail(
 
 
 @router.get(
-    "/tenants/{tenant_id}/staff", response_model=list[AdminTenantStaffRow]
+    "/partners/{partner_id}/staff", response_model=list[AdminPartnerStaffRow]
 )
-async def list_tenant_staff(
-    tenant_id: int,
+async def list_partner_staff(
+    partner_id: int,
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
-) -> list[AdminTenantStaffRow]:
-    """Super Admin xem danh sách nhân viên (gồm owner) của tenant."""
-    tenant = await db.get(Tenant, tenant_id)
-    if tenant is None:
-        raise HTTPException(status_code=404, detail="Tenant không tồn tại")
+) -> list[AdminPartnerStaffRow]:
+    """Super Admin xem danh sách nhân viên (gồm owner) của partner."""
+    partner = await db.get(Partner, partner_id)
+    if partner is None:
+        raise HTTPException(status_code=404, detail="Partner không tồn tại")
 
     rows = (
         await db.execute(
-            select(TenantStaff, User)
-            .join(User, User.id == TenantStaff.user_id)
-            .where(TenantStaff.tenant_id == tenant_id)
-            .order_by(TenantStaff.added_at)
+            select(PartnerStaff, User)
+            .join(User, User.id == PartnerStaff.user_id)
+            .where(PartnerStaff.partner_id == partner_id)
+            .order_by(PartnerStaff.added_at)
         )
     ).all()
     return [
-        AdminTenantStaffRow(
+        AdminPartnerStaffRow(
             user_id=u.id,
             full_name=u.full_name,
             email=u.email,
             phone=u.phone,
-            role=str(ts.role.value if hasattr(ts.role, "value") else ts.role),
-            added_at=ts.added_at,
+            role=str(ps.role.value if hasattr(ps.role, "value") else ps.role),
+            added_at=ps.added_at,
             is_active=u.is_active,
         )
-        for ts, u in rows
+        for ps, u in rows
     ]
 
 
 @router.get(
-    "/tenants/{tenant_id}/members", response_model=list[AdminTenantMemberRow]
+    "/partners/{partner_id}/members", response_model=list[AdminPartnerMemberRow]
 )
-async def list_tenant_members(
-    tenant_id: int,
+async def list_partner_members(
+    partner_id: int,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
-) -> list[AdminTenantMemberRow]:
-    """Super Admin xem danh sách khách hàng của tenant."""
-    tenant = await db.get(Tenant, tenant_id)
-    if tenant is None:
-        raise HTTPException(status_code=404, detail="Tenant không tồn tại")
+) -> list[AdminPartnerMemberRow]:
+    """Super Admin xem danh sách khách hàng của partner."""
+    partner = await db.get(Partner, partner_id)
+    if partner is None:
+        raise HTTPException(status_code=404, detail="Partner không tồn tại")
 
     rows = (
         await db.execute(
             select(Membership, User, Tier.name)
             .join(User, User.id == Membership.user_id)
             .outerjoin(Tier, Tier.id == Membership.current_tier_id)
-            .where(Membership.tenant_id == tenant_id)
+            .where(Membership.partner_id == partner_id)
             .order_by(Membership.joined_at.desc())
             .limit(limit)
             .offset(offset)
         )
     ).all()
     return [
-        AdminTenantMemberRow(
+        AdminPartnerMemberRow(
             membership_id=m.id,
             user_id=u.id,
             full_name=u.full_name,
@@ -394,21 +394,21 @@ async def list_tenant_members(
     ]
 
 
-@router.post("/tenants/{tenant_id}/suspend", response_model=TenantResponse)
-async def suspend_tenant(
-    tenant_id: int,
+@router.post("/partners/{partner_id}/suspend", response_model=PartnerResponse)
+async def suspend_partner(
+    partner_id: int,
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
-) -> TenantResponse:
-    """Super Admin suspend một tenant."""
-    service = TenantService(db)
+) -> PartnerResponse:
+    """Super Admin suspend một partner."""
+    service = PartnerService(db)
     try:
-        tenant = await service.suspend_tenant(tenant_id=tenant_id)
-    except TenantNotFoundError as e:
+        partner = await service.suspend_partner(partner_id=partner_id)
+    except PartnerNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except InvalidStatusTransitionError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
-    return TenantResponse.model_validate(tenant)
+    return PartnerResponse.model_validate(partner)
 
 
 class AdminUserRow(BaseModel):
@@ -497,30 +497,30 @@ async def get_audit_feed(
     """Feed hoạt động gần đây trên platform (tenant approval, giao dịch lớn, đăng ký)."""
     items: list[AuditFeedItem] = []
 
-    # Tenants vừa approved/pending
-    recent_tenants = (
+    # Partners vừa approved/pending
+    recent_partners = (
         await db.execute(
-            select(Tenant)
-            .order_by(Tenant.created_at.desc())
+            select(Partner)
+            .order_by(Partner.created_at.desc())
             .limit(10)
         )
     ).scalars().all()
-    for t in recent_tenants:
-        event_type = "tenant_created"
-        title = f"Tenant mới: {t.name}"
-        if t.status == TenantStatus.ACTIVE:
-            event_type = "tenant_approved"
-            title = f"Tenant đã duyệt: {t.name}"
-        elif t.status == TenantStatus.SUSPENDED:
-            event_type = "tenant_suspended"
-            title = f"Tenant bị đình chỉ: {t.name}"
+    for p in recent_partners:
+        event_type = "partner_created"
+        title = f"Partner mới: {p.name}"
+        if p.status == PartnerStatus.ACTIVE:
+            event_type = "partner_approved"
+            title = f"Partner đã duyệt: {p.name}"
+        elif p.status == PartnerStatus.SUSPENDED:
+            event_type = "partner_suspended"
+            title = f"Partner bị đình chỉ: {p.name}"
         items.append(
             AuditFeedItem(
                 event_type=event_type,
                 title=title,
-                description=(t.description or "")[:120],
-                at=t.activated_at or t.created_at,
-                tenant_name=t.name,
+                description=(p.description or "")[:120],
+                at=p.activated_at or p.created_at,
+                tenant_name=p.name,
             )
         )
 
@@ -543,23 +543,23 @@ async def get_audit_feed(
             )
         )
 
-    # Giao dịch gần đây (join tenant để lấy tên)
+    # Giao dịch gần đây (join partner để lấy tên)
     recent_txns = (
         await db.execute(
-            select(Transaction, Tenant.name)
-            .join(Tenant, Transaction.tenant_id == Tenant.id)
+            select(Transaction, Partner.name)
+            .join(Partner, Transaction.partner_id == Partner.id)
             .order_by(Transaction.created_at.desc())
             .limit(10)
         )
     ).all()
-    for txn, tenant_name in recent_txns:
+    for txn, partner_name in recent_txns:
         items.append(
             AuditFeedItem(
                 event_type="transaction",
-                title=f"Giao dịch {txn.net_amount:,}₫ tại {tenant_name}",
+                title=f"Giao dịch {txn.net_amount:,}₫ tại {partner_name}",
                 description=f"#{txn.id} — {txn.points_earned} điểm",
                 at=txn.created_at,
-                tenant_name=tenant_name,
+                tenant_name=partner_name,
             )
         )
 
@@ -585,9 +585,9 @@ async def get_admin_settings(
 
 
 class AdminMembershipInfo(BaseModel):
-    tenant_id: int
-    tenant_name: str
-    tenant_slug: str
+    partner_id: int
+    partner_name: str
+    partner_slug: str
     points_balance: int
     total_points_earned: int
     current_tier_name: str | None
@@ -653,8 +653,8 @@ async def get_user_detail(
 
     rows = (
         await db.execute(
-            select(Membership, Tenant, Tier.name)
-            .join(Tenant, Membership.tenant_id == Tenant.id)
+            select(Membership, Partner, Tier.name)
+            .join(Partner, Membership.partner_id == Partner.id)
             .outerjoin(Tier, Membership.current_tier_id == Tier.id)
             .where(Membership.user_id == user_id)
             .order_by(Membership.joined_at.desc())
@@ -663,16 +663,16 @@ async def get_user_detail(
 
     memberships = [
         AdminMembershipInfo(
-            tenant_id=t.id,
-            tenant_name=t.name,
-            tenant_slug=t.slug,
+            partner_id=p.id,
+            partner_name=p.name,
+            partner_slug=p.slug,
             points_balance=m.points_balance,
             total_points_earned=m.total_points_earned,
             current_tier_name=tier_name,
             joined_at=m.joined_at,
             archived=m.archived_at is not None,
         )
-        for m, t, tier_name in rows
+        for m, p, tier_name in rows
     ]
 
     return AdminUserDetailResponse(
@@ -880,7 +880,7 @@ async def get_platform_stats(
 ) -> PlatformStatsResponse:
     """Thống kê toàn platform cho super admin."""
     tenants_count = await db.scalar(
-        select(func.count()).select_from(Tenant)
+        select(func.count()).select_from(Partner)
     )
     users_count = await db.scalar(
         select(func.count()).select_from(User)

@@ -7,8 +7,8 @@ import pytest
 from app.core.security import create_access_token
 from app.models.membership import Membership
 from app.models.point_rule import PointRule
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 from app.schemas.reward import RewardCreateRequest
 from app.services.reward_service import RewardService
@@ -26,31 +26,31 @@ async def _setup_redeem_env(db_session, *, balance=500, stock=10):
     db_session.add_all([owner, member_user])
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="RedeemAPIShop",
         slug="redeem-api-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add_all([
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         ),
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=member_user.id,
-            role=TenantStaffRole.STAFF,
+            role=PartnerStaffRole.STAFF,
         ),
     ])
 
     membership = Membership(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         user_id=member_user.id,
         points_balance=balance,
         total_points_earned=balance,
@@ -59,7 +59,7 @@ async def _setup_redeem_env(db_session, *, balance=500, stock=10):
     db_session.add(membership)
 
     rule = PointRule(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         points_per_unit=1,
         unit_amount=1000,
         min_amount=0,
@@ -70,7 +70,7 @@ async def _setup_redeem_env(db_session, *, balance=500, stock=10):
 
     svc = RewardService(db_session)
     reward = await svc.create_reward(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         request=RewardCreateRequest(name="API Reward", points_cost=100, stock=stock),
     )
     await db_session.flush()
@@ -78,16 +78,16 @@ async def _setup_redeem_env(db_session, *, balance=500, stock=10):
     owner_token = create_access_token(user_id=owner.id)
     owner_headers = {
         "Authorization": f"Bearer {owner_token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
 
     member_token = create_access_token(user_id=member_user.id)
     member_headers = {
         "Authorization": f"Bearer {member_token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
 
-    return tenant, owner, member_user, membership, reward, owner_headers, member_headers
+    return partner, owner, member_user, membership, reward, owner_headers, member_headers
 
 
 @pytest.mark.asyncio
@@ -98,7 +98,7 @@ async def test_redeem_api_for_member(client, db_session):
     ) = await _setup_redeem_env(db_session)
 
     resp = await client.post(
-        f"/merchant/redemptions/for-member/{membership.id}",
+        f"/partner/redemptions/for-member/{membership.id}",
         json={"reward_id": reward.id},
         headers=owner_headers,
     )
@@ -117,7 +117,7 @@ async def test_redeem_api_self(client, db_session):
     ) = await _setup_redeem_env(db_session)
 
     resp = await client.post(
-        "/merchant/redemptions",
+        "/partner/redemptions",
         json={"reward_id": reward.id},
         headers=member_headers,
     )
@@ -133,7 +133,7 @@ async def test_use_redemption_api(client, db_session):
 
     # Đổi quà
     create_resp = await client.post(
-        f"/merchant/redemptions/for-member/{membership.id}",
+        f"/partner/redemptions/for-member/{membership.id}",
         json={"reward_id": reward.id},
         headers=owner_headers,
     )
@@ -141,7 +141,7 @@ async def test_use_redemption_api(client, db_session):
 
     # Xác nhận sử dụng
     resp = await client.post(
-        "/merchant/redemptions/use",
+        "/partner/redemptions/use",
         json={"code": code},
         headers=owner_headers,
     )
@@ -158,12 +158,12 @@ async def test_list_redemptions_api(client, db_session):
     # Đổi 2 lần
     for _ in range(2):
         await client.post(
-            f"/merchant/redemptions/for-member/{membership.id}",
+            f"/partner/redemptions/for-member/{membership.id}",
             json={"reward_id": reward.id},
             headers=owner_headers,
         )
 
-    resp = await client.get("/merchant/redemptions", headers=owner_headers)
+    resp = await client.get("/partner/redemptions", headers=owner_headers)
     assert resp.status_code == 200
     assert len(resp.json()) == 2
 
@@ -175,7 +175,7 @@ async def test_redeem_insufficient_points_api(client, db_session):
     ) = await _setup_redeem_env(db_session, balance=10)
 
     resp = await client.post(
-        f"/merchant/redemptions/for-member/{membership.id}",
+        f"/partner/redemptions/for-member/{membership.id}",
         json={"reward_id": reward.id},
         headers=owner_headers,
     )
@@ -189,7 +189,7 @@ async def test_use_invalid_code_api(client, db_session):
     ) = await _setup_redeem_env(db_session)
 
     resp = await client.post(
-        "/merchant/redemptions/use",
+        "/partner/redemptions/use",
         json={"code": "ZZZZZZZZ"},
         headers=owner_headers,
     )

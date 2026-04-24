@@ -3,8 +3,8 @@
 import pytest
 
 from app.core.security import create_access_token
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 
@@ -13,21 +13,21 @@ async def _setup_shop(db_session):
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="RewardAPIShop",
         slug="reward-api-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add(
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         )
     )
     await db_session.flush()
@@ -35,9 +35,9 @@ async def _setup_shop(db_session):
     token = create_access_token(user_id=owner.id)
     headers = {
         "Authorization": f"Bearer {token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
-    return tenant, owner, headers
+    return partner, owner, headers
 
 
 @pytest.mark.asyncio
@@ -45,7 +45,7 @@ async def test_create_reward_api(client, db_session):
     _tenant, _owner, headers = await _setup_shop(db_session)
 
     resp = await client.post(
-        "/merchant/rewards",
+        "/partner/rewards",
         json={"name": "Free Coffee", "points_cost": 100, "stock": 50},
         headers=headers,
     )
@@ -62,17 +62,17 @@ async def test_list_rewards_api(client, db_session):
     _tenant, _owner, headers = await _setup_shop(db_session)
 
     await client.post(
-        "/merchant/rewards",
+        "/partner/rewards",
         json={"name": "Reward A", "points_cost": 50},
         headers=headers,
     )
     await client.post(
-        "/merchant/rewards",
+        "/partner/rewards",
         json={"name": "Reward B", "points_cost": 100},
         headers=headers,
     )
 
-    resp = await client.get("/merchant/rewards", headers=headers)
+    resp = await client.get("/partner/rewards", headers=headers)
     assert resp.status_code == 200
     assert len(resp.json()) == 2
 
@@ -82,13 +82,13 @@ async def test_get_reward_api(client, db_session):
     _tenant, _owner, headers = await _setup_shop(db_session)
 
     create_resp = await client.post(
-        "/merchant/rewards",
+        "/partner/rewards",
         json={"name": "Get Me", "points_cost": 75},
         headers=headers,
     )
     reward_id = create_resp.json()["id"]
 
-    resp = await client.get(f"/merchant/rewards/{reward_id}", headers=headers)
+    resp = await client.get(f"/partner/rewards/{reward_id}", headers=headers)
     assert resp.status_code == 200
     assert resp.json()["name"] == "Get Me"
 
@@ -98,14 +98,14 @@ async def test_update_reward_api(client, db_session):
     _tenant, _owner, headers = await _setup_shop(db_session)
 
     create_resp = await client.post(
-        "/merchant/rewards",
+        "/partner/rewards",
         json={"name": "Old", "points_cost": 50},
         headers=headers,
     )
     reward_id = create_resp.json()["id"]
 
     resp = await client.patch(
-        f"/merchant/rewards/{reward_id}",
+        f"/partner/rewards/{reward_id}",
         json={"name": "Updated", "points_cost": 200},
         headers=headers,
     )
@@ -119,13 +119,13 @@ async def test_delete_reward_api(client, db_session):
     _tenant, _owner, headers = await _setup_shop(db_session)
 
     create_resp = await client.post(
-        "/merchant/rewards",
+        "/partner/rewards",
         json={"name": "Delete Me", "points_cost": 30},
         headers=headers,
     )
     reward_id = create_resp.json()["id"]
 
-    resp = await client.delete(f"/merchant/rewards/{reward_id}", headers=headers)
+    resp = await client.delete(f"/partner/rewards/{reward_id}", headers=headers)
     assert resp.status_code == 200
     assert resp.json()["deleted_at"] is not None
 
@@ -135,15 +135,15 @@ async def test_get_deleted_reward_returns_404(client, db_session):
     _tenant, _owner, headers = await _setup_shop(db_session)
 
     create_resp = await client.post(
-        "/merchant/rewards",
+        "/partner/rewards",
         json={"name": "Will Delete", "points_cost": 30},
         headers=headers,
     )
     reward_id = create_resp.json()["id"]
 
-    await client.delete(f"/merchant/rewards/{reward_id}", headers=headers)
+    await client.delete(f"/partner/rewards/{reward_id}", headers=headers)
 
-    resp = await client.get(f"/merchant/rewards/{reward_id}", headers=headers)
+    resp = await client.get(f"/partner/rewards/{reward_id}", headers=headers)
     assert resp.status_code == 404
 
 
@@ -155,26 +155,26 @@ async def test_staff_cannot_create_reward(client, db_session):
     db_session.add_all([owner, staff_user])
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="StaffTestShop",
         slug="staff-test-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     db_session.add_all([
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=owner.id,
-            role=TenantStaffRole.OWNER,
+            role=PartnerStaffRole.OWNER,
         ),
-        TenantStaff(
-            tenant_id=tenant.id,
+        PartnerStaff(
+            partner_id=partner.id,
             user_id=staff_user.id,
-            role=TenantStaffRole.STAFF,
+            role=PartnerStaffRole.STAFF,
         ),
     ])
     await db_session.flush()
@@ -182,11 +182,11 @@ async def test_staff_cannot_create_reward(client, db_session):
     staff_token = create_access_token(user_id=staff_user.id)
     staff_headers = {
         "Authorization": f"Bearer {staff_token}",
-        "X-Tenant-Id": str(tenant.id),
+        "X-Partner-Id": str(partner.id),
     }
 
     resp = await client.post(
-        "/merchant/rewards",
+        "/partner/rewards",
         json={"name": "No Access", "points_cost": 50},
         headers=staff_headers,
     )

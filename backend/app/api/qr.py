@@ -9,7 +9,7 @@ from app.core.deps import get_current_user, get_optional_user
 from app.core.limiter import limiter
 from app.core.qr import verify_shop_token
 from app.models.membership import Membership
-from app.models.tenant import Tenant, TenantStatus
+from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 from app.schemas.qr import CheckinResponse, QrTokenResponse
 from app.services.qr_service import QrService
@@ -34,7 +34,7 @@ async def get_member_qr(
 @limiter.limit("60/minute")
 async def checkin_qr_shop(
     request: Request,
-    tenant_slug: str = Query(..., alias="tenant"),
+    partner_slug: str = Query(..., alias="partner"),
     shop_token: str = Query(..., min_length=16, max_length=16),
     current_user: User | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
@@ -44,15 +44,15 @@ async def checkin_qr_shop(
     Nếu user đã đăng nhập VÀ là member của shop, trả `is_member=True` + membership_id
     để frontend redirect tới trang chủ thành viên thay vì trang join.
     """
-    tenant = await db.scalar(
-        select(Tenant).where(
-            Tenant.slug == tenant_slug, Tenant.status == TenantStatus.ACTIVE
+    partner = await db.scalar(
+        select(Partner).where(
+            Partner.slug == partner_slug, Partner.status == PartnerStatus.ACTIVE
         )
     )
-    if tenant is None:
+    if partner is None:
         raise HTTPException(status_code=404, detail="Shop not found")
 
-    if not verify_shop_token(tenant.id, shop_token):
+    if not verify_shop_token(partner.id, shop_token):
         raise HTTPException(status_code=401, detail="Invalid shop token")
 
     is_member = False
@@ -60,7 +60,7 @@ async def checkin_qr_shop(
     if current_user is not None:
         membership = await db.scalar(
             select(Membership).where(
-                Membership.tenant_id == tenant.id,
+                Membership.partner_id == partner.id,
                 Membership.user_id == current_user.id,
             )
         )
@@ -69,9 +69,9 @@ async def checkin_qr_shop(
             membership_id = membership.id
 
     return CheckinResponse(
-        tenant_id=tenant.id,
-        tenant_slug=tenant.slug,
-        tenant_name=tenant.name,
+        partner_id=partner.id,
+        partner_slug=partner.slug,
+        partner_name=partner.name,
         is_member=is_member,
         membership_id=membership_id,
     )

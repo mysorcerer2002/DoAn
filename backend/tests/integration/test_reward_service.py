@@ -6,27 +6,27 @@ import pytest
 import pytest_asyncio
 
 from app.models.reward import Reward
-from app.models.tenant import Tenant, TenantStatus
+from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 from app.services.reward_service import RewardNotFoundError, RewardService
 from app.schemas.reward import RewardCreateRequest, RewardUpdateRequest
 
 
-async def _make_tenant(db_session) -> tuple:
+async def _make_partner(db_session) -> tuple:
     owner = User(email="reward@example.com", password_hash="x", is_active=True)
     db_session.add(owner)
     await db_session.flush()
 
-    tenant = Tenant(
+    partner = Partner(
         name="RewardShop",
         slug="reward-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
-    return tenant, owner
+    return partner, owner
 
 
 @pytest.mark.asyncio
@@ -40,7 +40,7 @@ async def test_create_reward(db_session):
         points_cost=100,
         stock=50,
     )
-    reward = await svc.create_reward(tenant_id=tenant.id, request=req)
+    reward = await svc.create_reward(partner_id=partner.id, request=req)
     assert reward.id is not None
     assert reward.name == "Ly nước miễn phí"
     assert reward.points_cost == 100
@@ -58,7 +58,7 @@ async def test_create_reward_unlimited_stock(db_session):
         points_cost=50,
         stock=None,
     )
-    reward = await svc.create_reward(tenant_id=tenant.id, request=req)
+    reward = await svc.create_reward(partner_id=partner.id, request=req)
     assert reward.stock is None  # unlimited
 
 
@@ -69,11 +69,11 @@ async def test_list_rewards(db_session):
 
     for i in range(3):
         await svc.create_reward(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             request=RewardCreateRequest(name=f"Reward {i}", points_cost=100),
         )
 
-    rewards = await svc.list_rewards(tenant_id=tenant.id)
+    rewards = await svc.list_rewards(partner_id=partner.id)
     assert len(rewards) == 3
 
 
@@ -83,11 +83,11 @@ async def test_update_reward(db_session):
     svc = RewardService(db_session)
 
     reward = await svc.create_reward(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         request=RewardCreateRequest(name="Old Name", points_cost=100),
     )
     updated = await svc.update_reward(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         reward_id=reward.id,
         request=RewardUpdateRequest(name="New Name", points_cost=200),
     )
@@ -101,15 +101,15 @@ async def test_soft_delete_reward(db_session):
     svc = RewardService(db_session)
 
     reward = await svc.create_reward(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         request=RewardCreateRequest(name="Deletable", points_cost=50),
     )
-    deleted = await svc.soft_delete_reward(tenant_id=tenant.id, reward_id=reward.id)
+    deleted = await svc.soft_delete_reward(partner_id=partner.id, reward_id=reward.id)
     assert deleted.deleted_at is not None
     assert deleted.is_active is False
 
     # Active-only list should not include it
-    active_list = await svc.list_rewards(tenant_id=tenant.id, active_only=True)
+    active_list = await svc.list_rewards(partner_id=partner.id, active_only=True)
     assert len(active_list) == 0
 
 
@@ -119,4 +119,4 @@ async def test_get_reward_not_found(db_session):
     svc = RewardService(db_session)
 
     with pytest.raises(RewardNotFoundError):
-        await svc.get_reward(tenant_id=tenant.id, reward_id=99999)
+        await svc.get_reward(partner_id=partner.id, reward_id=99999)

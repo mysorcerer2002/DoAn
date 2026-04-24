@@ -52,7 +52,7 @@ router = APIRouter(prefix="/admin", tags=["admin-campaigns"])
 def _to_pending_row(campaign, tenant_name: str) -> PendingCampaignRow:
     return PendingCampaignRow(
         id=campaign.id,
-        tenant_id=campaign.tenant_id,
+        partner_id=campaign.partner_id,
         tenant_name=tenant_name,
         name=campaign.name,
         program_form=campaign.program_form,
@@ -115,7 +115,7 @@ async def list_overdue_reports(
     return [
         OverdueReportRow(
             id=c.id,
-            tenant_id=c.tenant_id,
+            partner_id=c.partner_id,
             tenant_name=tn,
             name=c.name,
             approval_tier=c.approval_tier,

@@ -2,32 +2,32 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_tenant_id, require_owner_in_tenant
-from app.models.tenant_staff import TenantStaffRole
+from app.core.deps import get_partner_id, require_owner_in_partner
+from app.models.partner_staff import PartnerStaffRole
 from app.schemas.ledger import LedgerEntryResponse
 from app.schemas.member import MemberResponse
 from app.services.ledger_service import LedgerService
 from app.services.member_service import MemberService
 
-router = APIRouter(prefix="/merchant/members", tags=["merchant-members"])
+router = APIRouter(prefix="/partner/members", tags=["partner-members"])
 
 
 @router.get("", response_model=list[MemberResponse])
 async def list_members(
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[MemberResponse]:
     service = MemberService(db)
     members = await service.list_members(
-        tenant_id=tenant_id, limit=limit, offset=offset
+        partner_id=partner_id, limit=limit, offset=offset
     )
     return [
         MemberResponse(
             membership_id=m.id,
-            tenant_id=m.tenant_id,
+            partner_id=m.partner_id,
             user_id=m.user_id,
             user_phone=m.user.phone,
             user_full_name=m.user.full_name,
@@ -47,19 +47,19 @@ async def list_members(
 @router.get("/{membership_id}", response_model=MemberResponse)
 async def get_member(
     membership_id: int,
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> MemberResponse:
     service = MemberService(db)
     m = await service.get_member_by_id(
-        tenant_id=tenant_id, membership_id=membership_id
+        partner_id=partner_id, membership_id=membership_id
     )
     if m is None:
         raise HTTPException(status_code=404, detail="Member not found")
     return MemberResponse(
         membership_id=m.id,
-        tenant_id=m.tenant_id,
+        partner_id=m.partner_id,
         user_id=m.user_id,
         user_phone=m.user.phone,
         user_full_name=m.user.full_name,
@@ -77,13 +77,13 @@ async def get_member(
 @router.get("/{membership_id}/ledger", response_model=list[LedgerEntryResponse])
 async def get_member_ledger(
     membership_id: int,
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ) -> list[LedgerEntryResponse]:
     service = LedgerService(db)
     rows = await service.get_history(
-        tenant_id=tenant_id, membership_id=membership_id, limit=limit
+        partner_id=partner_id, membership_id=membership_id, limit=limit
     )
     return [LedgerEntryResponse.model_validate(r) for r in rows]

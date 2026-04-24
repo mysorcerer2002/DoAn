@@ -21,8 +21,8 @@ from app.models.campaign import Campaign
 from app.models.campaign_regulatory_submission import CampaignRegulatorySubmission
 from app.models.campaign_template import CampaignTemplate
 from app.models.membership import Membership
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_authorization import TenantAuthorization
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_authorization import PartnerAuthorization
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
 from app.services.campaign_approval_service import (
@@ -31,9 +31,9 @@ from app.services.campaign_approval_service import (
     InvalidStateError,
     UsedVouchersBlockRejectError,
 )
-from app.services.tenant_authorization_service import (
+from app.services.partner_authorization_service import (
     RevokeBlockedOpsStartedError,
-    TenantAuthorizationService,
+    PartnerAuthorizationService,
 )
 
 
@@ -48,9 +48,9 @@ async def _create_user(db_session, email: str) -> User:
     return user
 
 
-async def _create_membership(db_session, tenant_id: int, user_id: int) -> Membership:
+async def _create_membership(db_session, partner_id: int, user_id: int) -> Membership:
     mem = Membership(
-        tenant_id=tenant_id,
+        partner_id=partner_id,
         user_id=user_id,
         points_balance=0,
         total_points_earned=0,
@@ -63,7 +63,7 @@ async def _create_membership(db_session, tenant_id: int, user_id: int) -> Member
 
 async def _setup(db_session):
     """
-    Tạo: owner + tenant + template + campaign(pending_approval) + authorization.
+    Tạo: owner + partner + template + campaign(pending_approval) + authorization.
 
     Thứ tự insert tuân CHECK constraints:
     1. campaign với authorization_id=NULL
@@ -74,14 +74,14 @@ async def _setup(db_session):
 
     owner = await _create_user(db_session, "approval_owner@test.com")
 
-    tenant = Tenant(
+    partner = Partner(
         name="Approval Shop",
         slug="approval-shop",
         owner_user_id=owner.id,
-        status=TenantStatus.ACTIVE,
+        status=PartnerStatus.ACTIVE,
         settings={},
     )
-    db_session.add(tenant)
+    db_session.add(partner)
     await db_session.flush()
 
     tpl = CampaignTemplate(
@@ -110,7 +110,7 @@ async def _setup(db_session):
 
     # 1. Campaign trước (authorization_id=NULL tạm thời)
     campaign = Campaign(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         name="C1",
         discount_type="fixed",
         discount_value=10_000,
@@ -135,8 +135,8 @@ async def _setup(db_session):
     await db_session.flush()
 
     # 2. Authorization tham chiếu campaign
-    auth = TenantAuthorization(
-        tenant_id=tenant.id,
+    auth = PartnerAuthorization(
+        partner_id=partner.id,
         scope="per_campaign",
         campaign_id=campaign.id,
         document_content_hash="x" * 64,
@@ -155,13 +155,13 @@ async def _setup(db_session):
     campaign.authorization_id = auth.id
     await db_session.flush()
 
-    return owner, tenant, campaign, auth
+    return owner, partner, campaign, auth
 
 
 async def _insert_voucher(
     db_session,
     *,
-    tenant_id: int,
+    partner_id: int,
     campaign_id: int,
     membership_id: int,
     code: str,
@@ -175,7 +175,7 @@ async def _insert_voucher(
     """
     now = datetime.now(timezone.utc)
     v = Voucher(
-        tenant_id=tenant_id,
+        partner_id=partner_id,
         campaign_id=campaign_id,
         membership_id=membership_id,
         code=code,
@@ -214,7 +214,7 @@ async def _add_xac_nhan(db_session, campaign_id: int, user_id: int) -> CampaignR
 @pytest.mark.asyncio
 async def test_approve_guard_requires_xac_nhan_so_ct_submission(db_session):
     """Không có CampaignRegulatorySubmission doc_type=xac_nhan_so_ct → ApprovalGuardFailed."""
-    owner, tenant, campaign, auth = await _setup(db_session)
+    owner, partner, campaign, auth = await _setup(db_session)
     svc = CampaignApprovalService(db_session)
 
     with pytest.raises(ApprovalGuardFailed) as exc_info:
@@ -227,7 +227,7 @@ async def test_approve_guard_requires_xac_nhan_so_ct_submission(db_session):
 @pytest.mark.asyncio
 async def test_approve_success_with_xac_nhan_so_ct(db_session):
     """Có xac_nhan_so_ct → approve OK, status=approved, post_report_due_at set."""
-    owner, tenant, campaign, auth = await _setup(db_session)
+    owner, partner, campaign, auth = await _setup(db_session)
     await _add_xac_nhan(db_session, campaign.id, owner.id)
 
     svc = CampaignApprovalService(db_session)
@@ -243,7 +243,7 @@ async def test_approve_success_with_xac_nhan_so_ct(db_session):
 @pytest.mark.asyncio
 async def test_approve_guard_fails_on_revoked_authorization(db_session):
     """authorization.revoked_at != None → ApprovalGuardFailed."""
-    owner, tenant, campaign, auth = await _setup(db_session)
+    owner, partner, campaign, auth = await _setup(db_session)
     await _add_xac_nhan(db_session, campaign.id, owner.id)
 
     # Revoke auth trực tiếp
@@ -260,7 +260,7 @@ async def test_approve_guard_fails_on_revoked_authorization(db_session):
 @pytest.mark.asyncio
 async def test_approve_rejects_wrong_state(db_session):
     """campaign.approval_status='approved' → gọi approve lần 2 → ApprovalGuardFailed."""
-    owner, tenant, campaign, auth = await _setup(db_session)
+    owner, partner, campaign, auth = await _setup(db_session)
     await _add_xac_nhan(db_session, campaign.id, owner.id)
 
     svc = CampaignApprovalService(db_session)
@@ -281,7 +281,7 @@ async def test_approve_blocked_from_revision_requested(db_session):
     Campaign ở 'revision_requested' phải resubmit thành 'pending_approval' trước khi
     approve được.
     """
-    owner, tenant, campaign, auth = await _setup(db_session)
+    owner, partner, campaign, auth = await _setup(db_session)
     await _add_xac_nhan(db_session, campaign.id, owner.id)
 
     campaign.approval_status = "revision_requested"
@@ -297,12 +297,12 @@ async def test_approve_blocked_from_revision_requested(db_session):
 # reject — used-voucher guard + cascade cancel
 # ---------------------------------------------------------------------------
 
-async def _make_approved_campaign(db_session, owner, tenant, tpl_id: int | None = None):
+async def _make_approved_campaign(db_session, owner, partner, tpl_id: int | None = None):
     """Tạo campaign ở trạng thái 'approved' để VoucherService.claim chấp nhận."""
     now = datetime.now(timezone.utc)
 
     campaign = Campaign(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         name="Approved C",
         discount_type="fixed",
         discount_value=10_000,
@@ -328,8 +328,8 @@ async def _make_approved_campaign(db_session, owner, tenant, tpl_id: int | None 
     db_session.add(campaign)
     await db_session.flush()
 
-    auth = TenantAuthorization(
-        tenant_id=tenant.id,
+    auth = PartnerAuthorization(
+        partner_id=partner.id,
         scope="per_campaign",
         campaign_id=campaign.id,
         document_content_hash="y" * 64,
@@ -353,16 +353,16 @@ async def _make_approved_campaign(db_session, owner, tenant, tpl_id: int | None 
 @pytest.mark.asyncio
 async def test_reject_without_ack_blocked_when_has_used_voucher(db_session):
     """campaign 'approved' với 1 voucher used → reject(ack=False) → UsedVouchersBlockRejectError."""
-    owner, tenant, _, _ = await _setup(db_session)
-    campaign, auth = await _make_approved_campaign(db_session, owner, tenant)
+    owner, partner, _, _ = await _setup(db_session)
+    campaign, auth = await _make_approved_campaign(db_session, owner, partner)
 
     # Tạo membership + insert 1 voucher status='used'
     user_a = await _create_user(db_session, "user_reject_a@test.com")
-    mem_a = await _create_membership(db_session, tenant.id, user_a.id)
+    mem_a = await _create_membership(db_session, partner.id, user_a.id)
 
     await _insert_voucher(
         db_session,
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         campaign_id=campaign.id,
         membership_id=mem_a.id,
         code="USED0001",
@@ -384,20 +384,20 @@ async def test_reject_without_ack_blocked_when_has_used_voucher(db_session):
 @pytest.mark.asyncio
 async def test_reject_with_ack_cancels_issued_keeps_used(db_session):
     """reject(ack=True) → issued voucher cancelled, used voucher giữ nguyên."""
-    owner, tenant, _, _ = await _setup(db_session)
-    campaign, auth = await _make_approved_campaign(db_session, owner, tenant)
+    owner, partner, _, _ = await _setup(db_session)
+    campaign, auth = await _make_approved_campaign(db_session, owner, partner)
 
     # Member A → voucher issued (không dùng)
     user_a = await _create_user(db_session, "rej_a@test.com")
-    mem_a = await _create_membership(db_session, tenant.id, user_a.id)
+    mem_a = await _create_membership(db_session, partner.id, user_a.id)
 
     # Member B → voucher used
     user_b = await _create_user(db_session, "rej_b@test.com")
-    mem_b = await _create_membership(db_session, tenant.id, user_b.id)
+    mem_b = await _create_membership(db_session, partner.id, user_b.id)
 
     voucher_a = await _insert_voucher(
         db_session,
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         campaign_id=campaign.id,
         membership_id=mem_a.id,
         code="ISSUED01",
@@ -405,7 +405,7 @@ async def test_reject_with_ack_cancels_issued_keeps_used(db_session):
     )
     voucher_b = await _insert_voucher(
         db_session,
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         campaign_id=campaign.id,
         membership_id=mem_b.id,
         code="USED0002",
@@ -439,17 +439,17 @@ async def test_reject_with_ack_cancels_issued_keeps_used(db_session):
 @pytest.mark.asyncio
 async def test_revoke_blocked_after_ops_started(db_session):
     """ops_filing_started_at != None → revoke → RevokeBlockedOpsStartedError."""
-    owner, tenant, campaign, auth = await _setup(db_session)
+    owner, partner, campaign, auth = await _setup(db_session)
 
     # Đánh dấu ops started
     approval_svc = CampaignApprovalService(db_session)
     await approval_svc.mark_ops_started(campaign_id=campaign.id, user_id=owner.id)
     await db_session.flush()
 
-    revoke_svc = TenantAuthorizationService(db_session)
+    revoke_svc = PartnerAuthorizationService(db_session)
     with pytest.raises(RevokeBlockedOpsStartedError):
         await revoke_svc.revoke(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             auth_id=auth.id,
             user_id=owner.id,
             reason="muốn huỷ",
@@ -459,11 +459,11 @@ async def test_revoke_blocked_after_ops_started(db_session):
 @pytest.mark.asyncio
 async def test_revoke_ok_before_ops_started(db_session):
     """ops chưa started → revoke thành công, auth.revoked_at không None."""
-    owner, tenant, campaign, auth = await _setup(db_session)
+    owner, partner, campaign, auth = await _setup(db_session)
 
-    revoke_svc = TenantAuthorizationService(db_session)
+    revoke_svc = PartnerAuthorizationService(db_session)
     result = await revoke_svc.revoke(
-        tenant_id=tenant.id,
+        partner_id=partner.id,
         auth_id=auth.id,
         user_id=owner.id,
         reason="đổi ý",

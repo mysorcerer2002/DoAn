@@ -59,7 +59,7 @@ class TransactionService:
         """Phase 10 — đọc realized_cost realtime từ `v_campaign_stats`.
 
         View COALESCE → 0 khi không có voucher nào dùng, trả BIGINT.
-        Admin/merchant API nên dùng helper này thay vì column cache
+        Admin/partner API nên dùng helper này thay vì column cache
         `campaigns.realized_cost` (ngày cache sẽ drop ở phase sau).
         """
         row = await self.db.execute(

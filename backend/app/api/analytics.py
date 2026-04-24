@@ -7,13 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_tenant_id, require_owner_in_tenant
+from app.core.deps import get_partner_id, require_owner_in_partner
 from app.core.limiter import limiter
-from app.models.tenant_staff import TenantStaffRole
+from app.models.partner_staff import PartnerStaffRole
 from app.schemas.analytics import DashboardResponse
 from app.services.analytics_service import AnalyticsService
 
-router = APIRouter(prefix="/merchant/analytics", tags=["merchant-analytics"])
+router = APIRouter(prefix="/partner/analytics", tags=["partner-analytics"])
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 MAX_RANGE_DAYS = 366  # >1 năm để cover năm nhuận, chống OOM/heavy queries
@@ -25,8 +25,8 @@ async def get_dashboard(
     request: Request,
     from_date: date | None = Query(default=None, alias="from"),
     to_date: date | None = Query(default=None, alias="to"),
-    tenant_id: int = Depends(get_tenant_id),
-    _role: TenantStaffRole = Depends(require_owner_in_tenant),
+    partner_id: int = Depends(get_partner_id),
+    _role: PartnerStaffRole = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> DashboardResponse:
     """Dashboard analytics — 6 chỉ số chính cho merchant.
@@ -52,5 +52,5 @@ async def get_dashboard(
 
     service = AnalyticsService(db)
     return await service.get_dashboard(
-        tenant_id=tenant_id, from_date=from_date, to_date=to_date
+        partner_id=partner_id, from_date=from_date, to_date=to_date
     )

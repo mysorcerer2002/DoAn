@@ -1,7 +1,7 @@
 """Cross-tenant isolation tests.
 
 Mục đích: đảm bảo user của tenant A không thao tác được dữ liệu của tenant B,
-KHÔNG dựa vào ORM scoping mặc định mà phải qua tenant_id filter ở mọi query.
+KHÔNG dựa vào ORM scoping mặc định mà phải qua partner_id filter ở mọi query.
 """
 from datetime import UTC, datetime, timedelta
 
@@ -10,8 +10,8 @@ import pytest
 from app.core.security import create_access_token
 from app.models.campaign import Campaign, DiscountType
 from app.models.membership import Membership
-from app.models.tenant import Tenant, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
 from app.models.voucher import Voucher, VoucherStatus
@@ -24,20 +24,20 @@ async def two_tenants_with_owners(db_session):
     db_session.add_all([owner_a, owner_b])
     await db_session.flush()
 
-    tenant_a = Tenant(
+    tenant_a = Partner(
         name="Shop A", slug="shop-a", owner_user_id=owner_a.id,
-        status=TenantStatus.ACTIVE, settings={},
+        status=PartnerStatus.ACTIVE, settings={},
     )
-    tenant_b = Tenant(
+    tenant_b = Partner(
         name="Shop B", slug="shop-b", owner_user_id=owner_b.id,
-        status=TenantStatus.ACTIVE, settings={},
+        status=PartnerStatus.ACTIVE, settings={},
     )
     db_session.add_all([tenant_a, tenant_b])
     await db_session.flush()
 
     db_session.add_all([
-        TenantStaff(tenant_id=tenant_a.id, user_id=owner_a.id, role=TenantStaffRole.OWNER),
-        TenantStaff(tenant_id=tenant_b.id, user_id=owner_b.id, role=TenantStaffRole.OWNER),
+        PartnerStaff(partner_id=tenant_a.id, user_id=owner_a.id, role=PartnerStaffRole.OWNER),
+        PartnerStaff(partner_id=tenant_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER),
     ])
     await db_session.flush()
 
@@ -53,14 +53,14 @@ async def two_tenants_with_owners(db_session):
 
 @pytest.mark.asyncio
 async def test_owner_a_cannot_use_tenant_b_header_for_tiers(client, two_tenants_with_owners):
-    """Owner A gửi X-Tenant-Id của tenant B → 403."""
+    """Owner A gửi X-Partner-Id của tenant B → 403."""
     ctx = two_tenants_with_owners
     response = await client.post(
-        "/merchant/tiers",
+        "/partner/tiers",
         json={"name": "Hacked", "min_points": 0},
         headers={
             "Authorization": f"Bearer {ctx['token_a']}",
-            "X-Tenant-Id": str(ctx["tenant_b"].id),
+            "X-Partner-Id": str(ctx["tenant_b"].id),
         },
     )
     assert response.status_code == 403
@@ -70,10 +70,10 @@ async def test_owner_a_cannot_use_tenant_b_header_for_tiers(client, two_tenants_
 async def test_owner_a_cannot_use_tenant_b_header_for_staff(client, two_tenants_with_owners):
     ctx = two_tenants_with_owners
     response = await client.get(
-        "/merchant/staff",
+        "/partner/staff",
         headers={
             "Authorization": f"Bearer {ctx['token_a']}",
-            "X-Tenant-Id": str(ctx["tenant_b"].id),
+            "X-Partner-Id": str(ctx["tenant_b"].id),
         },
     )
     assert response.status_code == 403
@@ -83,11 +83,11 @@ async def test_owner_a_cannot_use_tenant_b_header_for_staff(client, two_tenants_
 async def test_owner_a_cannot_use_tenant_b_header_for_settings(client, two_tenants_with_owners):
     ctx = two_tenants_with_owners
     response = await client.patch(
-        "/tenants/me/settings",
+        "/partners/me/settings",
         json={"points_on_gross": True},
         headers={
             "Authorization": f"Bearer {ctx['token_a']}",
-            "X-Tenant-Id": str(ctx["tenant_b"].id),
+            "X-Partner-Id": str(ctx["tenant_b"].id),
         },
     )
     assert response.status_code == 403
@@ -97,11 +97,11 @@ async def test_owner_a_cannot_use_tenant_b_header_for_settings(client, two_tenan
 async def test_owner_a_cannot_use_tenant_b_header_for_point_rules(client, two_tenants_with_owners):
     ctx = two_tenants_with_owners
     response = await client.post(
-        "/merchant/point-rules",
+        "/partner/point-rules",
         json={"points_per_unit": "100.00"},
         headers={
             "Authorization": f"Bearer {ctx['token_a']}",
-            "X-Tenant-Id": str(ctx["tenant_b"].id),
+            "X-Partner-Id": str(ctx["tenant_b"].id),
         },
     )
     assert response.status_code == 403
@@ -112,21 +112,21 @@ async def test_tiers_listed_for_a_not_visible_to_b(client, two_tenants_with_owne
     ctx = two_tenants_with_owners
     headers_a = {
         "Authorization": f"Bearer {ctx['token_a']}",
-        "X-Tenant-Id": str(ctx["tenant_a"].id),
+        "X-Partner-Id": str(ctx["tenant_a"].id),
     }
     headers_b = {
         "Authorization": f"Bearer {ctx['token_b']}",
-        "X-Tenant-Id": str(ctx["tenant_b"].id),
+        "X-Partner-Id": str(ctx["tenant_b"].id),
     }
     await client.post(
-        "/merchant/tiers", json={"name": "A-Bronze", "min_points": 0}, headers=headers_a
+        "/partner/tiers", json={"name": "A-Bronze", "min_points": 0}, headers=headers_a
     )
     await client.post(
-        "/merchant/tiers", json={"name": "B-Bronze", "min_points": 0}, headers=headers_b
+        "/partner/tiers", json={"name": "B-Bronze", "min_points": 0}, headers=headers_b
     )
 
-    list_a = await client.get("/merchant/tiers", headers=headers_a)
-    list_b = await client.get("/merchant/tiers", headers=headers_b)
+    list_a = await client.get("/partner/tiers", headers=headers_a)
+    list_b = await client.get("/partner/tiers", headers=headers_b)
     names_a = {t["name"] for t in list_a.json()}
     names_b = {t["name"] for t in list_b.json()}
 
@@ -152,21 +152,21 @@ async def two_tenants_full_data(db_session):
     await db_session.flush()
 
     # Tenants
-    tenant_a = Tenant(
+    tenant_a = Partner(
         name="Shop A", slug="shop-a-iso", owner_user_id=owner_a.id,
-        status=TenantStatus.ACTIVE, settings={},
+        status=PartnerStatus.ACTIVE, settings={},
     )
-    tenant_b = Tenant(
+    tenant_b = Partner(
         name="Shop B", slug="shop-b-iso", owner_user_id=owner_b.id,
-        status=TenantStatus.ACTIVE, settings={},
+        status=PartnerStatus.ACTIVE, settings={},
     )
     db_session.add_all([tenant_a, tenant_b])
     await db_session.flush()
 
     # Staff
     db_session.add_all([
-        TenantStaff(tenant_id=tenant_a.id, user_id=owner_a.id, role=TenantStaffRole.OWNER),
-        TenantStaff(tenant_id=tenant_b.id, user_id=owner_b.id, role=TenantStaffRole.OWNER),
+        PartnerStaff(partner_id=tenant_a.id, user_id=owner_a.id, role=PartnerStaffRole.OWNER),
+        PartnerStaff(partner_id=tenant_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER),
     ])
     await db_session.flush()
 
@@ -179,22 +179,22 @@ async def two_tenants_full_data(db_session):
     await db_session.flush()
 
     # Memberships
-    mem_a1 = Membership(tenant_id=tenant_a.id, user_id=cust_a1.id, points_balance=100, total_points_earned=100)
-    mem_a2 = Membership(tenant_id=tenant_a.id, user_id=cust_a2.id, points_balance=200, total_points_earned=200)
-    mem_b1 = Membership(tenant_id=tenant_b.id, user_id=cust_b1.id, points_balance=300, total_points_earned=300)
-    mem_b2 = Membership(tenant_id=tenant_b.id, user_id=cust_b2.id, points_balance=400, total_points_earned=400)
+    mem_a1 = Membership(partner_id=tenant_a.id, user_id=cust_a1.id, points_balance=100, total_points_earned=100)
+    mem_a2 = Membership(partner_id=tenant_a.id, user_id=cust_a2.id, points_balance=200, total_points_earned=200)
+    mem_b1 = Membership(partner_id=tenant_b.id, user_id=cust_b1.id, points_balance=300, total_points_earned=300)
+    mem_b2 = Membership(partner_id=tenant_b.id, user_id=cust_b2.id, points_balance=400, total_points_earned=400)
     db_session.add_all([mem_a1, mem_a2, mem_b1, mem_b2])
     await db_session.flush()
 
     # Transactions
     db_session.add_all([
         Transaction(
-            tenant_id=tenant_a.id, membership_id=mem_a1.id, staff_id=owner_a.id,
+            partner_id=tenant_a.id, membership_id=mem_a1.id, staff_id=owner_a.id,
             gross_amount=50000, net_amount=50000, points_earned=5,
             method=TransactionMethod.MANUAL, note="A txn 1",
         ),
         Transaction(
-            tenant_id=tenant_b.id, membership_id=mem_b1.id, staff_id=owner_b.id,
+            partner_id=tenant_b.id, membership_id=mem_b1.id, staff_id=owner_b.id,
             gross_amount=70000, net_amount=70000, points_earned=7,
             method=TransactionMethod.MANUAL, note="B txn 1",
         ),
@@ -204,7 +204,7 @@ async def two_tenants_full_data(db_session):
     # Campaigns + Vouchers
     now = datetime.now(UTC)
     camp_a = Campaign(
-        tenant_id=tenant_a.id, name="A Campaign", source="manual",
+        partner_id=tenant_a.id, name="A Campaign", source="manual",
         discount_type=DiscountType.PERCENT, discount_value=10,
         min_order=10_000, max_discount=20_000,
         starts_at=now - timedelta(days=1), ends_at=now + timedelta(days=30),
@@ -213,7 +213,7 @@ async def two_tenants_full_data(db_session):
         approval_tier="none", estimated_cost=0,
     )
     camp_b = Campaign(
-        tenant_id=tenant_b.id, name="B Campaign", source="manual",
+        partner_id=tenant_b.id, name="B Campaign", source="manual",
         discount_type=DiscountType.PERCENT, discount_value=15,
         min_order=10_000, max_discount=30_000,
         starts_at=now - timedelta(days=1), ends_at=now + timedelta(days=30),
@@ -226,13 +226,13 @@ async def two_tenants_full_data(db_session):
 
     db_session.add_all([
         Voucher(
-            tenant_id=tenant_a.id, campaign_id=camp_a.id, membership_id=mem_a1.id,
+            partner_id=tenant_a.id, campaign_id=camp_a.id, membership_id=mem_a1.id,
             code="AAAA1111", status=VoucherStatus.ISSUED, issue_source="manual",
             discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
             issued_at=now, expires_at=now + timedelta(days=14),
         ),
         Voucher(
-            tenant_id=tenant_b.id, campaign_id=camp_b.id, membership_id=mem_b1.id,
+            partner_id=tenant_b.id, campaign_id=camp_b.id, membership_id=mem_b1.id,
             code="BBBB1111", status=VoucherStatus.ISSUED, issue_source="manual",
             discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
             issued_at=now, expires_at=now + timedelta(days=14),
@@ -257,13 +257,13 @@ async def two_tenants_full_data(db_session):
 
 @pytest.mark.asyncio
 async def test_isolation_members_list(client, two_tenants_full_data):
-    """Owner A list /merchant/members → chỉ thấy membership của tenant A."""
+    """Owner A list /partner/members → chỉ thấy membership của tenant A."""
     ctx = two_tenants_full_data
     headers_a = {
         "Authorization": f"Bearer {ctx['token_a']}",
-        "X-Tenant-Id": str(ctx["tenant_a"].id),
+        "X-Partner-Id": str(ctx["tenant_a"].id),
     }
-    resp = await client.get("/merchant/members", headers=headers_a)
+    resp = await client.get("/partner/members", headers=headers_a)
     assert resp.status_code == 200
     data = resp.json()
     # Chỉ chứa A customers, không có B
@@ -278,10 +278,10 @@ async def test_isolation_members_detail_403(client, two_tenants_full_data):
     ctx = two_tenants_full_data
     headers_a = {
         "Authorization": f"Bearer {ctx['token_a']}",
-        "X-Tenant-Id": str(ctx["tenant_a"].id),
+        "X-Partner-Id": str(ctx["tenant_a"].id),
     }
     resp = await client.get(
-        f"/merchant/members/{ctx['mem_b1'].id}", headers=headers_a
+        f"/partner/members/{ctx['mem_b1'].id}", headers=headers_a
     )
     # Không được phép đọc — 404 (not found trong tenant A) hoặc 403
     assert resp.status_code in (403, 404)
@@ -289,13 +289,13 @@ async def test_isolation_members_detail_403(client, two_tenants_full_data):
 
 @pytest.mark.asyncio
 async def test_isolation_transactions_list(client, two_tenants_full_data):
-    """Owner A list /merchant/transactions → chỉ thấy txn của tenant A."""
+    """Owner A list /partner/transactions → chỉ thấy txn của tenant A."""
     ctx = two_tenants_full_data
     headers_a = {
         "Authorization": f"Bearer {ctx['token_a']}",
-        "X-Tenant-Id": str(ctx["tenant_a"].id),
+        "X-Partner-Id": str(ctx["tenant_a"].id),
     }
-    resp = await client.get("/merchant/transactions", headers=headers_a)
+    resp = await client.get("/partner/transactions", headers=headers_a)
     assert resp.status_code == 200
     data = resp.json()
     notes = {t["note"] for t in data}
@@ -305,13 +305,13 @@ async def test_isolation_transactions_list(client, two_tenants_full_data):
 
 @pytest.mark.asyncio
 async def test_isolation_vouchers_list(client, two_tenants_full_data):
-    """Owner A list /merchant/vouchers → chỉ thấy voucher của tenant A."""
+    """Owner A list /partner/vouchers → chỉ thấy voucher của tenant A."""
     ctx = two_tenants_full_data
     headers_a = {
         "Authorization": f"Bearer {ctx['token_a']}",
-        "X-Tenant-Id": str(ctx["tenant_a"].id),
+        "X-Partner-Id": str(ctx["tenant_a"].id),
     }
-    resp = await client.get("/merchant/vouchers", headers=headers_a)
+    resp = await client.get("/partner/vouchers", headers=headers_a)
     assert resp.status_code == 200
     codes = {v["code"] for v in resp.json()}
     assert "AAAA1111" in codes
@@ -322,13 +322,13 @@ async def test_isolation_vouchers_list(client, two_tenants_full_data):
 async def test_isolation_owner_a_spoofs_tenant_b_for_members(
     client, two_tenants_full_data
 ):
-    """Owner A gửi X-Tenant-Id của tenant B cho /merchant/members → 403."""
+    """Owner A gửi X-Partner-Id của tenant B cho /partner/members → 403."""
     ctx = two_tenants_full_data
     resp = await client.get(
-        "/merchant/members",
+        "/partner/members",
         headers={
             "Authorization": f"Bearer {ctx['token_a']}",
-            "X-Tenant-Id": str(ctx["tenant_b"].id),
+            "X-Partner-Id": str(ctx["tenant_b"].id),
         },
     )
     assert resp.status_code == 403
@@ -340,10 +340,10 @@ async def test_isolation_owner_a_spoofs_tenant_b_for_transactions(
 ):
     ctx = two_tenants_full_data
     resp = await client.get(
-        "/merchant/transactions",
+        "/partner/transactions",
         headers={
             "Authorization": f"Bearer {ctx['token_a']}",
-            "X-Tenant-Id": str(ctx["tenant_b"].id),
+            "X-Partner-Id": str(ctx["tenant_b"].id),
         },
     )
     assert resp.status_code == 403
@@ -355,10 +355,10 @@ async def test_isolation_owner_a_spoofs_tenant_b_for_vouchers(
 ):
     ctx = two_tenants_full_data
     resp = await client.get(
-        "/merchant/vouchers",
+        "/partner/vouchers",
         headers={
             "Authorization": f"Bearer {ctx['token_a']}",
-            "X-Tenant-Id": str(ctx["tenant_b"].id),
+            "X-Partner-Id": str(ctx["tenant_b"].id),
         },
     )
     assert resp.status_code == 403
@@ -369,11 +369,11 @@ async def test_isolation_owner_a_spoofs_tenant_b_for_vouchers(
 
 @pytest.mark.asyncio
 async def test_isolation_user_me_memberships(client, two_tenants_full_data):
-    """Customer A gọi /users/me/tenants → chỉ thấy tenant A (từ staff), không thấy B."""
+    """Customer A gọi /users/me/partners-as-staff → chỉ thấy tenant A (từ staff), không thấy B."""
     ctx = two_tenants_full_data
     # Customer A không phải staff của tenant nào → list empty
     resp = await client.get(
-        "/users/me/tenants",
+        "/users/me/partners-as-staff",
         headers={"Authorization": f"Bearer {ctx['token_cust_a1']}"},
     )
     assert resp.status_code == 200
@@ -394,7 +394,7 @@ async def test_isolation_user_me_ledger_own_only(
     from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 
     entry = PointLedger(
-        tenant_id=ctx["tenant_a"].id,
+        partner_id=ctx["tenant_a"].id,
         membership_id=ctx["mem_a1"].id,
         delta=50,
         reason=LedgerReason.ADJUST,
@@ -429,13 +429,13 @@ async def test_isolation_user_me_ledger_own_only(
 async def test_isolation_customer_cannot_access_merchant_endpoints(
     client, two_tenants_full_data
 ):
-    """Customer A gọi /merchant/members với bất kỳ X-Tenant-Id nào → 403."""
+    """Customer A gọi /partner/members với bất kỳ X-Partner-Id nào → 403."""
     ctx = two_tenants_full_data
     resp = await client.get(
-        "/merchant/members",
+        "/partner/members",
         headers={
             "Authorization": f"Bearer {ctx['token_cust_a1']}",
-            "X-Tenant-Id": str(ctx["tenant_a"].id),
+            "X-Partner-Id": str(ctx["tenant_a"].id),
         },
     )
     assert resp.status_code == 403
