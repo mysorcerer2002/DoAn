@@ -26,7 +26,6 @@ import {
 } from "@/lib/hooks/use-partner";
 import {
   useAuthorizations,
-  useCampaignServiceFees,
 } from "@/lib/hooks/use-partner-enroll";
 
 function formatDate(iso: string): string {
@@ -89,9 +88,6 @@ export default function CampaignDetailPage() {
   } = useCampaignDetail(Number.isFinite(id) ? id : null);
   const { data: roi } = useCampaignRoi(Number.isFinite(id) ? id : null);
   const { data: authorizations } = useAuthorizations();
-  const { data: serviceFees } = useCampaignServiceFees(
-    Number.isFinite(id) ? id : null,
-  );
 
   // Tìm uỷ quyền liên kết với campaign này — ưu tiên còn hiệu lực, sau đó mới nhất
   const linkedAuth = authorizations
@@ -377,68 +373,6 @@ export default function CampaignDetailPage() {
         </div>
       </section>
 
-      {/* Phí dịch vụ */}
-      <section className="mt-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h3 className="font-headline text-[15px] font-bold text-slate-800">
-          Phí dịch vụ
-        </h3>
-        <div className="mt-3">
-          {!serviceFees || serviceFees.length === 0 ? (
-            <p className="text-[13px] italic text-slate-400">
-              Đồ án không áp dụng phí dịch vụ (SERVICE_FEE_ENABLED=false).
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="border-b border-slate-100 text-left text-slate-400">
-                    <th className="pb-1 pr-3">Loại phí</th>
-                    <th className="pb-1 pr-3">Số tiền</th>
-                    <th className="pb-1 pr-3">VAT</th>
-                    <th className="pb-1 pr-3">Tổng</th>
-                    <th className="pb-1 pr-3">Trạng thái</th>
-                    <th className="pb-1 pr-3">Hoá đơn</th>
-                    <th className="pb-1">Thanh toán</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {serviceFees.map((f) => (
-                    <tr key={f.id} className="border-b border-slate-50">
-                      <td className="py-1 pr-3 font-medium text-slate-700">
-                        {f.fee_type}
-                      </td>
-                      <td className="py-1 pr-3 text-slate-700">
-                        {f.amount.toLocaleString("vi-VN")}₫
-                      </td>
-                      <td className="py-1 pr-3 text-slate-700">
-                        {f.vat_amount.toLocaleString("vi-VN")}₫
-                      </td>
-                      <td className="py-1 pr-3 font-bold text-slate-800">
-                        {f.total_with_vat.toLocaleString("vi-VN")}₫
-                      </td>
-                      <td className="py-1 pr-3">
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
-                          {f.status}
-                        </span>
-                      </td>
-                      <td className="py-1 pr-3 text-slate-500">
-                        {f.invoiced_at
-                          ? new Date(f.invoiced_at).toLocaleDateString("vi-VN")
-                          : "—"}
-                      </td>
-                      <td className="py-1 text-slate-500">
-                        {f.paid_at
-                          ? new Date(f.paid_at).toLocaleDateString("vi-VN")
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </section>
     </main>
   );
 }

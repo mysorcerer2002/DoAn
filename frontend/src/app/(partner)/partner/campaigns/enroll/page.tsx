@@ -517,68 +517,6 @@ function StepConfirm({
         </dl>
       </div>
 
-      {/* Fees */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h3 className="font-headline text-[14px] font-bold text-slate-800">
-          Phí dịch vụ
-        </h3>
-        {!preview.service_fee_enabled ? (
-          <p className="mt-2 text-[12px] italic text-slate-400">
-            SERVICE_FEE_ENABLED=off (đồ án) — không áp dụng phí
-          </p>
-        ) : preview.fees.length === 0 ? (
-          <p className="mt-2 text-[12px] text-slate-400">Không có phí.</p>
-        ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="border-b border-slate-100 text-left text-slate-400">
-                  <th className="pb-1 pr-3">Loại phí</th>
-                  <th className="pb-1 pr-3">Mô tả</th>
-                  <th className="pb-1 pr-3 text-right">Gốc</th>
-                  <th className="pb-1 pr-3 text-right">VAT</th>
-                  <th className="pb-1 text-right">Tổng</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.fees.map((f, i) => (
-                  <tr key={i} className="border-b border-slate-50">
-                    <td className="py-1 pr-3 font-medium text-slate-700">
-                      {f.fee_type}
-                    </td>
-                    <td className="py-1 pr-3 text-slate-600">
-                      {f.description}
-                    </td>
-                    <td className="py-1 pr-3 text-right text-slate-700">
-                      {formatMoney(f.base_amount)}
-                    </td>
-                    <td className="py-1 pr-3 text-right text-slate-700">
-                      {formatMoney(f.vat_amount)}
-                    </td>
-                    <td className="py-1 text-right font-bold text-slate-800">
-                      {formatMoney(f.total_with_vat)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="text-[12px] font-bold">
-                  <td
-                    colSpan={4}
-                    className="pt-2 text-right text-slate-500"
-                  >
-                    Tổng (bao gồm VAT):
-                  </td>
-                  <td className="pt-2 text-right text-rose-600">
-                    {formatMoney(preview.fee_total_with_vat)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
-
       {/* Auth doc */}
       <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
         <h3 className="font-headline text-[14px] font-bold text-slate-800">

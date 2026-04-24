@@ -27,20 +27,6 @@ const TIER_COLORS: Record<string, string> = {
   full_dossier: "bg-red-100 text-red-600",
 };
 
-const FEE_LABELS: Record<string, string> = {
-  none: "Không áp dụng",
-  pending: "Chờ thanh toán",
-  paid: "Đã thanh toán",
-  waived: "Miễn phí",
-};
-
-const FEE_COLORS: Record<string, string> = {
-  none: "bg-slate-100 text-slate-500",
-  pending: "bg-amber-100 text-amber-700",
-  paid: "bg-emerald-100 text-emerald-700",
-  waived: "bg-indigo-100 text-indigo-700",
-};
-
 function fmtMoney(n: number): string {
   return n.toLocaleString("vi-VN") + "₫";
 }
@@ -78,21 +64,20 @@ export default function AdminCampaignsPage() {
               <th className="px-4 py-3 text-left">Hình thức</th>
               <th className="px-4 py-3 text-left">Mức duyệt</th>
               <th className="px-4 py-3 text-right">Dự toán</th>
-              <th className="px-4 py-3 text-left">Phí DV</th>
               <th className="px-4 py-3 text-left">Bắt đầu</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                   Đang tải...
                 </td>
               </tr>
             )}
             {!isLoading && campaigns.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                   Không có chiến dịch chờ duyệt.
                 </td>
               </tr>
@@ -127,13 +112,6 @@ export default function AdminCampaignsPage() {
                 </td>
                 <td className="px-4 py-3 text-right font-medium text-slate-700">
                   {fmtMoney(c.estimated_cost)}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${FEE_COLORS[c.service_fee_status] ?? "bg-slate-100 text-slate-500"}`}
-                  >
-                    {FEE_LABELS[c.service_fee_status] ?? c.service_fee_status}
-                  </span>
                 </td>
                 <td className="px-4 py-3 text-slate-600">{fmtDate(c.starts_at)}</td>
               </tr>

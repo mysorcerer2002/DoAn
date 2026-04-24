@@ -37,13 +37,6 @@ const TIER_LABELS: Record<string, string> = {
   full_dossier: "Hồ sơ đầy đủ",
 };
 
-const FEE_LABELS: Record<string, string> = {
-  none: "Không áp dụng",
-  pending: "Chờ thanh toán",
-  paid: "Đã thanh toán",
-  waived: "Miễn phí",
-};
-
 const PROGRAM_FORM_LABELS: Record<string, string> = {
   giam_gia: "Giảm giá",
   tang_kem: "Tặng kèm",
@@ -299,21 +292,7 @@ export default function AdminCampaignDetailPage() {
         </p>
       </section>
 
-      {/* Section 3: Phí dịch vụ */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-bold text-slate-700 uppercase tracking-wide">
-          Phí dịch vụ
-        </h2>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-          <InfoRow label="Tổng phí" value={fmtMoney(campaign.service_fee_total)} />
-          <InfoRow
-            label="Trạng thái phí"
-            value={FEE_LABELS[campaign.service_fee_status] ?? campaign.service_fee_status}
-          />
-        </div>
-      </section>
-
-      {/* Section 4: Hồ sơ pháp lý */}
+      {/* Section 3: Hồ sơ pháp lý */}
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
         <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
           Hồ sơ pháp lý
