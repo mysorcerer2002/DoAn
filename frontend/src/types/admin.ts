@@ -75,8 +75,6 @@ export interface PendingCampaignRow {
   approval_status: string; // pending | auto_approved | approved | rejected | draft
   approval_tier: string; // none | notify_so_ct | dang_ky_so_ct | full_dossier
   estimated_cost: number;
-  service_fee_total: number;
-  service_fee_status: string; // none | pending | paid | waived
   starts_at: string;
   ends_at: string;
   authorization_id: number | null;
@@ -94,8 +92,6 @@ export interface AdminCampaignDetailResponse {
   approval_tier: string;
   estimated_cost: number;
   realized_cost: number;
-  service_fee_total: number;
-  service_fee_status: string;
   starts_at: string;
   ends_at: string;
   authorization_id: number | null;

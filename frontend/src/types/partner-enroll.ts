@@ -60,7 +60,6 @@ export interface CampaignEnrollPreview {
   program_form: string;
   approval_tier: string;
   estimated_cost: number;
-  service_fee_enabled: boolean;
   fees: FeePreviewItem[];
   fee_total_pre_vat: number;
   fee_vat_total: number;
@@ -95,7 +94,6 @@ export interface AuthorizationSignResponse {
   authorization_id: number;
   approval_status: string;
   approval_tier: string;
-  service_fee_status: string;
 }
 
 // ==================== Authorization list/detail ====================
@@ -147,23 +145,3 @@ export interface PartnerAuthorizationDetail {
   retention_until: string;
 }
 
-// ==================== Service fees ====================
-
-export interface CampaignServiceFee {
-  id: number;
-  campaign_id: number;
-  fee_type: string;
-  amount: number;
-  vat_rate: string;
-  vat_amount: number;
-  total_with_vat: number;
-  description: string;
-  status: string;
-  invoiced_at: string | null;
-  paid_at: string | null;
-  invoice_reference: string | null;
-  e_invoice_provider: string;
-  refund_requested_at: string | null;
-  refunded_at: string | null;
-  refund_reason: string | null;
-}

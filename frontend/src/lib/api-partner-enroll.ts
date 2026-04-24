@@ -3,7 +3,6 @@ import type {
   AuthorizationOtpResponse,
   AuthorizationSignResponse,
   CampaignEnrollPreview,
-  CampaignServiceFee,
   CampaignTemplatePublic,
   EnrollFormInput,
   PartnerAuthorizationDetail,
@@ -48,11 +47,3 @@ export const authorizationsApi = {
     ),
 };
 
-// ==================== Campaign service fees ====================
-
-export const campaignFeesApi = {
-  listForCampaign: (campaignId: number) =>
-    api.get<CampaignServiceFee[]>(
-      `/partner/campaigns/${campaignId}/service-fees`,
-    ),
-};

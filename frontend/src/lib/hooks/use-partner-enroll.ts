@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   authorizationsApi,
-  campaignFeesApi,
   enrollmentApi,
 } from "@/lib/api-partner-enroll";
 import { usePartnerStore } from "@/lib/partner-store";
@@ -97,13 +96,3 @@ export function useRevokeAuthorization() {
   });
 }
 
-// ==================== Service fees ====================
-
-export function useCampaignServiceFees(campaignId: number | null) {
-  const partnerId = usePartnerId();
-  return useQuery({
-    queryKey: ["partner", "service-fees", partnerId, campaignId],
-    queryFn: async () => (await campaignFeesApi.listForCampaign(campaignId!)).data,
-    enabled: partnerId != null && campaignId != null,
-  });
-}
