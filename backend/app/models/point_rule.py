@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, Numeric
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, Numeric, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -20,6 +20,11 @@ class PointRule(Base, TimestampMixin):
         Integer, nullable=False, default=1000
     )
     min_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    use_tiers: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=text("false"),
+        nullable=False,
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     __table_args__ = (
