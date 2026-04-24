@@ -44,7 +44,7 @@ export function useUpdatePartnerTransaction() {
       payload: TransactionUpdateRequest;
     }) => transactionsApi.update(id, payload).then((r) => r.data),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["partner", "transactions", "list"] });
+      qc.invalidateQueries({ queryKey: ["partner", "transactions"] });
       qc.invalidateQueries({ queryKey: ["partner", "transaction", vars.id] });
     },
   });
