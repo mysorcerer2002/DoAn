@@ -14,7 +14,7 @@ class QrTokenResponse(BaseModel):
 class CheckinResponse(BaseModel):
     """Response từ GET /member/checkin — thông tin shop + membership status."""
 
-    tenant_id: int
+    partner_id: int
     tenant_slug: str
     tenant_name: str
     is_member: bool

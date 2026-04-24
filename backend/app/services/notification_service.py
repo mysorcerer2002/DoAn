@@ -14,7 +14,7 @@ class NotificationService:
         self,
         *,
         user_id: int,
-        tenant_id: int | None = None,
+        partner_id: int | None = None,
         type: str,
         title: str,
         body: str | None = None,
@@ -23,7 +23,7 @@ class NotificationService:
         """Tạo notification mới cho user."""
         notif = Notification(
             user_id=user_id,
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             type=type,
             title=title,
             body=body,

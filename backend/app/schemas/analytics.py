@@ -48,7 +48,7 @@ class DashboardResponse(BaseModel):
     campaign_roi: list[CampaignRoiPoint]
 
 
-class TenantDetailStats(BaseModel):
+class PartnerDetailStats(BaseModel):
     """Stats cho trang chi tiết tenant (admin)."""
 
     member_count: int
@@ -56,7 +56,7 @@ class TenantDetailStats(BaseModel):
     total_revenue: int
 
 
-class TenantDetailResponse(BaseModel):
+class PartnerDetailResponse(BaseModel):
     """Phản hồi chi tiết tenant cho admin."""
 
     id: int
@@ -90,11 +90,11 @@ class TenantDetailResponse(BaseModel):
     reward_count: int
 
 
-class AdminTenantListRow(BaseModel):
+class AdminPartnerListRow(BaseModel):
     """Row cho /admin/tenants: đã kèm metric + owner để tránh N+1 ở FE.
 
     `active_member_count`: membership với `archived_at IS NULL` (semantic
-    giống `TenantDetailResponse.active_member_count`). `active_member_count_30d`:
+    giống `PartnerDetailResponse.active_member_count`). `active_member_count_30d`:
     khách có giao dịch trong 30 ngày gần nhất — tham gia "active shop" tag.
     """
 
@@ -116,7 +116,7 @@ class AdminTenantListRow(BaseModel):
     staff_count: int
 
 
-class AdminTenantStaffRow(BaseModel):
+class AdminPartnerStaffRow(BaseModel):
     """Nhân viên/owner của một tenant."""
 
     user_id: int
@@ -128,7 +128,7 @@ class AdminTenantStaffRow(BaseModel):
     is_active: bool
 
 
-class AdminTenantMemberRow(BaseModel):
+class AdminPartnerMemberRow(BaseModel):
     """Khách hàng của một tenant."""
 
     membership_id: int

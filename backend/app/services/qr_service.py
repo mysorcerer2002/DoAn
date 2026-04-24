@@ -21,13 +21,13 @@ class QrService:
         return sign_qr_jwt(user_id=user_id)
 
     async def decode_qr_payload(
-        self, *, payload: str, tenant_id: int
+        self, *, payload: str, partner_id: int
     ) -> int:
         """Decode QR payload → user_id.
 
         Args:
             payload: Có thể là JWT (chuỗi dài) hoặc fallback_code (8 ký tự)
-            tenant_id: Tenant context để lookup candidate user_ids cho fallback
+            partner_id: Partner context để lookup candidate user_ids cho fallback
 
         Returns:
             user_id
@@ -44,7 +44,7 @@ class QrService:
             (
                 await self.db.scalars(
                     select(Membership.user_id).where(
-                        Membership.tenant_id == tenant_id
+                        Membership.partner_id == partner_id
                     )
                 )
             ).all()

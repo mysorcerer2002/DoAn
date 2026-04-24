@@ -24,10 +24,10 @@ class CampaignService:
         self.db = db
 
     async def create_campaign(
-        self, *, tenant_id: int, request: CampaignCreateRequest
+        self, *, partner_id: int, request: CampaignCreateRequest
     ) -> Campaign:
         campaign = Campaign(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             name=request.name,
             description=request.description,
             discount_type=request.discount_type,
@@ -49,11 +49,11 @@ class CampaignService:
         await self.db.flush()
         return campaign
 
-    async def get_campaign(self, *, tenant_id: int, campaign_id: int) -> Campaign:
+    async def get_campaign(self, *, partner_id: int, campaign_id: int) -> Campaign:
         campaign = await self.db.scalar(
             select(Campaign).where(
                 Campaign.id == campaign_id,
-                Campaign.tenant_id == tenant_id,
+                Campaign.partner_id == partner_id,
                 Campaign.deleted_at.is_(None),
             )
         )
@@ -64,14 +64,14 @@ class CampaignService:
     async def list_campaigns(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         active_only: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> list[Campaign]:
         stmt = (
             select(Campaign)
-            .where(Campaign.tenant_id == tenant_id, Campaign.deleted_at.is_(None))
+            .where(Campaign.partner_id == partner_id, Campaign.deleted_at.is_(None))
             .order_by(Campaign.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -124,13 +124,13 @@ class CampaignService:
     async def list_campaigns_with_stats(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         active_only: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> list[tuple[Campaign, int, int, int]]:
         campaigns = await self.list_campaigns(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             active_only=active_only,
             limit=limit,
             offset=offset,
@@ -143,20 +143,20 @@ class CampaignService:
         ]
 
     async def get_campaign_with_stats(
-        self, *, tenant_id: int, campaign_id: int
+        self, *, partner_id: int, campaign_id: int
     ) -> tuple[Campaign, int, int, int]:
         campaign = await self.get_campaign(
-            tenant_id=tenant_id, campaign_id=campaign_id
+            partner_id=partner_id, campaign_id=campaign_id
         )
         stats_map = await self._compute_stats_for_campaigns([campaign.id])
         used, discount, revenue = stats_map.get(campaign.id, (0, 0, 0))
         return campaign, used, discount, revenue
 
     async def update_campaign(
-        self, *, tenant_id: int, campaign_id: int, request: CampaignUpdateRequest
+        self, *, partner_id: int, campaign_id: int, request: CampaignUpdateRequest
     ) -> Campaign:
         campaign = await self.get_campaign(
-            tenant_id=tenant_id, campaign_id=campaign_id
+            partner_id=partner_id, campaign_id=campaign_id
         )
         update_data = request.model_dump(exclude_unset=True)
         for field, value in update_data.items():
@@ -165,10 +165,10 @@ class CampaignService:
         return campaign
 
     async def soft_delete_campaign(
-        self, *, tenant_id: int, campaign_id: int
+        self, *, partner_id: int, campaign_id: int
     ) -> Campaign:
         campaign = await self.get_campaign(
-            tenant_id=tenant_id, campaign_id=campaign_id
+            partner_id=partner_id, campaign_id=campaign_id
         )
         campaign.deleted_at = datetime.now(timezone.utc)
         campaign.is_active = False
@@ -176,11 +176,11 @@ class CampaignService:
         return campaign
 
     async def get_campaign_roi(
-        self, *, tenant_id: int, campaign_id: int
+        self, *, partner_id: int, campaign_id: int
     ) -> CampaignRoiResponse:
         """Tính ROI của campaign: vouchers issued/used, tổng discount, tổng revenue."""
         campaign = await self.get_campaign(
-            tenant_id=tenant_id, campaign_id=campaign_id
+            partner_id=partner_id, campaign_id=campaign_id
         )
 
         vouchers_issued = await self.db.scalar(

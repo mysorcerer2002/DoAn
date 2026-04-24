@@ -33,8 +33,8 @@ from app.models.campaign_approval_event import (
 from app.models.campaign_fee_schedule import CampaignFeeSchedule
 from app.models.campaign_service_fee import CampaignServiceFee, FeeStatus
 from app.models.campaign_template import CampaignTemplate
-from app.models.tenant import Tenant
-from app.models.tenant_authorization import TenantAuthorization
+from app.models.partner import Partner
+from app.models.partner_authorization import PartnerAuthorization
 from app.models.user import User
 from app.schemas.campaign_enrollment import (
     AuthorizationSignResponse,
@@ -89,7 +89,7 @@ def form_commitment(form: EnrollFormInput) -> str:
 
 def _render_auth_doc(
     *,
-    tenant: Tenant,
+    partner: Partner,
     user: User,
     campaign_name: str,
     estimated_cost: int,
@@ -108,7 +108,7 @@ def _render_auth_doc(
         f"GIẤY UỶ QUYỀN ĐIỆN TỬ\n"
         f"Phiên bản: {consent_version}\n"
         f"Căn cứ Điều 562-569 Bộ luật Dân sự 2015.\n\n"
-        f"Bên uỷ quyền (Bên A): {tenant.name} — {tenant.address or ''}\n"
+        f"Bên uỷ quyền (Bên A): {partner.name} — {partner.address or ''}\n"
         f"Đại diện: {user.full_name or user.email or user.phone or ''}\n\n"
         f"Bên nhận uỷ quyền (Bên B): Công ty TNHH Loyalty Platform\n\n"
         f"1. Phạm vi uỷ quyền: Bên A uỷ quyền Bên B thay mặt thực hiện "
@@ -292,7 +292,7 @@ class CampaignEnrollmentService:
     async def preview(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         user_id: int,
         form: EnrollFormInput,
     ) -> CampaignEnrollPreviewResponse:
@@ -305,14 +305,14 @@ class CampaignEnrollmentService:
         )
         fees, pre_vat, vat_total, total = await self._compute_fees(approval_tier)
 
-        tenant = await self.db.get(Tenant, tenant_id)
+        partner = await self.db.get(Partner, partner_id)
         user = await self.db.get(User, user_id)
-        if tenant is None or user is None:
-            raise EnrollmentError("tenant/user không tồn tại")
+        if partner is None or user is None:
+            raise EnrollmentError("đối tác/user không tồn tại")
 
         settings = get_settings()
         auth_doc_text = _render_auth_doc(
-            tenant=tenant,
+            partner=partner,
             user=user,
             campaign_name=form.name,
             estimated_cost=estimated_cost,
@@ -341,7 +341,7 @@ class CampaignEnrollmentService:
     async def sign_and_enroll(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         user_id: int,
         form: EnrollFormInput,
         client_ip: str | None,
@@ -360,7 +360,7 @@ class CampaignEnrollmentService:
 
         # Re-compute preview để đảm bảo hash + tier không bị tampered.
         preview = await self.preview(
-            tenant_id=tenant_id, user_id=user_id, form=form
+            partner_id=partner_id, user_id=user_id, form=form
         )
         template = await self._load_template(form.template_id)
 
@@ -403,7 +403,7 @@ class CampaignEnrollmentService:
             else template.discount_type
         )
         campaign = Campaign(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             name=form.name,
             description=form.description,
             terms=form.terms,
@@ -462,8 +462,8 @@ class CampaignEnrollmentService:
             "template_version": preview.template_version,
             "signed_at_server": now.isoformat(),
         }
-        authorization = TenantAuthorization(
-            tenant_id=tenant_id,
+        authorization = PartnerAuthorization(
+            partner_id=partner_id,
             scope="per_campaign",
             campaign_id=campaign.id,
             document_content_hash=preview.auth_doc_hash,
@@ -488,7 +488,7 @@ class CampaignEnrollmentService:
             for item in preview.fees:
                 fee = CampaignServiceFee(
                     campaign_id=campaign.id,
-                    tenant_id=tenant_id,
+                    partner_id=partner_id,
                     fee_type=item.fee_type,
                     amount=item.base_amount,
                     description=item.description,

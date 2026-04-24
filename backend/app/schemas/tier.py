@@ -18,7 +18,7 @@ class TierUpdateRequest(BaseModel):
 
 class TierResponse(BaseModel):
     id: int
-    tenant_id: int
+    partner_id: int
     name: str
     min_points: int
     perks: dict

@@ -9,7 +9,7 @@ class PendingCampaignRow(BaseModel):
     # Build thủ công từ tuple `(Campaign, tenant_name)` — không cần
     # from_attributes.
     id: int
-    tenant_id: int
+    partner_id: int
     tenant_name: str
     name: str
     program_form: str
@@ -31,7 +31,7 @@ class AdminCampaignDetailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    tenant_id: int
+    partner_id: int
     name: str
     description: str | None
     program_form: str
@@ -90,7 +90,7 @@ class RejectCampaignRequest(BaseModel):
 class OverdueReportRow(BaseModel):
     # Build thủ công từ `(Campaign, tenant_name, days_overdue)`.
     id: int
-    tenant_id: int
+    partner_id: int
     tenant_name: str
     name: str
     approval_tier: str

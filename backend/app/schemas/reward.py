@@ -24,7 +24,7 @@ class RewardUpdateRequest(BaseModel):
 
 class RewardResponse(BaseModel):
     id: int
-    tenant_id: int
+    partner_id: int
     name: str
     description: str | None
     image_url: str | None

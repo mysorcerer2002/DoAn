@@ -45,7 +45,7 @@ class CampaignUpdateRequest(BaseModel):
 
 class CampaignResponse(BaseModel):
     id: int
-    tenant_id: int
+    partner_id: int
     name: str
     description: str | None
     terms: str | None = None

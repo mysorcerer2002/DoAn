@@ -52,60 +52,60 @@ async def get_current_user(
     return user
 
 
-def extract_tenant_id_from_header(x_tenant_id: str | None) -> int:
-    """Đọc và validate header X-Tenant-Id thành int.
+def extract_partner_id_from_header(x_partner_id: str | None) -> int:
+    """Đọc và validate header X-Partner-Id thành int.
 
     Raises HTTPException(400) nếu thiếu hoặc không phải int dương.
     """
-    if x_tenant_id is None or x_tenant_id.strip() == "":
+    if x_partner_id is None or x_partner_id.strip() == "":
         raise HTTPException(
             status_code=400,
-            detail="Missing X-Tenant-Id header",
+            detail="Missing X-Partner-Id header",
         )
     try:
-        tenant_id = int(x_tenant_id)
+        partner_id = int(x_partner_id)
     except ValueError as e:
         raise HTTPException(
             status_code=400,
-            detail="X-Tenant-Id must be a positive integer",
+            detail="X-Partner-Id must be a positive integer",
         ) from e
-    if tenant_id <= 0:
+    if partner_id <= 0:
         raise HTTPException(
             status_code=400,
-            detail="X-Tenant-Id must be a positive integer",
+            detail="X-Partner-Id must be a positive integer",
         )
-    return tenant_id
+    return partner_id
 
 
-async def get_tenant_id(
-    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+async def get_partner_id(
+    x_partner_id: str | None = Header(default=None, alias="X-Partner-Id"),
 ) -> int:
-    """FastAPI dependency: đọc X-Tenant-Id header và return int.
+    """FastAPI dependency: đọc X-Partner-Id header và return int.
 
-    Dùng cho endpoints /merchant/* và /pos/* cần biết tenant context.
+    Dùng cho endpoints /partner/* và /pos/* cần biết partner context.
     """
-    return extract_tenant_id_from_header(x_tenant_id)
+    return extract_partner_id_from_header(x_partner_id)
 
 
-async def get_verified_tenant_id(
-    tenant_id: int = Depends(get_tenant_id),
+async def get_verified_partner_id(
+    partner_id: int = Depends(get_partner_id),
     db: AsyncSession = Depends(get_db),
 ) -> int:
-    """Dependency: verify tenant tồn tại và đang active trong DB.
+    """Dependency: verify partner tồn tại và đang active trong DB.
 
-    Dùng thay get_tenant_id cho public/member endpoints không qua role check.
+    Dùng thay get_partner_id cho public/member endpoints không qua role check.
     """
-    from app.models.tenant import Tenant, TenantStatus
+    from app.models.partner import Partner, PartnerStatus
 
-    tenant = await db.get(Tenant, tenant_id)
-    if tenant is None:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    if tenant.status != TenantStatus.ACTIVE:
+    partner = await db.get(Partner, partner_id)
+    if partner is None:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    if partner.status != PartnerStatus.ACTIVE:
         raise HTTPException(
             status_code=403,
-            detail=f"Tenant is {tenant.status}, not active",
+            detail=f"Partner is {partner.status}, not active",
         )
-    return tenant_id
+    return partner_id
 
 
 async def require_super_admin(
@@ -120,11 +120,11 @@ async def require_super_admin(
     return user
 
 
-async def get_current_tenant_role(
+async def get_current_partner_role(
     user: User = Depends(get_current_user),
-    tenant_id: int = Depends(get_tenant_id),
+    partner_id: int = Depends(get_partner_id),
     db: AsyncSession = Depends(get_db),
-) -> "TenantStaffRole":
+) -> "PartnerStaffRole":
     """Lấy role của current user trong current tenant.
 
     1. Lookup cache (TTL 60s)
@@ -133,42 +133,42 @@ async def get_current_tenant_role(
     """
     from sqlalchemy import select as sa_select
 
-    from app.core.tenant_cache import tenant_role_cache
-    from app.models.tenant_staff import TenantStaff, TenantStaffRole
+    from app.core.partner_cache import partner_role_cache
+    from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 
-    cached = tenant_role_cache.get(user_id=user.id, tenant_id=tenant_id)
+    cached = partner_role_cache.get(user_id=user.id, partner_id=partner_id)
     if cached is not None:
-        return TenantStaffRole(cached)
+        return PartnerStaffRole(cached)
 
     staff = await db.scalar(
-        sa_select(TenantStaff).where(
-            TenantStaff.tenant_id == tenant_id,
-            TenantStaff.user_id == user.id,
+        sa_select(PartnerStaff).where(
+            PartnerStaff.partner_id == partner_id,
+            PartnerStaff.user_id == user.id,
         )
     )
     if staff is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied for this tenant",
+            detail="Access denied for this partner",
         )
-    tenant_role_cache.set(user_id=user.id, tenant_id=tenant_id, role=staff.role)
+    partner_role_cache.set(user_id=user.id, partner_id=partner_id, role=staff.role)
     return staff.role
 
 
-async def require_staff_in_tenant(
-    role: "TenantStaffRole" = Depends(get_current_tenant_role),
-) -> "TenantStaffRole":
+async def require_staff_in_partner(
+    role: "PartnerStaffRole" = Depends(get_current_partner_role),
+) -> "PartnerStaffRole":
     """Dependency: user phải là staff hoặc owner của tenant."""
     return role
 
 
-async def require_owner_in_tenant(
-    role: "TenantStaffRole" = Depends(get_current_tenant_role),
-) -> "TenantStaffRole":
+async def require_owner_in_partner(
+    role: "PartnerStaffRole" = Depends(get_current_partner_role),
+) -> "PartnerStaffRole":
     """Dependency: user phải là owner của tenant."""
-    from app.models.tenant_staff import TenantStaffRole
+    from app.models.partner_staff import PartnerStaffRole
 
-    if role != TenantStaffRole.OWNER:
+    if role != PartnerStaffRole.OWNER:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Owner access required",
@@ -176,9 +176,9 @@ async def require_owner_in_tenant(
     return role
 
 
-async def require_customer_in_tenant(
+async def require_customer_in_partner(
     user: User = Depends(get_current_user),
-    tenant_id: int = Depends(get_tenant_id),
+    partner_id: int = Depends(get_partner_id),
     db: AsyncSession = Depends(get_db),
 ):
     """Dependency: user phải là member của tenant (có row trong memberships).
@@ -192,14 +192,14 @@ async def require_customer_in_tenant(
 
     membership = await db.scalar(
         sa_select(Membership).where(
-            Membership.tenant_id == tenant_id,
+            Membership.partner_id == partner_id,
             Membership.user_id == user.id,
         )
     )
     if membership is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a member of this tenant",
+            detail="Not a member of this partner",
         )
     return membership
 

@@ -1,4 +1,4 @@
-"""Schemas cho tenant_authorization + campaign_service_fee ở merchant API.
+"""Schemas cho partner_authorization + campaign_service_fee ở merchant API.
 
 Phase 7 plan voucher rebuild v2.2.
 """
@@ -51,7 +51,7 @@ class TenantAuthorizationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    tenant_id: int
+    partner_id: int
     scope: str
     campaign_id: int | None
     document_content_hash: str

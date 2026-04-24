@@ -44,10 +44,10 @@ async def _overdue_logic() -> dict:
     for c in rows:
         overdue_days = (now - c.post_report_due_at).days
         logger.warning(
-            "Campaign #%d (tenant=%d) quá hạn báo cáo kết thúc %d ngày "
+            "Campaign #%d (partner=%d) quá hạn báo cáo kết thúc %d ngày "
             "(due=%s, name=%s)",
             c.id,
-            c.tenant_id,
+            c.partner_id,
             overdue_days,
             c.post_report_due_at,
             c.name,

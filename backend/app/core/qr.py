@@ -147,18 +147,18 @@ def verify_fallback_code_with_candidates(
     raise InvalidQRError("Fallback code does not match any known user")
 
 
-def sign_shop_token(tenant_id: int) -> str:
-    """Sinh shop_token = HMAC(secret, f"shop|{tenant_id}") truncate 16 chars.
+def sign_shop_token(partner_id: int) -> str:
+    """Sinh shop_token = HMAC(secret, f"shop|{partner_id}") truncate 16 chars.
 
     Static token (không có TTL) — chỉ verify QR shop thật trong hệ thống.
     """
     settings = get_settings()
-    msg = f"shop|{tenant_id}".encode()
+    msg = f"shop|{partner_id}".encode()
     digest = hmac.new(settings.qr_secret.encode(), msg, hashlib.sha256).digest()
     return digest.hex()[:16]
 
 
-def verify_shop_token(tenant_id: int, token: str) -> bool:
+def verify_shop_token(partner_id: int, token: str) -> bool:
     """Verify shop HMAC token."""
-    expected = sign_shop_token(tenant_id)
+    expected = sign_shop_token(partner_id)
     return hmac.compare_digest(expected, token)

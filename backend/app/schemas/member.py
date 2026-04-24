@@ -9,7 +9,7 @@ class MemberLookupRequest(BaseModel):
 
 class MemberResponse(BaseModel):
     membership_id: int
-    tenant_id: int
+    partner_id: int
     user_id: int
     user_phone: str | None
     user_full_name: str | None

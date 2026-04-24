@@ -2,16 +2,16 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.tenant import TenantCategory, TenantStatus
+from app.models.partner import PartnerCategory, PartnerStatus
 
 
-class TenantCreateRequest(BaseModel):
-    """Owner đăng ký doanh nghiệp."""
+class PartnerCreateRequest(BaseModel):
+    """Owner đăng ký đối tác."""
 
     name: str = Field(min_length=2, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     logo_url: str | None = Field(default=None, max_length=500)
-    category: TenantCategory = Field(default=TenantCategory.OTHER)
+    category: PartnerCategory = Field(default=PartnerCategory.OTHER)
     contact_phone: str | None = Field(default=None, max_length=20)
     contact_email: str | None = Field(default=None, max_length=255)
     address: str | None = Field(default=None, max_length=500)
@@ -20,13 +20,13 @@ class TenantCreateRequest(BaseModel):
     business_hours: str | None = Field(default=None, max_length=255)
 
 
-class TenantUpdateRequest(BaseModel):
-    """Owner cập nhật thông tin tenant (PATCH)."""
+class PartnerUpdateRequest(BaseModel):
+    """Owner cập nhật thông tin đối tác (PATCH)."""
 
     name: str | None = Field(default=None, min_length=2, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     logo_url: str | None = Field(default=None, max_length=500)
-    category: TenantCategory | None = None
+    category: PartnerCategory | None = None
     contact_phone: str | None = Field(default=None, max_length=20)
     contact_email: str | None = Field(default=None, max_length=255)
     address: str | None = Field(default=None, max_length=500)
@@ -35,15 +35,15 @@ class TenantUpdateRequest(BaseModel):
     business_hours: str | None = Field(default=None, max_length=255)
 
 
-class TenantResponse(BaseModel):
+class PartnerResponse(BaseModel):
     """Trả cho owner/staff (đầy đủ thông tin)."""
 
     id: int
     name: str
     slug: str
     owner_user_id: int
-    status: TenantStatus
-    category: TenantCategory
+    status: PartnerStatus
+    category: PartnerCategory
     logo_url: str | None
     description: str | None
     contact_phone: str | None
@@ -59,13 +59,13 @@ class TenantResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class TenantPublicResponse(BaseModel):
+class PartnerPublicResponse(BaseModel):
     """Trả cho khách hàng cuối browse danh sách shop public."""
 
     id: int
     name: str
     slug: str
-    category: TenantCategory
+    category: PartnerCategory
     logo_url: str | None
     description: str | None
     contact_phone: str | None
@@ -77,19 +77,19 @@ class TenantPublicResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class TenantApprovalRequest(BaseModel):
+class PartnerApprovalRequest(BaseModel):
     """Super Admin approve/reject."""
 
     approve: bool
     reason: str | None = Field(default=None, max_length=500)
 
 
-class TenantStaffSummary(BaseModel):
-    """Tenant snapshot mà current user là staff. Frontend dùng để pick shop."""
+class PartnerStaffSummary(BaseModel):
+    """Partner snapshot mà current user là staff. Frontend dùng để pick shop."""
 
     id: int
     name: str
     slug: str
     logo_url: str | None = None
-    status: TenantStatus
-    role: str  # owner | staff (TenantStaffRole.value)
+    status: PartnerStatus
+    role: str  # owner | staff (PartnerStaffRole.value)

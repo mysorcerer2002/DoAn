@@ -40,7 +40,7 @@ class RedemptionService:
     async def redeem(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         membership_id: int,
         reward_id: int,
         ttl_days: int = 14,
@@ -51,12 +51,12 @@ class RedemptionService:
             select(Membership)
             .where(
                 Membership.id == membership_id,
-                Membership.tenant_id == tenant_id,
+                Membership.partner_id == partner_id,
             )
             .with_for_update()
         )
         if membership is None:
-            raise ValueError(f"Membership {membership_id} not in tenant {tenant_id}")
+            raise ValueError(f"Membership {membership_id} not in partner {partner_id}")
 
         # 2. Get reward — FOR UPDATE để khoá points_cost/is_active/deleted_at
         # khỏi admin edit concurrent (lock order: memberships → rewards, đúng spec 6.1).
@@ -64,7 +64,7 @@ class RedemptionService:
             select(Reward)
             .where(
                 Reward.id == reward_id,
-                Reward.tenant_id == tenant_id,
+                Reward.partner_id == partner_id,
                 Reward.is_active.is_(True),
                 Reward.deleted_at.is_(None),
             )
@@ -99,7 +99,7 @@ class RedemptionService:
             candidate = _generate_code()
             existing = await self.db.scalar(
                 select(Redemption.id).where(
-                    Redemption.tenant_id == tenant_id,
+                    Redemption.partner_id == partner_id,
                     Redemption.redemption_code == candidate,
                 )
             )
@@ -112,7 +112,7 @@ class RedemptionService:
             )
 
         redemption = Redemption(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             membership_id=membership_id,
             reward_id=reward_id,
             points_spent=reward.points_cost,
@@ -135,7 +135,7 @@ class RedemptionService:
         # 7. Insert ledger
         ledger_svc = LedgerService(self.db)
         await ledger_svc.log_entry(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             membership_id=membership_id,
             delta=-reward.points_cost,
             reason=LedgerReason.REDEEM,
@@ -149,12 +149,12 @@ class RedemptionService:
         return redemption
 
     async def use_redemption(
-        self, *, tenant_id: int, code: str, staff_id: int
+        self, *, partner_id: int, code: str, staff_id: int
     ) -> Redemption:
         """Nhân viên xác nhận sử dụng mã đổi quà."""
         redemption = await self.db.scalar(
             select(Redemption).where(
-                Redemption.tenant_id == tenant_id,
+                Redemption.partner_id == partner_id,
                 Redemption.redemption_code == code,
                 Redemption.status == RedemptionStatus.PENDING,
             ).with_for_update()
@@ -174,12 +174,12 @@ class RedemptionService:
         return redemption
 
     async def list_my_redemptions(
-        self, *, tenant_id: int, membership_id: int
+        self, *, partner_id: int, membership_id: int
     ) -> list[Redemption]:
         rows = await self.db.scalars(
             select(Redemption)
             .where(
-                Redemption.tenant_id == tenant_id,
+                Redemption.partner_id == partner_id,
                 Redemption.membership_id == membership_id,
             )
             .order_by(Redemption.redeemed_at.desc())
@@ -187,11 +187,11 @@ class RedemptionService:
         return list(rows.all())
 
     async def list_tenant_redemptions(
-        self, *, tenant_id: int, limit: int = 50, offset: int = 0
+        self, *, partner_id: int, limit: int = 50, offset: int = 0
     ) -> list[Redemption]:
         rows = await self.db.scalars(
             select(Redemption)
-            .where(Redemption.tenant_id == tenant_id)
+            .where(Redemption.partner_id == partner_id)
             .order_by(Redemption.redeemed_at.desc())
             .limit(limit)
             .offset(offset)

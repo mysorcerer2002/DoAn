@@ -17,7 +17,7 @@ class UseRedemptionRequest(BaseModel):
 
 class RedemptionResponse(BaseModel):
     id: int
-    tenant_id: int
+    partner_id: int
     membership_id: int
     reward_id: int
     points_spent: int

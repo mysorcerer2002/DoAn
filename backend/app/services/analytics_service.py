@@ -59,16 +59,16 @@ class AnalyticsService:
         self.db = db
 
     async def get_dashboard(
-        self, *, tenant_id: int, from_date: date, to_date: date
+        self, *, partner_id: int, from_date: date, to_date: date
     ) -> DashboardResponse:
-        member_count = await self._count_members(tenant_id)
-        txn_stats = await self._transaction_stats(tenant_id, from_date, to_date)
+        member_count = await self._count_members(partner_id)
+        txn_stats = await self._transaction_stats(partner_id, from_date, to_date)
         redemption_count = await self._redemption_count(
-            tenant_id, from_date, to_date
+            partner_id, from_date, to_date
         )
-        daily = await self._daily_transactions(tenant_id, from_date, to_date)
-        tier_dist = await self._tier_distribution(tenant_id)
-        campaign_roi = await self._campaign_roi(tenant_id, from_date, to_date)
+        daily = await self._daily_transactions(partner_id, from_date, to_date)
+        tier_dist = await self._tier_distribution(partner_id)
+        campaign_roi = await self._campaign_roi(partner_id, from_date, to_date)
 
         # redemption_rate = redemptions / transactions (% giao dịch có đổi quà)
         if txn_stats["count"] > 0:
@@ -89,14 +89,14 @@ class AnalyticsService:
             campaign_roi=campaign_roi,
         )
 
-    async def _count_members(self, tenant_id: int) -> int:
+    async def _count_members(self, partner_id: int) -> int:
         """Đếm thành viên active (chưa archived)."""
         return int(
             await self.db.scalar(
                 select(func.count())
                 .select_from(Membership)
                 .where(
-                    Membership.tenant_id == tenant_id,
+                    Membership.partner_id == partner_id,
                     Membership.archived_at.is_(None),
                 )
             )
@@ -104,7 +104,7 @@ class AnalyticsService:
         )
 
     async def _transaction_stats(
-        self, tenant_id: int, from_date: date, to_date: date
+        self, partner_id: int, from_date: date, to_date: date
     ) -> dict:
         """Tổng số giao dịch + doanh thu trong khoảng thời gian."""
         from_dt, to_dt_excl = _date_range_to_utc(from_date, to_date)
@@ -113,7 +113,7 @@ class AnalyticsService:
                 func.count(Transaction.id),
                 func.coalesce(func.sum(Transaction.net_amount), 0),
             ).where(
-                Transaction.tenant_id == tenant_id,
+                Transaction.partner_id == partner_id,
                 Transaction.created_at >= from_dt,
                 Transaction.created_at < to_dt_excl,
             )
@@ -122,7 +122,7 @@ class AnalyticsService:
         return {"count": int(count), "revenue": int(revenue)}
 
     async def _redemption_count(
-        self, tenant_id: int, from_date: date, to_date: date
+        self, partner_id: int, from_date: date, to_date: date
     ) -> int:
         """Đếm lượt đổi quà trong khoảng thời gian (loại EXPIRED — voucher hết hạn không tính)."""
         from app.models.redemption import RedemptionStatus
@@ -133,7 +133,7 @@ class AnalyticsService:
                 select(func.count())
                 .select_from(Redemption)
                 .where(
-                    Redemption.tenant_id == tenant_id,
+                    Redemption.partner_id == partner_id,
                     Redemption.redeemed_at >= from_dt,
                     Redemption.redeemed_at < to_dt_excl,
                     Redemption.status != RedemptionStatus.EXPIRED,
@@ -143,7 +143,7 @@ class AnalyticsService:
         )
 
     async def _daily_transactions(
-        self, tenant_id: int, from_date: date, to_date: date
+        self, partner_id: int, from_date: date, to_date: date
     ) -> list[DailyTransactionPoint]:
         """Giao dịch theo ngày (timezone VN)."""
         from_dt, to_dt_excl = _date_range_to_utc(from_date, to_date)
@@ -161,7 +161,7 @@ class AnalyticsService:
                 ),
             )
             .where(
-                Transaction.tenant_id == tenant_id,
+                Transaction.partner_id == partner_id,
                 Transaction.created_at >= from_dt,
                 Transaction.created_at < to_dt_excl,
             )
@@ -180,7 +180,7 @@ class AnalyticsService:
         return _fill_missing_days(raw_points, from_date, to_date)
 
     async def _tier_distribution(
-        self, tenant_id: int
+        self, partner_id: int
     ) -> list[TierDistributionPoint]:
         """Phân bố hạng thành viên (COALESCE NULL tier)."""
         result = await self.db.execute(
@@ -195,7 +195,7 @@ class AnalyticsService:
                 & (Tier.deleted_at.is_(None)),
             )
             .where(
-                Membership.tenant_id == tenant_id,
+                Membership.partner_id == partner_id,
                 Membership.archived_at.is_(None),
             )
             .group_by(Membership.current_tier_id, Tier.name)
@@ -211,7 +211,7 @@ class AnalyticsService:
         ]
 
     async def _campaign_roi(
-        self, tenant_id: int, from_date: date, to_date: date
+        self, partner_id: int, from_date: date, to_date: date
     ) -> list[CampaignRoiPoint]:
         """ROI campaign — 2 queries riêng tránh cross-product."""
         from_dt, to_dt_excl = _date_range_to_utc(from_date, to_date)
@@ -234,10 +234,10 @@ class AnalyticsService:
             .outerjoin(
                 Voucher,
                 (Voucher.campaign_id == Campaign.id)
-                & (Voucher.tenant_id == tenant_id),  # defense-in-depth
+                & (Voucher.partner_id == partner_id),  # defense-in-depth
             )
             .where(
-                Campaign.tenant_id == tenant_id,
+                Campaign.partner_id == partner_id,
                 Campaign.deleted_at.is_(None),
             )
             .group_by(Campaign.id, Campaign.name)
@@ -264,7 +264,7 @@ class AnalyticsService:
             .join(Transaction, Transaction.voucher_id == Voucher.id)
             .where(
                 Voucher.campaign_id.in_(campaign_ids),
-                Transaction.tenant_id == tenant_id,
+                Transaction.partner_id == partner_id,
                 Transaction.created_at >= from_dt,
                 Transaction.created_at < to_dt_excl,
             )

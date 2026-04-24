@@ -40,8 +40,8 @@ from app.models.campaign_regulatory_submission import (
     CampaignRegulatorySubmission,
     RegulatoryDocType,
 )
-from app.models.tenant import Tenant
-from app.models.tenant_authorization import TenantAuthorization
+from app.models.partner import Partner
+from app.models.partner_authorization import PartnerAuthorization
 from app.models.voucher import Voucher, VoucherStatus
 
 
@@ -96,8 +96,8 @@ class CampaignApprovalService:
     ) -> list[tuple[Campaign, str]]:
         """Trả list `(campaign, tenant_name)` sắp theo created_at asc."""
         q = (
-            select(Campaign, Tenant.name.label("tenant_name"))
-            .join(Tenant, Tenant.id == Campaign.tenant_id)
+            select(Campaign, Partner.name.label("tenant_name"))
+            .join(Partner, Partner.id == Campaign.partner_id)
             .where(
                 Campaign.approval_status == "pending_approval",
                 Campaign.deleted_at.is_(None),
@@ -219,8 +219,8 @@ class CampaignApprovalService:
                 "Campaign chưa có uỷ quyền — không thể duyệt"
             )
         auth = await self.db.scalar(
-            select(TenantAuthorization)
-            .where(TenantAuthorization.id == campaign.authorization_id)
+            select(PartnerAuthorization)
+            .where(PartnerAuthorization.id == campaign.authorization_id)
         )
         if auth is None:
             raise ApprovalGuardFailed(
@@ -355,8 +355,8 @@ class CampaignApprovalService:
         """Campaign kết thúc + 45 ngày chưa có báo cáo kết thúc."""
         now = datetime.now(timezone.utc)
         q = (
-            select(Campaign, Tenant.name.label("tenant_name"))
-            .join(Tenant, Tenant.id == Campaign.tenant_id)
+            select(Campaign, Partner.name.label("tenant_name"))
+            .join(Partner, Partner.id == Campaign.partner_id)
             .where(
                 Campaign.post_report_due_at.is_not(None),
                 Campaign.post_report_due_at < now,

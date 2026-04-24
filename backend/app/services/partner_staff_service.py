@@ -3,10 +3,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 from app.models.verification_code import VerificationCodePurpose
-from app.schemas.tenant_staff import (
+from app.schemas.partner_staff import (
     StaffAddRequest,
     StaffAddResponse,
     StaffResponse,
@@ -19,34 +19,34 @@ class StaffNotFoundError(Exception):
     pass
 
 
-class StaffAlreadyInTenantError(Exception):
+class StaffAlreadyInPartnerError(Exception):
     pass
 
 
 class LastOwnerError(Exception):
-    """Raised khi action sẽ làm tenant không còn owner nào."""
+    """Raised khi action sẽ làm đối tác không còn owner nào."""
 
     pass
 
 
-class TenantStaffService:
+class PartnerStaffService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def _count_owners(self, tenant_id: int) -> int:
+    async def _count_owners(self, partner_id: int) -> int:
         return await self.db.scalar(
             select(func.count())
-            .select_from(TenantStaff)
+            .select_from(PartnerStaff)
             .where(
-                TenantStaff.tenant_id == tenant_id,
-                TenantStaff.role == TenantStaffRole.OWNER,
+                PartnerStaff.partner_id == partner_id,
+                PartnerStaff.role == PartnerStaffRole.OWNER,
             )
         )
 
     async def add_staff(
-        self, *, tenant_id: int, request: StaffAddRequest
+        self, *, partner_id: int, request: StaffAddRequest
     ) -> StaffAddResponse:
-        """Thêm staff vào tenant. Tạo shadow user nếu email chưa tồn tại.
+        """Thêm staff vào đối tác. Tạo shadow user nếu email chưa tồn tại.
 
         Check link existence TRƯỚC khi tạo shadow để tránh orphan rows
         khi user đã tồn tại + đã link.
@@ -58,14 +58,14 @@ class TenantStaffService:
         # Nếu user đã tồn tại, check link trước khi tạo shadow / verification code
         if existing_user is not None:
             existing_link = await self.db.scalar(
-                select(TenantStaff).where(
-                    TenantStaff.tenant_id == tenant_id,
-                    TenantStaff.user_id == existing_user.id,
+                select(PartnerStaff).where(
+                    PartnerStaff.partner_id == partner_id,
+                    PartnerStaff.user_id == existing_user.id,
                 )
             )
             if existing_link is not None:
-                raise StaffAlreadyInTenantError(
-                    f"User {request.email} already in tenant {tenant_id}"
+                raise StaffAlreadyInPartnerError(
+                    f"User {request.email} already in partner {partner_id}"
                 )
 
         verification_code: str | None = None
@@ -90,8 +90,8 @@ class TenantStaffService:
                 purpose=VerificationCodePurpose.CLAIM_SHADOW,
             )
 
-        staff = TenantStaff(
-            tenant_id=tenant_id,
+        staff = PartnerStaff(
+            partner_id=partner_id,
             user_id=existing_user.id,
             role=request.role,
         )
@@ -99,15 +99,15 @@ class TenantStaffService:
         try:
             await self.db.flush()
         except IntegrityError as e:
-            raise StaffAlreadyInTenantError(
-                f"User {request.email} already in tenant {tenant_id}"
+            raise StaffAlreadyInPartnerError(
+                f"User {request.email} already in partner {partner_id}"
             ) from e
         await self.db.refresh(staff)
 
         return StaffAddResponse(
             staff=StaffResponse(
                 id=staff.id,
-                tenant_id=staff.tenant_id,
+                partner_id=staff.partner_id,
                 user_id=staff.user_id,
                 role=staff.role,
                 user_email=existing_user.email,
@@ -117,46 +117,46 @@ class TenantStaffService:
             verification_code=verification_code,
         )
 
-    async def remove_staff(self, *, tenant_id: int, staff_id: int) -> int:
-        """Xóa staff khỏi tenant. Trả về user_id (để invalidate cache).
+    async def remove_staff(self, *, partner_id: int, staff_id: int) -> int:
+        """Xóa staff khỏi đối tác. Trả về user_id (để invalidate cache).
 
         Raises LastOwnerError nếu staff là owner cuối cùng.
         """
-        staff = await self.db.get(TenantStaff, staff_id)
-        if staff is None or staff.tenant_id != tenant_id:
-            raise StaffNotFoundError(f"Staff {staff_id} not in tenant {tenant_id}")
-        if staff.role == TenantStaffRole.OWNER:
-            owner_count = await self._count_owners(tenant_id)
+        staff = await self.db.get(PartnerStaff, staff_id)
+        if staff is None or staff.partner_id != partner_id:
+            raise StaffNotFoundError(f"Staff {staff_id} not in partner {partner_id}")
+        if staff.role == PartnerStaffRole.OWNER:
+            owner_count = await self._count_owners(partner_id)
             if owner_count <= 1:
-                raise LastOwnerError("Cannot remove the last owner of a tenant")
+                raise LastOwnerError("Cannot remove the last owner of a partner")
         user_id = staff.user_id
         await self.db.delete(staff)
         await self.db.flush()
         return user_id
 
     async def update_role(
-        self, *, tenant_id: int, staff_id: int, request: StaffUpdateRoleRequest
+        self, *, partner_id: int, staff_id: int, request: StaffUpdateRoleRequest
     ) -> StaffResponse:
         """Cập nhật role staff. Raises LastOwnerError nếu demote owner cuối cùng."""
         staff = await self.db.scalar(
-            select(TenantStaff)
-            .options(joinedload(TenantStaff.user))
-            .where(TenantStaff.id == staff_id, TenantStaff.tenant_id == tenant_id)
+            select(PartnerStaff)
+            .options(joinedload(PartnerStaff.user))
+            .where(PartnerStaff.id == staff_id, PartnerStaff.partner_id == partner_id)
         )
         if staff is None:
-            raise StaffNotFoundError(f"Staff {staff_id} not in tenant {tenant_id}")
+            raise StaffNotFoundError(f"Staff {staff_id} not in partner {partner_id}")
         # Block demote owner cuối cùng
-        if staff.role == TenantStaffRole.OWNER and request.role != TenantStaffRole.OWNER:
-            owner_count = await self._count_owners(tenant_id)
+        if staff.role == PartnerStaffRole.OWNER and request.role != PartnerStaffRole.OWNER:
+            owner_count = await self._count_owners(partner_id)
             if owner_count <= 1:
                 raise LastOwnerError(
-                    "Cannot demote the last owner of a tenant"
+                    "Cannot demote the last owner of a partner"
                 )
         staff.role = request.role
         await self.db.flush()
         return StaffResponse(
             id=staff.id,
-            tenant_id=staff.tenant_id,
+            partner_id=staff.partner_id,
             user_id=staff.user_id,
             role=staff.role,
             user_email=staff.user.email,
@@ -165,14 +165,14 @@ class TenantStaffService:
         )
 
     async def list_staff(
-        self, *, tenant_id: int, limit: int = 50, offset: int = 0
+        self, *, partner_id: int, limit: int = 50, offset: int = 0
     ) -> list[StaffResponse]:
         rows = (
             await self.db.scalars(
-                select(TenantStaff)
-                .options(joinedload(TenantStaff.user))
-                .where(TenantStaff.tenant_id == tenant_id)
-                .order_by(TenantStaff.added_at)
+                select(PartnerStaff)
+                .options(joinedload(PartnerStaff.user))
+                .where(PartnerStaff.partner_id == partner_id)
+                .order_by(PartnerStaff.added_at)
                 .limit(limit)
                 .offset(offset)
             )
@@ -180,7 +180,7 @@ class TenantStaffService:
         return [
             StaffResponse(
                 id=s.id,
-                tenant_id=s.tenant_id,
+                partner_id=s.partner_id,
                 user_id=s.user_id,
                 role=s.role,
                 user_email=s.user.email,

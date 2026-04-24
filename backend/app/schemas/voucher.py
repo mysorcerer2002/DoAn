@@ -13,7 +13,7 @@ class VoucherClaimRequest(BaseModel):
 
 class VoucherResponse(BaseModel):
     id: int
-    tenant_id: int
+    partner_id: int
     campaign_id: int
     membership_id: int
     code: str

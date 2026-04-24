@@ -2,24 +2,24 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models.tenant_staff import TenantStaffRole
+from app.models.partner_staff import PartnerStaffRole
 
 
 class StaffAddRequest(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=255)
-    role: TenantStaffRole = TenantStaffRole.STAFF
+    role: PartnerStaffRole = PartnerStaffRole.STAFF
 
 
 class StaffUpdateRoleRequest(BaseModel):
-    role: TenantStaffRole
+    role: PartnerStaffRole
 
 
 class StaffResponse(BaseModel):
     id: int
-    tenant_id: int
+    partner_id: int
     user_id: int
-    role: TenantStaffRole
+    role: PartnerStaffRole
     user_email: str | None
     user_full_name: str | None
     created_at: datetime

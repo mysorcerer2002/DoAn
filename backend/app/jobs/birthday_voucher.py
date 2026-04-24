@@ -80,14 +80,14 @@ async def _birthday_voucher_logic() -> dict:
 
         svc = VoucherService(session)
         for campaign in campaigns:
-            # Tìm memberships có sinh nhật hôm nay trong tenant này
+            # Tìm memberships có sinh nhật hôm nay trong đối tác này
             memberships = (
                 await session.scalars(
                     select(Membership)
                     .join(User, Membership.user_id == User.id)
                     .options(joinedload(Membership.user))
                     .where(
-                        Membership.tenant_id == campaign.tenant_id,
+                        Membership.partner_id == campaign.partner_id,
                         extract("month", User.birthday) == today.month,
                         extract("day", User.birthday) == today.day,
                     )
@@ -110,7 +110,7 @@ async def _birthday_voucher_logic() -> dict:
 
                 try:
                     voucher = await svc.claim(
-                        tenant_id=campaign.tenant_id,
+                        partner_id=campaign.partner_id,
                         membership_id=membership.id,
                         campaign_id=campaign.id,
                         issue_source="birthday_job",
@@ -131,7 +131,7 @@ async def _birthday_voucher_logic() -> dict:
 
                 # Push notification
                 notification = Notification(
-                    tenant_id=campaign.tenant_id,
+                    partner_id=campaign.partner_id,
                     user_id=membership.user_id,
                     type="birthday_voucher",
                     title="Chúc mừng sinh nhật! 🎂",

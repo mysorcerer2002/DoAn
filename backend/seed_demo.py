@@ -28,8 +28,8 @@ from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
 from app.models.redemption import Redemption, RedemptionStatus
 from app.models.reward import Reward
-from app.models.tenant import Tenant, TenantCategory, TenantStatus
-from app.models.tenant_staff import TenantStaff, TenantStaffRole
+from app.models.partner import Partner, PartnerCategory, PartnerStatus
+from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
@@ -69,20 +69,20 @@ async def _seed_tenant(
     slug: str,
     owner: User,
     description: str,
-    category: TenantCategory,
+    category: PartnerCategory,
     tier_names: list[tuple[str, int]],
     rewards: list[tuple[str, int, int | None]],
     campaigns: list[tuple[str, int, int]],  # (name, discount_percent, max_discount)
     customers: list[tuple[str, str, str, int, str]],  # (email, name, phone, points, tier_name)
 ) -> dict:
-    """Seed 1 tenant đầy đủ. Trả về dict với các id cần thiết."""
-    tenant = await db.scalar(select(Tenant).where(Tenant.slug == slug))
-    if tenant is None:
-        tenant = Tenant(
+    """Seed 1 đối tác đầy đủ. Trả về dict với các id cần thiết."""
+    partner = await db.scalar(select(Partner).where(Partner.slug == slug))
+    if partner is None:
+        partner = Partner(
             name=name,
             slug=slug,
             owner_user_id=owner.id,
-            status=TenantStatus.ACTIVE,
+            status=PartnerStatus.ACTIVE,
             category=category,
             description=description,
             settings={
@@ -93,27 +93,27 @@ async def _seed_tenant(
             },
             activated_at=datetime.now(UTC),
         )
-        db.add(tenant)
+        db.add(partner)
         await db.flush()
-        db.add(TenantStaff(tenant_id=tenant.id, user_id=owner.id, role=TenantStaffRole.OWNER))
+        db.add(PartnerStaff(partner_id=partner.id, user_id=owner.id, role=PartnerStaffRole.OWNER))
         await db.flush()
-        print(f"✓ Tenant: {name} (id={tenant.id})")
+        print(f"✓ Partner: {name} (id={partner.id})")
     else:
-        # Backfill category cho tenant đã tồn tại trước migration
-        if tenant.category != category:
-            tenant.category = category
+        # Backfill category cho partner đã tồn tại trước migration
+        if partner.category != category:
+            partner.category = category
             await db.flush()
             print(f"  ↻ Cập nhật category cho {name}: {category}")
         else:
-            print(f"- Tenant đã tồn tại: {name}")
+            print(f"- Partner đã tồn tại: {name}")
 
     # Point rule
     rule = await db.scalar(
-        select(PointRule).where(PointRule.tenant_id == tenant.id, PointRule.is_active.is_(True))
+        select(PointRule).where(PointRule.partner_id == partner.id, PointRule.is_active.is_(True))
     )
     if rule is None:
         db.add(PointRule(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             unit_amount=10_000,
             points_per_unit=Decimal("1"),
             min_amount=0,
@@ -125,12 +125,12 @@ async def _seed_tenant(
     # Tiers
     existing_tiers = (
         await db.scalars(
-            select(Tier).where(Tier.tenant_id == tenant.id, Tier.deleted_at.is_(None))
+            select(Tier).where(Tier.partner_id == partner.id, Tier.deleted_at.is_(None))
         )
     ).all()
     if not existing_tiers:
         for tier_name, min_pts in tier_names:
-            db.add(Tier(tenant_id=tenant.id, name=tier_name, min_points=min_pts, is_active=True))
+            db.add(Tier(partner_id=partner.id, name=tier_name, min_points=min_pts, is_active=True))
         await db.flush()
         print(f"  ✓ {len(tier_names)} tiers")
 
@@ -138,7 +138,7 @@ async def _seed_tenant(
         t.name: t
         for t in (
             await db.scalars(
-                select(Tier).where(Tier.tenant_id == tenant.id, Tier.deleted_at.is_(None))
+                select(Tier).where(Tier.partner_id == partner.id, Tier.deleted_at.is_(None))
             )
         ).all()
     }
@@ -146,13 +146,13 @@ async def _seed_tenant(
     # Rewards
     existing_rewards = (
         await db.scalars(
-            select(Reward).where(Reward.tenant_id == tenant.id, Reward.deleted_at.is_(None))
+            select(Reward).where(Reward.partner_id == partner.id, Reward.deleted_at.is_(None))
         )
     ).all()
     if not existing_rewards:
         for r_name, pts, stock in rewards:
             db.add(Reward(
-                tenant_id=tenant.id,
+                partner_id=partner.id,
                 name=r_name,
                 description=f"Đổi điểm lấy {r_name.lower()}",
                 points_cost=pts,
@@ -164,19 +164,19 @@ async def _seed_tenant(
 
     rewards_list = (
         await db.scalars(
-            select(Reward).where(Reward.tenant_id == tenant.id, Reward.deleted_at.is_(None))
+            select(Reward).where(Reward.partner_id == partner.id, Reward.deleted_at.is_(None))
         )
     ).all()
 
     # Campaigns
     now = datetime.now(UTC)
     existing_campaigns = (
-        await db.scalars(select(Campaign).where(Campaign.tenant_id == tenant.id))
+        await db.scalars(select(Campaign).where(Campaign.partner_id == partner.id))
     ).all()
     if not existing_campaigns:
         for c_name, discount, max_disc in campaigns:
             db.add(Campaign(
-                tenant_id=tenant.id,
+                partner_id=partner.id,
                 name=c_name,
                 description=f"Khuyến mãi {c_name} — áp dụng cho mọi khách thành viên.",
                 terms=(
@@ -209,7 +209,7 @@ async def _seed_tenant(
         print(f"  ✓ {len(campaigns)} campaigns")
 
     campaigns_list = (
-        await db.scalars(select(Campaign).where(Campaign.tenant_id == tenant.id))
+        await db.scalars(select(Campaign).where(Campaign.partner_id == partner.id))
     ).all()
 
     # Staff accounts (ngoài owner) — seed 2 staff/tenant để test staff-only flows
@@ -232,17 +232,17 @@ async def _seed_tenant(
             phone=staff_phone,
         )
         existing_staff = await db.scalar(
-            select(TenantStaff).where(
-                TenantStaff.tenant_id == tenant.id,
-                TenantStaff.user_id == staff_user.id,
+            select(PartnerStaff).where(
+                PartnerStaff.partner_id == partner.id,
+                PartnerStaff.user_id == staff_user.id,
             )
         )
         if existing_staff is None:
             db.add(
-                TenantStaff(
-                    tenant_id=tenant.id,
+                PartnerStaff(
+                    partner_id=partner.id,
                     user_id=staff_user.id,
-                    role=TenantStaffRole.STAFF,
+                    role=PartnerStaffRole.STAFF,
                 )
             )
             await db.flush()
@@ -256,13 +256,13 @@ async def _seed_tenant(
         )
         membership = await db.scalar(
             select(Membership).where(
-                Membership.tenant_id == tenant.id, Membership.user_id == user.id
+                Membership.partner_id == partner.id, Membership.user_id == user.id
             )
         )
         if membership is None:
             tier = tiers_map.get(tier_name)
             membership = Membership(
-                tenant_id=tenant.id,
+                partner_id=partner.id,
                 user_id=user.id,
                 current_tier_id=tier.id if tier else None,
                 points_balance=points,
@@ -275,7 +275,7 @@ async def _seed_tenant(
         memberships.append(membership)
 
     return {
-        "tenant": tenant,
+        "partner": partner,
         "owner": owner,
         "tiers": tiers_map,
         "rewards": rewards_list,
@@ -285,16 +285,16 @@ async def _seed_tenant(
 
 
 async def _seed_transactions_and_ledger(
-    db, *, tenant: Tenant, owner: User, memberships: list[Membership], count: int = 30
+    db, *, partner: Partner, owner: User, memberships: list[Membership], count: int = 30
 ) -> None:
     """Rải transactions đều trong 14 ngày gần nhất + ghi ledger entries."""
     existing = await db.scalar(
-        select(Transaction.id).where(Transaction.tenant_id == tenant.id).limit(1)
+        select(Transaction.id).where(Transaction.partner_id == partner.id).limit(1)
     )
     if existing is not None:
         return
 
-    rng = random.Random(42 + tenant.id)  # Deterministic
+    rng = random.Random(42 + partner.id)  # Deterministic
     now = datetime.now(UTC)
     for i in range(count):
         membership = rng.choice(memberships)
@@ -305,7 +305,7 @@ async def _seed_transactions_and_ledger(
         points_earned = gross // 10_000
 
         txn = Transaction(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             membership_id=membership.id,
             staff_id=owner.id,
             gross_amount=gross,
@@ -321,7 +321,7 @@ async def _seed_transactions_and_ledger(
         # Ledger entry earn
         new_balance = membership.points_balance + points_earned
         db.add(PointLedger(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             membership_id=membership.id,
             delta=points_earned,
             reason=LedgerReason.EARN,
@@ -339,13 +339,13 @@ async def _seed_transactions_and_ledger(
 
 
 async def _seed_redemptions(
-    db, *, tenant: Tenant, memberships: list[Membership], rewards: list[Reward]
+    db, *, partner: Partner, memberships: list[Membership], rewards: list[Reward]
 ) -> None:
     """Mỗi customer đổi 1 reward từ kho."""
     if not rewards:
         return
     existing = await db.scalar(
-        select(Redemption.id).where(Redemption.tenant_id == tenant.id).limit(1)
+        select(Redemption.id).where(Redemption.partner_id == partner.id).limit(1)
     )
     if existing is not None:
         return
@@ -356,7 +356,7 @@ async def _seed_redemptions(
         if membership.points_balance < reward.points_cost:
             continue
         redemption = Redemption(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             membership_id=membership.id,
             reward_id=reward.id,
             points_spent=reward.points_cost,
@@ -370,7 +370,7 @@ async def _seed_redemptions(
 
         new_balance = membership.points_balance - reward.points_cost
         db.add(PointLedger(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             membership_id=membership.id,
             delta=-reward.points_cost,
             reason=LedgerReason.REDEEM,
@@ -389,13 +389,13 @@ async def _seed_redemptions(
 
 
 async def _seed_vouchers(
-    db, *, tenant: Tenant, memberships: list[Membership], campaigns: list[Campaign]
+    db, *, partner: Partner, memberships: list[Membership], campaigns: list[Campaign]
 ) -> None:
     """Phát voucher từ campaign cho 2 customer đầu."""
     if not campaigns:
         return
     existing = await db.scalar(
-        select(Voucher.id).where(Voucher.tenant_id == tenant.id).limit(1)
+        select(Voucher.id).where(Voucher.partner_id == partner.id).limit(1)
     )
     if existing is not None:
         return
@@ -404,7 +404,7 @@ async def _seed_vouchers(
     campaign = campaigns[0]
     for i, membership in enumerate(memberships[:2]):
         voucher = Voucher(
-            tenant_id=tenant.id,
+            partner_id=partner.id,
             campaign_id=campaign.id,
             membership_id=membership.id,
             code=_rand_code(),
@@ -434,8 +434,8 @@ async def main() -> None:
             system_role="super_admin",
         )
 
-        # ===== Tenant 1: Cafe Cộng =====
-        print("\n[2] Tenant 1 — Cafe Cộng - Bà Triệu")
+        # ===== Partner 1: Cafe Cộng =====
+        print("\n[2] Partner 1 — Cafe Cộng - Bà Triệu")
         owner1 = await _get_or_create_user(
             db,
             email="owner@cafe.vn",
@@ -449,7 +449,7 @@ async def main() -> None:
             slug="cafe-cong",
             owner=owner1,
             description="Quán cafe phong cách Việt Nam",
-            category=TenantCategory.CAFE,
+            category=PartnerCategory.CAFE,
             tier_names=[
                 ("Hạng Đồng", 0),
                 ("Hạng Bạc", 500),
@@ -473,17 +473,17 @@ async def main() -> None:
 
         print("\n  -- Transactions, ledger, vouchers, redemptions --")
         await _seed_transactions_and_ledger(
-            db, tenant=ctx1["tenant"], owner=owner1, memberships=ctx1["memberships"], count=30
+            db, partner=ctx1["partner"], owner=owner1, memberships=ctx1["memberships"], count=30
         )
         await _seed_vouchers(
-            db, tenant=ctx1["tenant"], memberships=ctx1["memberships"], campaigns=ctx1["campaigns"]
+            db, partner=ctx1["partner"], memberships=ctx1["memberships"], campaigns=ctx1["campaigns"]
         )
         await _seed_redemptions(
-            db, tenant=ctx1["tenant"], memberships=ctx1["memberships"], rewards=ctx1["rewards"]
+            db, partner=ctx1["partner"], memberships=ctx1["memberships"], rewards=ctx1["rewards"]
         )
 
-        # ===== Tenant 2: Trà Sữa Lala =====
-        print("\n[3] Tenant 2 — Trà Sữa Lala")
+        # ===== Partner 2: Trà Sữa Lala =====
+        print("\n[3] Partner 2 — Trà Sữa Lala")
         owner2 = await _get_or_create_user(
             db,
             email="owner@lala.vn",
@@ -497,7 +497,7 @@ async def main() -> None:
             slug="tra-sua-lala",
             owner=owner2,
             description="Chuỗi trà sữa hot nhất Sài Gòn",
-            category=TenantCategory.FOOD,
+            category=PartnerCategory.FOOD,
             tier_names=[
                 ("Lala Member", 0),
                 ("Lala Silver", 300),
@@ -524,13 +524,13 @@ async def main() -> None:
 
         print("\n  -- Transactions, ledger, vouchers, redemptions --")
         await _seed_transactions_and_ledger(
-            db, tenant=ctx2["tenant"], owner=owner2, memberships=ctx2["memberships"], count=35
+            db, partner=ctx2["partner"], owner=owner2, memberships=ctx2["memberships"], count=35
         )
         await _seed_vouchers(
-            db, tenant=ctx2["tenant"], memberships=ctx2["memberships"], campaigns=ctx2["campaigns"]
+            db, partner=ctx2["partner"], memberships=ctx2["memberships"], campaigns=ctx2["campaigns"]
         )
         await _seed_redemptions(
-            db, tenant=ctx2["tenant"], memberships=ctx2["memberships"], rewards=ctx2["rewards"]
+            db, partner=ctx2["partner"], memberships=ctx2["memberships"], rewards=ctx2["rewards"]
         )
 
         await db.commit()

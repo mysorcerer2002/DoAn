@@ -12,7 +12,7 @@ class PointRuleCreateRequest(BaseModel):
 
 class PointRuleResponse(BaseModel):
     id: int
-    tenant_id: int
+    partner_id: int
     points_per_unit: Decimal
     unit_amount: int
     min_amount: int

@@ -1,7 +1,7 @@
 """Job purge_retention — Phase 11.
 
 Chạy weekly (Sunday 02:00 giờ VN). Hard-delete
-`tenant_authorizations` và `campaign_service_fees` có
+`partner_authorizations` và `campaign_service_fees` có
 `retention_until < NOW()` (Luật Kế toán 2015 Điều 41 — giữ chứng từ kế
 toán ≥ 10 năm). Acceptance #18.
 
@@ -55,7 +55,7 @@ async def _purge_logic() -> dict:
         # DELETE ... RETURNING id — atomic, không TOCTOU.
         auth_result = await db.execute(
             text(
-                "DELETE FROM tenant_authorizations "
+                "DELETE FROM partner_authorizations "
                 "WHERE retention_until < :now RETURNING id"
             ),
             {"now": datetime.now(timezone.utc)},
@@ -75,7 +75,7 @@ async def _purge_logic() -> dict:
 
     if auth_ids:
         logger.warning(
-            "purge_retention: hard-delete %d tenant_authorizations ids=%s",
+            "purge_retention: hard-delete %d partner_authorizations ids=%s",
             len(auth_ids),
             auth_ids,
         )

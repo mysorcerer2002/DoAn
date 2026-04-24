@@ -14,7 +14,7 @@ class CreateManualTransactionRequest(BaseModel):
 
 class TransactionResponse(BaseModel):
     id: int
-    tenant_id: int
+    partner_id: int
     membership_id: int
     staff_id: int
     gross_amount: int

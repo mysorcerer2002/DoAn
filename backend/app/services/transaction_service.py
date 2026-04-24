@@ -16,7 +16,7 @@ from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType
 from app.models.point_rule import PointRule
-from app.models.tenant import Tenant
+from app.models.partner import Partner
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.voucher import Voucher, VoucherStatus
@@ -93,7 +93,7 @@ class TransactionService:
     async def create_manual(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         staff_id: int,
         request: CreateManualTransactionRequest,
     ) -> TransactionWithMemberResponse:
@@ -103,17 +103,17 @@ class TransactionService:
         tier_svc = TierService(self.db)
 
         member = await member_svc.find_or_create_member(
-            tenant_id=tenant_id, phone=request.phone
+            partner_id=partner_id, phone=request.phone
         )
 
-        # SELECT FOR UPDATE membership (scope theo tenant_id để defense-in-depth)
+        # SELECT FOR UPDATE membership (scope theo partner_id để defense-in-depth)
         # innerjoin=True vì user_id NOT NULL → tránh OUTER JOIN + FOR UPDATE conflict
         membership = await self.db.scalar(
             select(Membership)
             .options(joinedload(Membership.user, innerjoin=True))
             .where(
                 Membership.id == member.membership_id,
-                Membership.tenant_id == tenant_id,
+                Membership.partner_id == partner_id,
             )
             .with_for_update()
         )
@@ -128,7 +128,7 @@ class TransactionService:
         voucher_discount = None
         if request.voucher_code:
             voucher_id, voucher_discount = await self._apply_voucher_if_provided(
-                tenant_id=tenant_id,
+                partner_id=partner_id,
                 membership_id=membership.id,
                 voucher_code=request.voucher_code,
                 gross_amount=request.gross_amount,
@@ -143,12 +143,12 @@ class TransactionService:
 
         rule = await self.db.scalar(
             select(PointRule).where(
-                PointRule.tenant_id == tenant_id, PointRule.is_active.is_(True)
+                PointRule.partner_id == partner_id, PointRule.is_active.is_(True)
             )
         )
         if rule is None:
             raise NoActivePointRuleError(
-                f"Tenant {tenant_id} has no active point rule"
+                f"Partner {partner_id} has no active point rule"
             )
 
         # Phase 10 I1 — clamp discount ≤ gross trước khi persist để
@@ -160,15 +160,15 @@ class TransactionService:
         net_amount = max(0, request.gross_amount - (voucher_discount or 0))
 
         # Đọc tenant settings để biết tính điểm trên gross hay net
-        tenant = await self.db.get(Tenant, tenant_id)
+        partner = await self.db.get(Partner, partner_id)
         points_on_gross = bool(
-            tenant and tenant.settings and tenant.settings.get("points_on_gross")
+            partner and partner.settings and partner.settings.get("points_on_gross")
         )
         amount_for_points = request.gross_amount if points_on_gross else net_amount
         points_earned = self._calculate_points(rule, amount_for_points)
 
         txn = Transaction(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             membership_id=membership.id,
             staff_id=staff_id,
             gross_amount=request.gross_amount,
@@ -191,7 +191,7 @@ class TransactionService:
 
         if points_earned > 0:
             await ledger_svc.log_entry(
-                tenant_id=tenant_id,
+                partner_id=partner_id,
                 membership_id=membership.id,
                 delta=points_earned,
                 reason=LedgerReason.EARN,
@@ -202,7 +202,7 @@ class TransactionService:
             )
 
         new_tier = await tier_svc.recompute_tier(
-            tenant_id=tenant_id, membership_id=membership.id
+            partner_id=partner_id, membership_id=membership.id
         )
         await self.db.flush()
 
@@ -218,7 +218,7 @@ class TransactionService:
         welcome_voucher_code: str | None = None
         if is_first_transaction and points_earned > 0:
             welcome_voucher_code = await self._maybe_issue_welcome_voucher(
-                tenant_id=tenant_id, membership_id=membership.id
+                partner_id=partner_id, membership_id=membership.id
             )
 
         return TransactionWithMemberResponse(
@@ -243,7 +243,7 @@ class TransactionService:
     async def _apply_voucher_if_provided(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         membership_id: int,
         voucher_code: str,
         gross_amount: int,
@@ -260,7 +260,7 @@ class TransactionService:
         voucher = await self.db.scalar(
             select(Voucher)
             .where(
-                Voucher.tenant_id == tenant_id,
+                Voucher.partner_id == partner_id,
                 Voucher.code == voucher_code,
             )
             .with_for_update(of=Voucher)
@@ -321,11 +321,11 @@ class TransactionService:
         return voucher.id, discount
 
     async def list_transactions(
-        self, *, tenant_id: int, limit: int = 50, offset: int = 0
+        self, *, partner_id: int, limit: int = 50, offset: int = 0
     ) -> list[Transaction]:
         rows = await self.db.scalars(
             select(Transaction)
-            .where(Transaction.tenant_id == tenant_id)
+            .where(Transaction.partner_id == partner_id)
             .order_by(Transaction.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -335,7 +335,7 @@ class TransactionService:
     async def create_qr_customer(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         staff_id: int,
         request: CreateQrCustomerTransactionRequest,
     ) -> TransactionWithMemberResponse:
@@ -346,7 +346,7 @@ class TransactionService:
         qr_svc = QrService(self.db)
         try:
             user_id = await qr_svc.decode_qr_payload(
-                payload=request.qr_payload, tenant_id=tenant_id
+                payload=request.qr_payload, partner_id=partner_id
             )
         except InvalidQRError as e:
             raise ValueError(f"Invalid QR: {e}") from e
@@ -356,18 +356,18 @@ class TransactionService:
             select(Membership)
             .options(joinedload(Membership.user, innerjoin=True))
             .where(
-                Membership.tenant_id == tenant_id,
+                Membership.partner_id == partner_id,
                 Membership.user_id == user_id,
             )
             .with_for_update()
         )
         if membership is None:
             membership = await self._auto_enroll_membership(
-                tenant_id=tenant_id, user_id=user_id
+                partner_id=partner_id, user_id=user_id
             )
 
         return await self._create_transaction_for_membership(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             staff_id=staff_id,
             membership=membership,
             gross_amount=request.gross_amount,
@@ -378,7 +378,7 @@ class TransactionService:
     async def _create_transaction_for_membership(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         staff_id: int,
         membership: Membership,
         gross_amount: int,
@@ -401,12 +401,12 @@ class TransactionService:
 
         rule = await self.db.scalar(
             select(PointRule).where(
-                PointRule.tenant_id == tenant_id, PointRule.is_active.is_(True)
+                PointRule.partner_id == partner_id, PointRule.is_active.is_(True)
             )
         )
         if rule is None:
             raise NoActivePointRuleError(
-                f"Tenant {tenant_id} has no active point rule"
+                f"Partner {partner_id} has no active point rule"
             )
 
         # Phase 10 I1 — clamp discount ≤ gross (xem create_manual comment).
@@ -416,7 +416,7 @@ class TransactionService:
         points_earned = self._calculate_points(rule, net_amount)
 
         txn = Transaction(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             membership_id=membership.id,
             staff_id=staff_id,
             gross_amount=gross_amount,
@@ -439,7 +439,7 @@ class TransactionService:
 
         if points_earned > 0:
             await ledger_svc.log_entry(
-                tenant_id=tenant_id,
+                partner_id=partner_id,
                 membership_id=membership.id,
                 delta=points_earned,
                 reason=LedgerReason.EARN,
@@ -450,7 +450,7 @@ class TransactionService:
             )
 
         new_tier = await tier_svc.recompute_tier(
-            tenant_id=tenant_id, membership_id=membership.id
+            partner_id=partner_id, membership_id=membership.id
         )
         await self.db.flush()
 
@@ -465,7 +465,7 @@ class TransactionService:
         welcome_voucher_code: str | None = None
         if is_first_transaction and points_earned > 0:
             welcome_voucher_code = await self._maybe_issue_welcome_voucher(
-                tenant_id=tenant_id, membership_id=membership.id
+                partner_id=partner_id, membership_id=membership.id
             )
 
         user = membership.user
@@ -482,7 +482,7 @@ class TransactionService:
         )
 
     async def _auto_enroll_membership(
-        self, *, tenant_id: int, user_id: int
+        self, *, partner_id: int, user_id: int
     ) -> Membership:
         """Tạo membership mới cho user tại tenant (auto-enroll lần đầu quét QR)."""
         from sqlalchemy.exc import IntegrityError as _SAIntegrityError
@@ -490,7 +490,7 @@ class TransactionService:
         try:
             async with self.db.begin_nested():
                 membership = Membership(
-                    tenant_id=tenant_id,
+                    partner_id=partner_id,
                     user_id=user_id,
                     current_tier_id=None,
                     points_balance=0,
@@ -508,19 +508,19 @@ class TransactionService:
             select(Membership)
             .options(joinedload(Membership.user, innerjoin=True))
             .where(
-                Membership.tenant_id == tenant_id,
+                Membership.partner_id == partner_id,
                 Membership.user_id == user_id,
             )
             .with_for_update()
         )
         if membership is None:
             raise NoMembershipError(
-                f"Không thể tạo membership cho user {user_id} tại tenant {tenant_id}"
+                f"Không thể tạo membership cho user {user_id} tại đối tác {partner_id}"
             )
         return membership
 
     async def _maybe_issue_welcome_voucher(
-        self, *, tenant_id: int, membership_id: int
+        self, *, partner_id: int, membership_id: int
     ) -> str | None:
         """Phát voucher tích điểm lần đầu nếu shop có campaign source=SIGNUP đang mở.
 
@@ -536,17 +536,17 @@ class TransactionService:
 
         from sqlalchemy import or_
 
-        from app.models.tenant_authorization import TenantAuthorization
+        from app.models.partner_authorization import PartnerAuthorization
 
         now = datetime.now(timezone.utc)
         campaign = await self.db.scalar(
             select(Campaign)
             .outerjoin(
-                TenantAuthorization,
-                Campaign.authorization_id == TenantAuthorization.id,
+                PartnerAuthorization,
+                Campaign.authorization_id == PartnerAuthorization.id,
             )
             .where(
-                Campaign.tenant_id == tenant_id,
+                Campaign.partner_id == partner_id,
                 Campaign.source == CampaignSource.SIGNUP,
                 Campaign.approval_status.in_(("auto_approved", "approved")),
                 Campaign.is_active.is_(True),
@@ -555,7 +555,7 @@ class TransactionService:
                 Campaign.ends_at > now,
                 or_(
                     Campaign.authorization_id.is_(None),
-                    TenantAuthorization.revoked_at.is_(None),
+                    PartnerAuthorization.revoked_at.is_(None),
                 ),
             )
             .order_by(Campaign.id.asc())
@@ -567,7 +567,7 @@ class TransactionService:
         voucher_svc = VoucherService(self.db)
         try:
             voucher = await voucher_svc.claim(
-                tenant_id=tenant_id,
+                partner_id=partner_id,
                 membership_id=membership_id,
                 campaign_id=campaign.id,
                 issue_source="signup_job",

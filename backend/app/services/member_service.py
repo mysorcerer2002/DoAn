@@ -16,7 +16,7 @@ class MemberService:
         self.db = db
 
     async def find_or_create_member(
-        self, *, tenant_id: int, phone: str
+        self, *, partner_id: int, phone: str
     ) -> MemberResponse:
         """Atomic upsert user theo phone + upsert membership.
 
@@ -26,7 +26,7 @@ class MemberService:
 
         Handles 3 cases:
         - Case 1: User hoàn toàn mới → tạo shadow user + membership
-        - Case 2: User đã có (shadow tenant khác) → tạo membership
+        - Case 2: User đã có (shadow đối tác khác) → tạo membership
         - Case 3: User đã có (regular) → tạo membership
         """
         normalized = normalize_phone(phone)
@@ -58,7 +58,7 @@ class MemberService:
             select(Membership)
             .options(joinedload(Membership.current_tier))
             .where(
-                Membership.tenant_id == tenant_id,
+                Membership.partner_id == partner_id,
                 Membership.user_id == existing_user.id,
             )
         )
@@ -68,7 +68,7 @@ class MemberService:
             try:
                 async with self.db.begin_nested():
                     existing_membership = Membership(
-                        tenant_id=tenant_id,
+                        partner_id=partner_id,
                         user_id=existing_user.id,
                         current_tier_id=None,
                         points_balance=0,
@@ -87,7 +87,7 @@ class MemberService:
                     select(Membership)
                     .options(joinedload(Membership.current_tier))
                     .where(
-                        Membership.tenant_id == tenant_id,
+                        Membership.partner_id == partner_id,
                         Membership.user_id == existing_user.id,
                     )
                 )
@@ -96,7 +96,7 @@ class MemberService:
 
         return MemberResponse(
             membership_id=existing_membership.id,
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             user_id=existing_user.id,
             user_phone=existing_user.phone,
             user_full_name=existing_user.full_name,
@@ -113,21 +113,21 @@ class MemberService:
         )
 
     async def get_member_by_id(
-        self, *, tenant_id: int, membership_id: int
+        self, *, partner_id: int, membership_id: int
     ) -> Membership | None:
         return await self.db.scalar(
             select(Membership)
             .options(joinedload(Membership.user), joinedload(Membership.current_tier))
             .where(
                 Membership.id == membership_id,
-                Membership.tenant_id == tenant_id,
+                Membership.partner_id == partner_id,
             )
         )
 
     async def list_members(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         search: str | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -135,7 +135,7 @@ class MemberService:
         stmt = (
             select(Membership)
             .options(joinedload(Membership.user), joinedload(Membership.current_tier))
-            .where(Membership.tenant_id == tenant_id)
+            .where(Membership.partner_id == partner_id)
         )
         if search:
             search_lc = f"%{search.lower()}%"

@@ -1,7 +1,7 @@
-"""TenantAuthorizationService — Phase 7 plan voucher rebuild v2.2.
+"""PartnerAuthorizationService — Phase 7 plan voucher rebuild v2.2.
 
 Scope:
-- List authorizations của 1 tenant (merchant xem lịch sử uỷ quyền).
+- List authorizations của 1 đối tác (merchant xem lịch sử uỷ quyền).
 - Get detail 1 authorization (kèm campaign liên kết).
 - Revoke authorization với C4 guard: chỉ cho phép khi
   `campaigns.ops_filing_started_at IS NULL AND approval_status != 'approved'`.
@@ -22,7 +22,7 @@ from app.models.campaign_approval_event import (
     ApprovalEventType,
     CampaignApprovalEvent,
 )
-from app.models.tenant_authorization import TenantAuthorization
+from app.models.partner_authorization import PartnerAuthorization
 
 
 class AuthorizationNotFoundError(Exception):
@@ -37,27 +37,27 @@ class RevokeBlockedOpsStartedError(Exception):
     """Company ops đã bắt đầu nộp hồ sơ → không cho revoke."""
 
 
-class TenantAuthorizationService:
+class PartnerAuthorizationService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list_for_tenant(
-        self, tenant_id: int
-    ) -> list[TenantAuthorization]:
+    async def list_for_partner(
+        self, partner_id: int
+    ) -> list[PartnerAuthorization]:
         rows = await self.db.scalars(
-            select(TenantAuthorization)
-            .where(TenantAuthorization.tenant_id == tenant_id)
-            .order_by(TenantAuthorization.signed_at.desc())
+            select(PartnerAuthorization)
+            .where(PartnerAuthorization.partner_id == partner_id)
+            .order_by(PartnerAuthorization.signed_at.desc())
         )
         return list(rows)
 
-    async def get_for_tenant(
-        self, *, tenant_id: int, auth_id: int
-    ) -> TenantAuthorization:
+    async def get_for_partner(
+        self, *, partner_id: int, auth_id: int
+    ) -> PartnerAuthorization:
         record = await self.db.scalar(
-            select(TenantAuthorization).where(
-                TenantAuthorization.id == auth_id,
-                TenantAuthorization.tenant_id == tenant_id,
+            select(PartnerAuthorization).where(
+                PartnerAuthorization.id == auth_id,
+                PartnerAuthorization.partner_id == partner_id,
             )
         )
         if record is None:
@@ -69,11 +69,11 @@ class TenantAuthorizationService:
     async def revoke(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         auth_id: int,
         user_id: int,
         reason: str | None = None,
-    ) -> TenantAuthorization:
+    ) -> PartnerAuthorization:
         """Revoke authorization nếu chưa bị khoá bởi ops_filing_started_at.
 
         Luồng:
@@ -87,10 +87,10 @@ class TenantAuthorizationService:
         now = datetime.now(timezone.utc)
 
         auth = await self.db.scalar(
-            select(TenantAuthorization)
+            select(PartnerAuthorization)
             .where(
-                TenantAuthorization.id == auth_id,
-                TenantAuthorization.tenant_id == tenant_id,
+                PartnerAuthorization.id == auth_id,
+                PartnerAuthorization.partner_id == partner_id,
             )
             .with_for_update()
         )
@@ -110,7 +110,7 @@ class TenantAuthorizationService:
                 select(Campaign)
                 .where(
                     Campaign.id == campaign_id,
-                    Campaign.tenant_id == tenant_id,
+                    Campaign.partner_id == partner_id,
                 )
                 .with_for_update()
             )

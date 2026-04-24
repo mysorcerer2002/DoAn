@@ -45,22 +45,22 @@ class CampaignFeeService:
         self.db = db
 
     async def list_for_tenant(
-        self, tenant_id: int
+        self, partner_id: int
     ) -> list[CampaignServiceFee]:
         rows = await self.db.scalars(
             select(CampaignServiceFee)
-            .where(CampaignServiceFee.tenant_id == tenant_id)
+            .where(CampaignServiceFee.partner_id == partner_id)
             .order_by(CampaignServiceFee.created_at.desc())
         )
         return list(rows)
 
     async def list_for_campaign(
-        self, *, tenant_id: int, campaign_id: int
+        self, *, partner_id: int, campaign_id: int
     ) -> list[CampaignServiceFee]:
         rows = await self.db.scalars(
             select(CampaignServiceFee)
             .where(
-                CampaignServiceFee.tenant_id == tenant_id,
+                CampaignServiceFee.partner_id == partner_id,
                 CampaignServiceFee.campaign_id == campaign_id,
             )
             .order_by(CampaignServiceFee.created_at.asc())
@@ -68,12 +68,12 @@ class CampaignFeeService:
         return list(rows)
 
     async def get_for_tenant(
-        self, *, tenant_id: int, fee_id: int
+        self, *, partner_id: int, fee_id: int
     ) -> CampaignServiceFee:
         record = await self.db.scalar(
             select(CampaignServiceFee).where(
                 CampaignServiceFee.id == fee_id,
-                CampaignServiceFee.tenant_id == tenant_id,
+                CampaignServiceFee.partner_id == partner_id,
             )
         )
         if record is None:

@@ -5,7 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
-class TenantSettings(BaseModel):
+class PartnerSettings(BaseModel):
     """Schema fixed cho tenants.settings JSONB. Validate chặt chẽ."""
 
     points_on_gross: bool = False

@@ -19,8 +19,8 @@ from sqlalchemy.orm import joinedload
 
 from app.models.campaign import Campaign
 from app.models.campaign_issuance import CampaignIssuance
-from app.models.tenant import Tenant
-from app.models.tenant_authorization import TenantAuthorization
+from app.models.partner import Partner
+from app.models.partner_authorization import PartnerAuthorization
 from app.models.voucher import Voucher, VoucherStatus
 
 
@@ -72,7 +72,7 @@ class VoucherService:
     async def claim(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         membership_id: int,
         campaign_id: int,
         issue_source: str = "manual",
@@ -114,7 +114,7 @@ class VoucherService:
         campaign = await self.db.scalar(
             select(Campaign).where(
                 Campaign.id == campaign_id,
-                Campaign.tenant_id == tenant_id,
+                Campaign.partner_id == partner_id,
             )
         )
         if campaign is None:
@@ -140,7 +140,7 @@ class VoucherService:
 
         # Authorization revoked check (chỉ khi campaign link auth).
         if campaign.authorization_id is not None:
-            auth = await self.db.get(TenantAuthorization, campaign.authorization_id)
+            auth = await self.db.get(PartnerAuthorization, campaign.authorization_id)
             if auth is None or auth.revoked_at is not None:
                 raise CampaignNotEligibleError("Uỷ quyền shop đã thu hồi")
 
@@ -149,7 +149,7 @@ class VoucherService:
             update(Campaign)
             .where(
                 Campaign.id == campaign_id,
-                Campaign.tenant_id == tenant_id,
+                Campaign.partner_id == partner_id,
                 Campaign.approval_status.in_(_ELIGIBLE_APPROVAL_STATUSES),
                 Campaign.is_active.is_(True),
                 Campaign.deleted_at.is_(None),
@@ -165,7 +165,7 @@ class VoucherService:
 
         # Step 3: Lazy-create issuance + RETURNING id.
         issuance_id = await self._get_or_create_lazy_issuance(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             campaign_id=campaign_id,
             issue_mode=issue_source,
         )
@@ -188,14 +188,14 @@ class VoucherService:
         }
 
         # Step 5: INSERT voucher (retry 3 lần nếu code collision).
-        ttl = await self.get_voucher_ttl(tenant_id)
+        ttl = await self.get_voucher_ttl(partner_id)
         last_error: IntegrityError | None = None
         for _attempt in range(3):
             code = generate_code()
             try:
                 async with self.db.begin_nested():
                     voucher = Voucher(
-                        tenant_id=tenant_id,
+                        partner_id=partner_id,
                         campaign_id=campaign_id,
                         membership_id=membership_id,
                         code=code,
@@ -248,7 +248,7 @@ class VoucherService:
         )
 
     async def _get_or_create_lazy_issuance(
-        self, *, tenant_id: int, campaign_id: int, issue_mode: str
+        self, *, partner_id: int, campaign_id: int, issue_mode: str
     ) -> int:
         """Lazy-create issuance row cho auto-batch (name IS NULL).
 
@@ -263,10 +263,10 @@ class VoucherService:
             text(
                 """
                 INSERT INTO campaign_issuances
-                    (tenant_id, campaign_id, name, issued_count, issue_mode,
+                    (partner_id, campaign_id, name, issued_count, issue_mode,
                      created_at, updated_at)
                 VALUES
-                    (:tenant_id, :campaign_id, NULL, 0, :issue_mode,
+                    (:partner_id, :campaign_id, NULL, 0, :issue_mode,
                      NOW(), NOW())
                 ON CONFLICT (campaign_id, issue_mode)
                     WHERE name IS NULL AND deleted_at IS NULL
@@ -275,7 +275,7 @@ class VoucherService:
                 """
             ),
             {
-                "tenant_id": tenant_id,
+                "partner_id": partner_id,
                 "campaign_id": campaign_id,
                 "issue_mode": issue_mode,
             },
@@ -283,16 +283,16 @@ class VoucherService:
         issuance_id = row.scalar_one()
         return issuance_id
 
-    async def get_voucher_ttl(self, tenant_id: int) -> int:
-        tenant = await self.db.get(Tenant, tenant_id)
-        if tenant is None:
+    async def get_voucher_ttl(self, partner_id: int) -> int:
+        partner = await self.db.get(Partner, partner_id)
+        if partner is None:
             return self.DEFAULT_TTL_DAYS
-        return tenant.settings.get("voucher_default_ttl_days", self.DEFAULT_TTL_DAYS)
+        return partner.settings.get("voucher_default_ttl_days", self.DEFAULT_TTL_DAYS)
 
     async def list_eligible_campaigns(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         membership_id: int,
         current_tier_id: int | None = None,
     ) -> list[Campaign]:
@@ -309,11 +309,11 @@ class VoucherService:
         rows = await self.db.scalars(
             select(Campaign)
             .outerjoin(
-                TenantAuthorization,
-                Campaign.authorization_id == TenantAuthorization.id,
+                PartnerAuthorization,
+                Campaign.authorization_id == PartnerAuthorization.id,
             )
             .where(
-                Campaign.tenant_id == tenant_id,
+                Campaign.partner_id == partner_id,
                 Campaign.approval_status.in_(_ELIGIBLE_APPROVAL_STATUSES),
                 Campaign.is_active.is_(True),
                 Campaign.deleted_at.is_(None),
@@ -329,7 +329,7 @@ class VoucherService:
                 ),
                 or_(
                     Campaign.authorization_id.is_(None),
-                    TenantAuthorization.revoked_at.is_(None),
+                    PartnerAuthorization.revoked_at.is_(None),
                 ),
                 not_(Campaign.id.in_(already_claimed)),
             )
@@ -340,14 +340,14 @@ class VoucherService:
     async def list_my_vouchers(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         membership_id: int,
         status: VoucherStatus | None = None,
     ) -> list[Voucher]:
         stmt = (
             select(Voucher)
             .where(
-                Voucher.tenant_id == tenant_id,
+                Voucher.partner_id == partner_id,
                 Voucher.membership_id == membership_id,
             )
             .order_by(Voucher.issued_at.desc())
@@ -357,10 +357,10 @@ class VoucherService:
         rows = await self.db.scalars(stmt)
         return list(rows.all())
 
-    async def find_by_code(self, *, tenant_id: int, code: str) -> Voucher | None:
+    async def find_by_code(self, *, partner_id: int, code: str) -> Voucher | None:
         return await self.db.scalar(
             select(Voucher).where(
-                Voucher.tenant_id == tenant_id,
+                Voucher.partner_id == partner_id,
                 Voucher.code == code,
             )
         )
@@ -368,7 +368,7 @@ class VoucherService:
     async def check_voucher_for_use(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         code: str,
         gross_amount: int = 0,
     ) -> dict:
@@ -385,7 +385,7 @@ class VoucherService:
             select(Voucher)
             .options(joinedload(Voucher.campaign))
             .where(
-                Voucher.tenant_id == tenant_id,
+                Voucher.partner_id == partner_id,
                 Voucher.code == code.upper(),
             )
         )
@@ -453,15 +453,15 @@ class VoucherService:
             "meets_min_order": meets_min_order,
         }
 
-    async def mark_used(self, *, tenant_id: int, voucher_id: int) -> Voucher:
+    async def mark_used(self, *, partner_id: int, voucher_id: int) -> Voucher:
         voucher = await self.db.scalar(
             select(Voucher).where(
                 Voucher.id == voucher_id,
-                Voucher.tenant_id == tenant_id,
+                Voucher.partner_id == partner_id,
             )
         )
         if voucher is None:
-            raise ValueError(f"Voucher {voucher_id} not found in tenant {tenant_id}")
+            raise ValueError(f"Voucher {voucher_id} not found in tenant {partner_id}")
         voucher.status = VoucherStatus.USED
         voucher.used_at = datetime.now(timezone.utc)
         await self.db.flush()

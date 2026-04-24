@@ -13,7 +13,7 @@ class LedgerService:
     async def log_entry(
         self,
         *,
-        tenant_id: int,
+        partner_id: int,
         membership_id: int,
         delta: int,
         reason: LedgerReason,
@@ -23,7 +23,7 @@ class LedgerService:
         description: str | None = None,
     ) -> PointLedger:
         entry = PointLedger(
-            tenant_id=tenant_id,
+            partner_id=partner_id,
             membership_id=membership_id,
             delta=delta,
             reason=reason,
@@ -37,12 +37,12 @@ class LedgerService:
         return entry
 
     async def get_history(
-        self, *, tenant_id: int, membership_id: int, limit: int = 50, offset: int = 0
+        self, *, partner_id: int, membership_id: int, limit: int = 50, offset: int = 0
     ) -> list[PointLedger]:
         rows = await self.db.scalars(
             select(PointLedger)
             .where(
-                PointLedger.tenant_id == tenant_id,
+                PointLedger.partner_id == partner_id,
                 PointLedger.membership_id == membership_id,
             )
             .order_by(PointLedger.created_at.desc(), PointLedger.id.desc())
@@ -52,17 +52,17 @@ class LedgerService:
         return list(rows.all())
 
     async def reconcile(
-        self, *, tenant_id: int, membership_id: int
+        self, *, partner_id: int, membership_id: int
     ) -> ReconcileResponse:
         expected_sum = await self.db.scalar(
             select(func.coalesce(func.sum(PointLedger.delta), 0)).where(
-                PointLedger.tenant_id == tenant_id,
+                PointLedger.partner_id == partner_id,
                 PointLedger.membership_id == membership_id,
             )
         )
         membership = await self.db.get(Membership, membership_id)
-        if membership is None or membership.tenant_id != tenant_id:
-            raise ValueError(f"Membership {membership_id} not found in tenant {tenant_id}")
+        if membership is None or membership.partner_id != partner_id:
+            raise ValueError(f"Membership {membership_id} not found in tenant {partner_id}")
 
         actual = membership.points_balance
         return ReconcileResponse(

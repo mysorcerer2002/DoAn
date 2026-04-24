@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class NotificationResponse(BaseModel):
     id: int
-    tenant_id: int | None
+    partner_id: int | None
     user_id: int
     type: str
     title: str
