@@ -19,6 +19,7 @@ from app.models.reward import Reward
 from app.models.user import User
 from app.schemas.ledger import LedgerEntryResponse
 from app.schemas.member import MemberResponse
+from app.schemas.redemption import RedeemRequest, RedemptionResponse
 from app.schemas.partner import (
     MyPartnerSummary,
     PartnerCreateRequest,
@@ -28,6 +29,11 @@ from app.schemas.partner import (
     PartnerUpdateRequest,
 )
 from app.services.partner_service import PartnerNotFoundError, PartnerService
+from app.services.redemption_service import (
+    InsufficientPointsError,
+    OutOfStockError,
+    RedemptionService,
+)
 
 partner_router = APIRouter(prefix="/partner", tags=["partner"])
 partners_router = APIRouter(prefix="/partners", tags=["partners"])
@@ -71,36 +77,23 @@ async def list_my_ledger(
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[LedgerEntryResponse]:
-    """Lịch sử tích điểm của current user.
+    """Lịch sử tích điểm của current user (ví toàn cục).
 
-    Nếu partner_slug được truyền, chỉ lấy ledger của partner đó.
-    Ngược lại, lấy toàn bộ qua TẤT CẢ partner user tham gia.
+    Nếu partner_slug được truyền, chỉ lấy entry phát sinh tại partner đó.
+    Ngược lại, lấy toàn bộ qua TẤT CẢ partner user từng giao dịch.
     """
-    membership_query = select(Membership).where(
-        Membership.user_id == user.id,
-        Membership.archived_at.is_(None),
-    )
+    stmt = select(PointLedger).where(PointLedger.user_id == user.id)
     if partner_slug is not None:
         partner = await db.scalar(
             select(Partner).where(Partner.slug == partner_slug)
         )
         if partner is None:
             raise HTTPException(status_code=404, detail="Partner not found")
-        membership_query = membership_query.where(
-            Membership.partner_id == partner.id
-        )
+        stmt = stmt.where(PointLedger.partner_id == partner.id)
 
-    membership_ids = [
-        row.id
-        for row in (await db.scalars(membership_query)).all()
-    ]
-    if not membership_ids:
-        return []
     rows = (
         await db.scalars(
-            select(PointLedger)
-            .where(PointLedger.membership_id.in_(membership_ids))
-            .order_by(PointLedger.created_at.desc())
+            stmt.order_by(PointLedger.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
@@ -122,10 +115,7 @@ async def list_my_memberships(
                 joinedload(Membership.current_tier),
                 joinedload(Membership.partner),
             )
-            .where(
-                Membership.user_id == user.id,
-                Membership.archived_at.is_(None),
-            )
+            .where(Membership.user_id == user.id)
             .order_by(Membership.last_activity_at.desc().nullslast())
         )
     ).unique().all()
@@ -137,8 +127,8 @@ async def list_my_memberships(
             user_phone=m.user.phone,
             user_full_name=m.user.full_name,
             user_email=m.user.email,
-            points_balance=m.points_balance,
-            total_points_earned=m.total_points_earned,
+            points_balance=m.user.points_balance,
+            lifetime_earned=m.lifetime_earned,
             current_tier_id=m.current_tier_id,
             current_tier_name=m.current_tier.name if m.current_tier else None,
             joined_at=m.joined_at,
@@ -156,9 +146,10 @@ async def list_my_partners(
 ) -> list[MyPartnerSummary]:
     """Tất cả partner ACTIVE trên platform.
 
-    Với partner mà user đã là member, kèm `is_member=True`, `points_balance`,
-    `current_tier_name`. Dùng cho trang `/member/partners` để customer
-    vừa khám phá shop vừa thấy hạng + điểm hiện tại trên card.
+    Với partner mà user đã là member, kèm `is_member=True`, `points_balance`
+    (ví toàn cục), `current_tier_name` (theo shop). Dùng cho trang
+    `/member/partners` để customer vừa khám phá shop vừa thấy hạng + điểm
+    hiện tại trên card.
     """
     partners = (
         await db.scalars(
@@ -172,10 +163,7 @@ async def list_my_partners(
         await db.scalars(
             select(Membership)
             .options(joinedload(Membership.current_tier))
-            .where(
-                Membership.user_id == user.id,
-                Membership.archived_at.is_(None),
-            )
+            .where(Membership.user_id == user.id)
         )
     ).all()
     membership_by_partner = {m.partner_id: m for m in memberships}
@@ -192,7 +180,7 @@ async def list_my_partners(
                 description=p.description,
                 logo_url=p.logo_url,
                 is_member=m is not None,
-                points_balance=m.points_balance if m else None,
+                points_balance=user.points_balance,
                 current_tier_name=m.current_tier.name if m and m.current_tier else None,
             )
         )
@@ -207,7 +195,8 @@ async def get_partner_detail_for_member(
 ) -> PartnerDetailForMember:
     """Chi tiết partner cho khách hàng.
 
-    Nếu user là member của partner, trả thêm points_balance, tier, v.v.
+    `points_balance` luôn = ví toàn cục của user (kể cả chưa join shop).
+    `lifetime_earned` chỉ có khi user là member shop (per-shop tier metric).
     """
     partner = await db.scalar(
         select(Partner).where(Partner.slug == slug, Partner.status == PartnerStatus.ACTIVE)
@@ -219,7 +208,6 @@ async def get_partner_detail_for_member(
         select(Membership).options(joinedload(Membership.current_tier)).where(
             Membership.partner_id == partner.id,
             Membership.user_id == user.id,
-            Membership.archived_at.is_(None),
         )
     )
 
@@ -237,8 +225,8 @@ async def get_partner_detail_for_member(
         website=partner.website,
         business_hours=partner.business_hours,
         is_member=membership is not None,
-        points_balance=membership.points_balance if membership else None,
-        total_points_earned=membership.total_points_earned if membership else None,
+        points_balance=user.points_balance,
+        lifetime_earned=membership.lifetime_earned if membership else None,
         current_tier_name=membership.current_tier.name if membership and membership.current_tier else None,
         joined_at=membership.joined_at if membership else None,
         last_activity_at=membership.last_activity_at if membership else None,
@@ -251,9 +239,9 @@ async def list_partner_rewards_for_member(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
-    """Rewards active của 1 partner. user_points_balance/can_redeem dựa trên membership.
+    """Rewards active của 1 partner. `user_points_balance` = ví toàn cục.
 
-    Non-member: balance=0, can_redeem=False (không đổi được kể cả đủ điểm).
+    Non-member: vẫn show balance global, nhưng can_redeem=False (phải join shop trước).
     """
     partner = await db.scalar(
         select(Partner).where(
@@ -263,15 +251,13 @@ async def list_partner_rewards_for_member(
     if partner is None:
         raise HTTPException(status_code=404, detail="Partner not found")
 
-    membership = await db.scalar(
-        select(Membership).where(
+    is_member = await db.scalar(
+        select(Membership.id).where(
             Membership.partner_id == partner.id,
             Membership.user_id == user.id,
-            Membership.archived_at.is_(None),
         )
-    )
-    is_member = membership is not None
-    balance = membership.points_balance if membership else 0
+    ) is not None
+    balance = user.points_balance
 
     rewards = (
         await db.scalars(
@@ -300,28 +286,79 @@ async def list_partner_rewards_for_member(
     ]
 
 
+@users_router.post(
+    "/me/redemptions", response_model=RedemptionResponse, status_code=201
+)
+@limiter.limit("10/minute")
+async def redeem_reward_self(
+    request: Request,
+    body: RedeemRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RedemptionResponse:
+    """Customer tự đổi quà — derive partner từ reward, không cần X-Partner-Id.
+
+    Yêu cầu user là member của partner sở hữu reward (membership tồn tại).
+    """
+    reward = await db.scalar(
+        select(Reward).where(
+            Reward.id == body.reward_id,
+            Reward.deleted_at.is_(None),
+            Reward.is_active.is_(True),
+        )
+    )
+    if reward is None:
+        raise HTTPException(status_code=404, detail="Reward not found")
+
+    is_member = await db.scalar(
+        select(Membership.id).where(
+            Membership.partner_id == reward.partner_id,
+            Membership.user_id == user.id,
+        )
+    )
+    if is_member is None:
+        raise HTTPException(
+            status_code=403, detail="Bạn cần là thành viên của shop để đổi quà"
+        )
+
+    service = RedemptionService(db)
+    try:
+        redemption = await service.redeem(
+            partner_id=reward.partner_id,
+            user_id=user.id,
+            reward_id=body.reward_id,
+        )
+    except InsufficientPointsError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except OutOfStockError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return RedemptionResponse.model_validate(redemption)
+
+
 @users_router.get("/me/rewards")
 async def list_my_rewards(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
-    """Rewards active của TẤT CẢ partner mà current user là member."""
-    memberships_rows = (
+    """Rewards active của TẤT CẢ partner mà current user là member.
+
+    `user_points_balance` = ví toàn cục (giống nhau ở mọi shop).
+    """
+    partner_rows = (
         await db.execute(
-            select(Membership, Partner.name, Partner.slug)
+            select(Membership.partner_id, Partner.name, Partner.slug)
             .join(Partner, Membership.partner_id == Partner.id)
-            .where(
-                Membership.user_id == user.id,
-                Membership.archived_at.is_(None),
-            )
+            .where(Membership.user_id == user.id)
         )
     ).all()
-    if not memberships_rows:
+    if not partner_rows:
         return []
 
-    partner_points = {m.partner_id: m.points_balance for m, _, _ in memberships_rows}
-    partner_names = {m.partner_id: (name, slug) for m, name, slug in memberships_rows}
-    partner_ids = list(partner_points.keys())
+    partner_names = {pid: (name, slug) for pid, name, slug in partner_rows}
+    partner_ids = list(partner_names.keys())
+    balance = user.points_balance
 
     rewards = (
         await db.scalars(
@@ -346,8 +383,8 @@ async def list_my_rewards(
             "points_cost": r.points_cost,
             "stock": r.stock,
             "image_url": r.image_url,
-            "user_points_balance": partner_points[r.partner_id],
-            "can_redeem": partner_points[r.partner_id] >= r.points_cost,
+            "user_points_balance": balance,
+            "can_redeem": balance >= r.points_cost,
         }
         for r in rewards
     ]

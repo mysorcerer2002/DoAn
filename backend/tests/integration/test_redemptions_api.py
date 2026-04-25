@@ -38,11 +38,11 @@ async def _setup_redeem_env(db_session, *, balance=500, stock=10):
     db_session.add_all([
     ])
 
+    member_user.points_balance = balance
     membership = Membership(
         partner_id=partner.id,
         user_id=member_user.id,
-        points_balance=balance,
-        total_points_earned=balance,
+        lifetime_earned=balance,
         joined_at=datetime.now(timezone.utc),
     )
     db_session.add(membership)
@@ -100,15 +100,17 @@ async def test_redeem_api_for_member(client, db_session):
 
 @pytest.mark.asyncio
 async def test_redeem_api_self(client, db_session):
-    """Khách tự đổi quà (cần staff trong tenant)."""
+    """Khách tự đổi quà qua /users/me/redemptions — derive partner từ reward."""
     (
         _tenant, _owner, _member, _membership, reward, _owner_headers, member_headers
     ) = await _setup_redeem_env(db_session)
 
+    # Customer flow không gửi X-Partner-Id; chỉ cần Authorization.
+    auth_only = {"Authorization": member_headers["Authorization"]}
     resp = await client.post(
-        "/partner/redemptions",
+        "/users/me/redemptions",
         json={"reward_id": reward.id},
-        headers=member_headers,
+        headers=auth_only,
     )
     assert resp.status_code == 201
     assert resp.json()["status"] == "pending"

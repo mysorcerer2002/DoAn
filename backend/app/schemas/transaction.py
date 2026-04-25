@@ -42,8 +42,8 @@ class TransactionWithMemberResponse(BaseModel):
     transaction: TransactionResponse
     member_phone: str | None
     member_full_name: str | None
-    new_balance: int
-    new_total_earned: int
+    new_balance: int  # Global wallet sau khi cộng điểm
+    new_lifetime_earned: int  # Per-shop tier metric sau khi cộng điểm
     new_tier_id: int | None
     new_tier_name: str | None
     tier_upgraded: bool

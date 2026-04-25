@@ -85,15 +85,12 @@ class AnalyticsService:
         )
 
     async def _count_members(self, partner_id: int) -> int:
-        """Đếm thành viên active (chưa archived)."""
+        """Đếm thành viên thuộc đối tác."""
         return int(
             await self.db.scalar(
                 select(func.count())
                 .select_from(Membership)
-                .where(
-                    Membership.partner_id == partner_id,
-                    Membership.archived_at.is_(None),
-                )
+                .where(Membership.partner_id == partner_id)
             )
             or 0
         )
@@ -189,10 +186,7 @@ class AnalyticsService:
                 (Membership.current_tier_id == Tier.id)
                 & (Tier.deleted_at.is_(None)),
             )
-            .where(
-                Membership.partner_id == partner_id,
-                Membership.archived_at.is_(None),
-            )
+            .where(Membership.partner_id == partner_id)
             .group_by(Membership.current_tier_id, Tier.name)
             .order_by(Membership.current_tier_id.asc().nullsfirst())
         )

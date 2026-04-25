@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -14,6 +14,7 @@ from app.models.point_rule import PointRule
 from app.models.partner import Partner
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
+from app.models.user import User
 from app.schemas.transaction import (
     CreateManualTransactionRequest,
     CreateQrCustomerTransactionRequest,
@@ -33,10 +34,11 @@ class NoMembershipError(Exception):
     pass
 
 
-# LOCK ORDERING RULE (xem 6.1 trong spec):
-# Mọi transaction cần lock nhiều bảng phải lock theo thứ tự cố định:
-# 1. memberships (luôn đầu tiên, dùng SELECT FOR UPDATE)
+# LOCK ORDERING RULE (HYBRID points — xem spec M5):
+# 1. memberships (lock per-shop, dùng SELECT FOR UPDATE để bảo vệ lifetime_earned)
 # 2. tiers / point_rules (chỉ đọc, không cần lock)
+# users.points_balance KHÔNG lock — dùng atomic UPDATE...RETURNING để tránh
+# lost-update khi 2 earn concurrent ở 2 shop khác nhau cập nhật cùng user.
 
 
 class TransactionService:
@@ -116,15 +118,16 @@ class TransactionService:
         self.db.add(txn)
         await self.db.flush()
 
-        new_balance = membership.points_balance + points_earned
-        membership.points_balance = new_balance
-        membership.total_points_earned += points_earned
-        membership.last_activity_at = datetime.now(timezone.utc)
+        new_balance = await self._apply_earn(
+            user_id=membership.user_id,
+            membership=membership,
+            points_earned=points_earned,
+        )
 
         if points_earned > 0:
             await ledger_svc.log_entry(
                 partner_id=partner_id,
-                membership_id=membership.id,
+                user_id=membership.user_id,
                 delta=points_earned,
                 reason=LedgerReason.EARN,
                 ref_type=LedgerRefType.TRANSACTION,
@@ -149,8 +152,8 @@ class TransactionService:
             transaction=TransactionResponse.model_validate(txn),
             member_phone=member.user_phone,
             member_full_name=member.user_full_name,
-            new_balance=membership.points_balance,
-            new_total_earned=membership.total_points_earned,
+            new_balance=new_balance,
+            new_lifetime_earned=membership.lifetime_earned,
             new_tier_id=membership.current_tier_id,
             new_tier_name=new_tier.name if new_tier else None,
             tier_upgraded=tier_upgraded,
@@ -277,15 +280,16 @@ class TransactionService:
         self.db.add(txn)
         await self.db.flush()
 
-        new_balance = membership.points_balance + points_earned
-        membership.points_balance = new_balance
-        membership.total_points_earned += points_earned
-        membership.last_activity_at = datetime.now(timezone.utc)
+        new_balance = await self._apply_earn(
+            user_id=membership.user_id,
+            membership=membership,
+            points_earned=points_earned,
+        )
 
         if points_earned > 0:
             await ledger_svc.log_entry(
                 partner_id=partner_id,
-                membership_id=membership.id,
+                user_id=membership.user_id,
                 delta=points_earned,
                 reason=LedgerReason.EARN,
                 ref_type=LedgerRefType.TRANSACTION,
@@ -311,12 +315,41 @@ class TransactionService:
             transaction=TransactionResponse.model_validate(txn),
             member_phone=user.phone if user else None,
             member_full_name=user.full_name if user else None,
-            new_balance=membership.points_balance,
-            new_total_earned=membership.total_points_earned,
+            new_balance=new_balance,
+            new_lifetime_earned=membership.lifetime_earned,
             new_tier_id=membership.current_tier_id,
             new_tier_name=new_tier.name if new_tier else None,
             tier_upgraded=tier_upgraded,
         )
+
+    async def _apply_earn(
+        self,
+        *,
+        user_id: int,
+        membership: Membership,
+        points_earned: int,
+    ) -> int:
+        """Cập nhật ví toàn cục (atomic UPDATE) + lifetime_earned per-shop.
+
+        Atomic UPDATE...RETURNING trên users.points_balance tránh lost-update
+        khi 2 earn concurrent ở 2 shop khác nhau cùng cộng vào 1 user.
+        Membership đã được lock SELECT FOR UPDATE ở caller → an toàn ghi
+        lifetime_earned in-place.
+        """
+        membership.last_activity_at = datetime.now(timezone.utc)
+        if points_earned == 0:
+            return await self.db.scalar(
+                select(User.points_balance).where(User.id == user_id)
+            )
+
+        membership.lifetime_earned += points_earned
+        result = await self.db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(points_balance=User.points_balance + points_earned)
+            .returning(User.points_balance)
+        )
+        return result.scalar_one()
 
     async def _auto_enroll_membership(
         self, *, partner_id: int, user_id: int
@@ -330,8 +363,6 @@ class TransactionService:
                     partner_id=partner_id,
                     user_id=user_id,
                     current_tier_id=None,
-                    points_balance=0,
-                    total_points_earned=0,
                     joined_at=datetime.now(timezone.utc),
                 )
                 self.db.add(membership)

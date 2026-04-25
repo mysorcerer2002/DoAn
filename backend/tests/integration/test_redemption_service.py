@@ -6,7 +6,6 @@ import pytest
 
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, PointLedger
-from app.models.point_rule import PointRule
 from app.models.reward import Reward
 from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
@@ -21,10 +20,11 @@ from app.services.reward_service import RewardService
 
 
 async def _setup_for_redemption(db_session, *, balance=500, stock=10):
-    """Tạo tenant, membership với balance, và reward."""
+    """Tạo partner, user/membership với balance global, và reward."""
     owner = User(email="rdm@example.com", password_hash="x", is_active=True)
     member_user = User(
-        email="member@example.com", password_hash="x", is_active=True, phone="0901111111"
+        email="member@example.com", password_hash="x", is_active=True,
+        phone="0901111111", points_balance=balance,
     )
     db_session.add_all([owner, member_user])
     await db_session.flush()
@@ -42,8 +42,7 @@ async def _setup_for_redemption(db_session, *, balance=500, stock=10):
     membership = Membership(
         partner_id=partner.id,
         user_id=member_user.id,
-        points_balance=balance,
-        total_points_earned=balance,
+        lifetime_earned=balance,
         joined_at=datetime.now(timezone.utc),
     )
     db_session.add(membership)
@@ -61,12 +60,12 @@ async def _setup_for_redemption(db_session, *, balance=500, stock=10):
 
 @pytest.mark.asyncio
 async def test_redeem_success(db_session):
-    tenant, owner, _member, membership, reward = await _setup_for_redemption(db_session)
+    partner, _owner, member_user, _membership, reward = await _setup_for_redemption(db_session)
     svc = RedemptionService(db_session)
 
     redemption = await svc.redeem(
         partner_id=partner.id,
-        membership_id=membership.id,
+        user_id=member_user.id,
         reward_id=reward.id,
     )
     assert redemption.points_spent == 100
@@ -74,13 +73,13 @@ async def test_redeem_success(db_session):
     assert len(redemption.redemption_code) == 8
     assert redemption.status == "pending"
 
-    # Balance giảm
-    assert membership.points_balance == 400
+    await db_session.refresh(member_user)
+    assert member_user.points_balance == 400
 
 
 @pytest.mark.asyncio
 async def test_redeem_insufficient_points(db_session):
-    tenant, owner, _member, membership, reward = await _setup_for_redemption(
+    partner, _owner, member_user, _membership, reward = await _setup_for_redemption(
         db_session, balance=50
     )
     svc = RedemptionService(db_session)
@@ -88,14 +87,14 @@ async def test_redeem_insufficient_points(db_session):
     with pytest.raises(InsufficientPointsError):
         await svc.redeem(
             partner_id=partner.id,
-            membership_id=membership.id,
+            user_id=member_user.id,
             reward_id=reward.id,
         )
 
 
 @pytest.mark.asyncio
 async def test_redeem_out_of_stock(db_session):
-    tenant, owner, _member, membership, reward = await _setup_for_redemption(
+    partner, _owner, member_user, _membership, reward = await _setup_for_redemption(
         db_session, balance=500, stock=0
     )
     svc = RedemptionService(db_session)
@@ -103,7 +102,7 @@ async def test_redeem_out_of_stock(db_session):
     with pytest.raises(OutOfStockError):
         await svc.redeem(
             partner_id=partner.id,
-            membership_id=membership.id,
+            user_id=member_user.id,
             reward_id=reward.id,
         )
 
@@ -111,17 +110,16 @@ async def test_redeem_out_of_stock(db_session):
 @pytest.mark.asyncio
 async def test_redeem_unlimited_stock(db_session):
     """Reward với stock=None = unlimited."""
-    tenant, owner, _member, membership, reward = await _setup_for_redemption(
+    partner, _owner, member_user, _membership, reward = await _setup_for_redemption(
         db_session, balance=500, stock=10
     )
-    # Override stock to NULL (unlimited)
     reward.stock = None
     await db_session.flush()
 
     svc = RedemptionService(db_session)
     redemption = await svc.redeem(
         partner_id=partner.id,
-        membership_id=membership.id,
+        user_id=member_user.id,
         reward_id=reward.id,
     )
     assert redemption.points_spent == 100
@@ -129,12 +127,12 @@ async def test_redeem_unlimited_stock(db_session):
 
 @pytest.mark.asyncio
 async def test_use_redemption(db_session):
-    tenant, owner, _member, membership, reward = await _setup_for_redemption(db_session)
+    partner, owner, member_user, _membership, reward = await _setup_for_redemption(db_session)
     svc = RedemptionService(db_session)
 
     redemption = await svc.redeem(
         partner_id=partner.id,
-        membership_id=membership.id,
+        user_id=member_user.id,
         reward_id=reward.id,
     )
     code = redemption.redemption_code
@@ -149,7 +147,7 @@ async def test_use_redemption(db_session):
 
 @pytest.mark.asyncio
 async def test_use_redemption_not_found(db_session):
-    tenant, owner, _member, membership, reward = await _setup_for_redemption(db_session)
+    partner, owner, _member_user, _membership, _reward = await _setup_for_redemption(db_session)
     svc = RedemptionService(db_session)
 
     with pytest.raises(RedemptionNotFoundError):
@@ -160,21 +158,20 @@ async def test_use_redemption_not_found(db_session):
 
 @pytest.mark.asyncio
 async def test_list_my_redemptions(db_session):
-    tenant, owner, _member, membership, reward = await _setup_for_redemption(
+    partner, _owner, member_user, _membership, reward = await _setup_for_redemption(
         db_session, balance=1000
     )
     svc = RedemptionService(db_session)
 
-    # Đổi 3 lần
     for _ in range(3):
         await svc.redeem(
             partner_id=partner.id,
-            membership_id=membership.id,
+            user_id=member_user.id,
             reward_id=reward.id,
         )
 
     results = await svc.list_my_redemptions(
-        partner_id=partner.id, membership_id=membership.id
+        partner_id=partner.id, user_id=member_user.id
     )
     assert len(results) == 3
 
@@ -184,19 +181,19 @@ async def test_redeem_creates_ledger_entry(db_session):
     """Đổi quà phải tạo entry trong point_ledger."""
     from sqlalchemy import select
 
-    tenant, _owner, _member, membership, reward = await _setup_for_redemption(db_session)
+    partner, _owner, member_user, _membership, reward = await _setup_for_redemption(db_session)
     svc = RedemptionService(db_session)
 
     await svc.redeem(
         partner_id=partner.id,
-        membership_id=membership.id,
+        user_id=member_user.id,
         reward_id=reward.id,
     )
     await db_session.flush()
 
     entries = await db_session.scalars(
         select(PointLedger).where(
-            PointLedger.membership_id == membership.id,
+            PointLedger.user_id == member_user.id,
             PointLedger.reason == LedgerReason.REDEEM,
         )
     )

@@ -22,14 +22,17 @@ class LedgerRefType(str, enum.Enum):
 
 
 class PointLedger(Base, TimestampMixin):
-    """Append-only ledger ghi mọi biến động điểm.
+    """Append-only ledger ghi mọi biến động điểm (global cross-shop, scope user_id).
 
-    PostgreSQL trigger chặn UPDATE/DELETE — xem migration.
+    PostgreSQL trigger `no_update_or_delete_point_ledger` chặn UPDATE/DELETE.
     """
     __tablename__ = "point_ledger"
     __table_args__ = (
-        CheckConstraint("balance_after >= 0", name="ck_point_ledger_balance_nonneg"),
-        Index("ix_point_ledger_membership_created", "membership_id", "created_at"),
+        # Suffix-only — convention prepend `ck_point_ledger_` → final
+        # `ck_point_ledger_balance_nonneg`. Khác với rows hiện hữu bị
+        # double-prefix (debt cũ); migration M5 không tái-tạo CK này.
+        CheckConstraint("balance_after >= 0", name="balance_nonneg"),
+        Index("ix_point_ledger_user_created", "user_id", "created_at"),
         Index("ix_point_ledger_partner_created", "partner_id", "created_at"),
     )
 
@@ -37,8 +40,8 @@ class PointLedger(Base, TimestampMixin):
     partner_id: Mapped[int] = mapped_column(
         ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
-    membership_id: Mapped[int] = mapped_column(
-        ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     delta: Mapped[int] = mapped_column(Integer, nullable=False)
     reason: Mapped[LedgerReason] = mapped_column(

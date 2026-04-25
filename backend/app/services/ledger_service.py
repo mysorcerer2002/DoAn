@@ -1,8 +1,8 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
+from app.models.user import User
 from app.schemas.ledger import ReconcileResponse
 
 
@@ -14,7 +14,7 @@ class LedgerService:
         self,
         *,
         partner_id: int,
-        membership_id: int,
+        user_id: int,
         delta: int,
         reason: LedgerReason,
         ref_type: LedgerRefType,
@@ -24,7 +24,7 @@ class LedgerService:
     ) -> PointLedger:
         entry = PointLedger(
             partner_id=partner_id,
-            membership_id=membership_id,
+            user_id=user_id,
             delta=delta,
             reason=reason,
             ref_type=ref_type,
@@ -37,36 +37,39 @@ class LedgerService:
         return entry
 
     async def get_history(
-        self, *, partner_id: int, membership_id: int, limit: int = 50, offset: int = 0
+        self,
+        *,
+        user_id: int,
+        partner_id: int | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[PointLedger]:
-        rows = await self.db.scalars(
-            select(PointLedger)
-            .where(
-                PointLedger.partner_id == partner_id,
-                PointLedger.membership_id == membership_id,
-            )
-            .order_by(PointLedger.created_at.desc(), PointLedger.id.desc())
+        """Lịch sử điểm. partner_id=None → global cross-shop; có partner_id → lọc theo shop."""
+        stmt = select(PointLedger).where(PointLedger.user_id == user_id)
+        if partner_id is not None:
+            stmt = stmt.where(PointLedger.partner_id == partner_id)
+        stmt = (
+            stmt.order_by(PointLedger.created_at.desc(), PointLedger.id.desc())
             .limit(limit)
             .offset(offset)
         )
+        rows = await self.db.scalars(stmt)
         return list(rows.all())
 
-    async def reconcile(
-        self, *, partner_id: int, membership_id: int
-    ) -> ReconcileResponse:
+    async def reconcile(self, *, user_id: int) -> ReconcileResponse:
+        """So khớp tổng ledger global vs users.points_balance."""
         expected_sum = await self.db.scalar(
             select(func.coalesce(func.sum(PointLedger.delta), 0)).where(
-                PointLedger.partner_id == partner_id,
-                PointLedger.membership_id == membership_id,
+                PointLedger.user_id == user_id,
             )
         )
-        membership = await self.db.get(Membership, membership_id)
-        if membership is None or membership.partner_id != partner_id:
-            raise ValueError(f"Membership {membership_id} not found in partner {partner_id}")
+        user = await self.db.get(User, user_id)
+        if user is None:
+            raise ValueError(f"User {user_id} not found")
 
-        actual = membership.points_balance
+        actual = user.points_balance
         return ReconcileResponse(
-            membership_id=membership_id,
+            user_id=user_id,
             expected_balance=int(expected_sum),
             actual_balance=actual,
             is_consistent=int(expected_sum) == actual,

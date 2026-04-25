@@ -70,7 +70,7 @@ class TierService:
     async def recompute_tier(
         self, *, partner_id: int, membership_id: int
     ) -> Tier | None:
-        """Luồng G — tính lại tier theo total_points_earned."""
+        """Luồng G — tính lại tier theo lifetime_earned per-shop."""
         from app.models.membership import Membership
 
         membership = await self.db.get(Membership, membership_id)
@@ -85,7 +85,7 @@ class TierService:
                 Tier.partner_id == partner_id,
                 Tier.is_active.is_(True),
                 Tier.deleted_at.is_(None),
-                Tier.min_points <= membership.total_points_earned,
+                Tier.min_points <= membership.lifetime_earned,
             )
             .order_by(Tier.min_points.desc())
             .limit(1)

@@ -123,7 +123,7 @@ async def test_recompute_tier_first_assignment(db_session, active_partner):
 
     membership = Membership(
         partner_id=active_partner.id, user_id=user.id,
-        current_tier_id=None, points_balance=0, total_points_earned=0,
+        current_tier_id=None, lifetime_earned=0,
         joined_at=datetime.now(timezone.utc),
     )
     db_session.add(membership)
@@ -159,7 +159,7 @@ async def test_recompute_tier_upgrades_when_enough_points(db_session, active_par
 
     membership = Membership(
         partner_id=active_partner.id, user_id=user.id,
-        current_tier_id=None, points_balance=600, total_points_earned=600,
+        current_tier_id=None, lifetime_earned=600,
         joined_at=datetime.now(timezone.utc),
     )
     db_session.add(membership)
@@ -193,7 +193,7 @@ async def test_recompute_tier_excludes_soft_deleted(db_session, active_partner):
 
     membership = Membership(
         partner_id=active_partner.id, user_id=user.id,
-        current_tier_id=None, points_balance=600, total_points_earned=600,
+        current_tier_id=None, lifetime_earned=600,
         joined_at=datetime.now(timezone.utc),
     )
     db_session.add(membership)

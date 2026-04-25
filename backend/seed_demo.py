@@ -25,11 +25,12 @@ from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
 from app.models.redemption import Redemption, RedemptionStatus
-from app.models.reward import Reward
+from app.models.reward import Reward, RewardOfferType
 from app.models.partner import Partner, PartnerCategory, PartnerStatus
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
+from app.services.tier_service import TierService
 
 
 def _rand_code(n: int = 8) -> str:
@@ -208,6 +209,8 @@ async def _seed_tenant(
                 points_cost=pts,
                 stock=stock,
                 is_active=True,
+                offer_type=RewardOfferType.ITEM_GIFT,
+                offer_label=r_name,
             ))
         await db.flush()
         print(f"  ✓ {len(rewards)} rewards")
@@ -235,13 +238,26 @@ async def _seed_tenant(
                 partner_id=partner.id,
                 user_id=user.id,
                 current_tier_id=tier.id if tier else None,
-                points_balance=points,
-                total_points_earned=points,
+                lifetime_earned=points,
                 last_activity_at=datetime.now(UTC),
             )
             db.add(membership)
             await db.flush()
+            # HYBRID: ví toàn cục + ledger entry để giữ invariant wallet=sum(ledger).
+            user.points_balance += points
+            db.add(PointLedger(
+                partner_id=partner.id,
+                user_id=user.id,
+                delta=points,
+                reason=LedgerReason.ADJUST,
+                ref_type=LedgerRefType.SYSTEM,
+                ref_id=membership.id,
+                balance_after=user.points_balance,
+                description=f"Seed initial cho {partner.name}",
+            ))
+            await db.flush()
             print(f"  ✓ Membership {email} — {tier_name}, {points} điểm")
+        membership.user = user  # đảm bảo có user đã load cho transaction loop
         memberships.append(membership)
 
     return {
@@ -292,24 +308,30 @@ async def _seed_transactions_and_ledger(
         db.add(txn)
         await db.flush()
 
-        # Ledger entry earn
-        new_balance = membership.points_balance + points_earned
+        # HYBRID: cộng ví toàn cục + lifetime_earned per-shop + ledger entry.
+        user = membership.user
+        user.points_balance += points_earned
+        membership.lifetime_earned += points_earned
+        membership.last_activity_at = created_at
         db.add(PointLedger(
             partner_id=partner.id,
-            membership_id=membership.id,
+            user_id=user.id,
             delta=points_earned,
             reason=LedgerReason.EARN,
             ref_type=LedgerRefType.TRANSACTION,
             ref_id=txn.id,
-            balance_after=new_balance,
+            balance_after=user.points_balance,
             description=f"Tích điểm từ giao dịch #{txn.id}",
         ))
-        membership.points_balance = new_balance
-        membership.total_points_earned += points_earned
-        membership.last_activity_at = created_at
 
     await db.flush()
-    print(f"  ✓ {count} transactions + ledger entries (14 ngày)")
+
+    # Recompute tier sau khi lifetime_earned đã thay đổi
+    tier_svc = TierService(db)
+    for m in memberships:
+        await tier_svc.recompute_tier(partner_id=partner.id, membership_id=m.id)
+    await db.flush()
+    print(f"  ✓ {count} transactions + ledger entries (14 ngày) + recompute tier")
 
 
 async def _seed_redemptions(
@@ -327,11 +349,12 @@ async def _seed_redemptions(
     now = datetime.now(UTC)
     for i, membership in enumerate(memberships[:3]):
         reward = rewards[i % len(rewards)]
-        if membership.points_balance < reward.points_cost:
+        user = membership.user
+        if user.points_balance < reward.points_cost:
             continue
         redemption = Redemption(
             partner_id=partner.id,
-            membership_id=membership.id,
+            user_id=user.id,
             reward_id=reward.id,
             points_spent=reward.points_cost,
             redemption_code=_rand_code(),
@@ -342,18 +365,17 @@ async def _seed_redemptions(
         db.add(redemption)
         await db.flush()
 
-        new_balance = membership.points_balance - reward.points_cost
+        user.points_balance -= reward.points_cost
         db.add(PointLedger(
             partner_id=partner.id,
-            membership_id=membership.id,
+            user_id=user.id,
             delta=-reward.points_cost,
             reason=LedgerReason.REDEEM,
             ref_type=LedgerRefType.REDEMPTION,
             ref_id=redemption.id,
-            balance_after=new_balance,
+            balance_after=user.points_balance,
             description=f"Đổi quà: {reward.name}",
         ))
-        membership.points_balance = new_balance
 
         if reward.stock is not None:
             reward.stock = max(0, reward.stock - 1)

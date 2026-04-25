@@ -1,4 +1,4 @@
-"""Redemption model — đổi quà loyalty."""
+"""Redemption model — đổi quà loyalty (HYBRID: scope user_id global)."""
 
 import enum
 from datetime import datetime
@@ -20,7 +20,9 @@ class Redemption(Base, TimestampMixin):
 
     __tablename__ = "redemptions"
     __table_args__ = (
-        CheckConstraint("points_spent > 0", name="ck_redemptions_points_positive"),
+        # Suffix-only — convention prepend `ck_redemptions_` → final
+        # `ck_redemptions_points_positive`.
+        CheckConstraint("points_spent > 0", name="points_positive"),
         UniqueConstraint(
             "partner_id", "redemption_code", name="uq_redemptions_partner_code"
         ),
@@ -31,8 +33,8 @@ class Redemption(Base, TimestampMixin):
     partner_id: Mapped[int] = mapped_column(
         ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False
     )
-    membership_id: Mapped[int] = mapped_column(
-        ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False, index=True
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     reward_id: Mapped[int] = mapped_column(
         ForeignKey("rewards.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -54,3 +56,4 @@ class Redemption(Base, TimestampMixin):
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    snapshot_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)

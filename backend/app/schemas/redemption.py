@@ -18,7 +18,7 @@ class UseRedemptionRequest(BaseModel):
 class RedemptionResponse(BaseModel):
     id: int
     partner_id: int
-    membership_id: int
+    user_id: int
     reward_id: int
     points_spent: int
     redemption_code: str
@@ -27,5 +27,6 @@ class RedemptionResponse(BaseModel):
     used_at: datetime | None
     used_by_staff_id: int | None
     expires_at: datetime
+    snapshot_image_url: str | None
 
     model_config = {"from_attributes": True}

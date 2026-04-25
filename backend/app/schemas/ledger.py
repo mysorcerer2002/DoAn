@@ -19,7 +19,7 @@ class LedgerEntryResponse(BaseModel):
 
 
 class ReconcileResponse(BaseModel):
-    membership_id: int
+    user_id: int
     expected_balance: int
     actual_balance: int
     is_consistent: bool

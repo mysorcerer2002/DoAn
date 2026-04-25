@@ -17,8 +17,9 @@ class Membership(Base, TimestampMixin):
     __tablename__ = "memberships"
     __table_args__ = (
         UniqueConstraint("partner_id", "user_id", name="uq_memberships_partner_user"),
-        CheckConstraint("points_balance >= 0", name="ck_memberships_balance_nonneg"),
-        CheckConstraint("total_points_earned >= 0", name="ck_memberships_total_nonneg"),
+        # Suffix-only — convention prepend `ck_memberships_` → final
+        # `ck_memberships_lifetime_nonneg`.
+        CheckConstraint("lifetime_earned >= 0", name="lifetime_nonneg"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -31,15 +32,11 @@ class Membership(Base, TimestampMixin):
     current_tier_id: Mapped[int | None] = mapped_column(
         ForeignKey("tiers.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    points_balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    total_points_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    lifetime_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     last_activity_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    archived_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

@@ -9,7 +9,7 @@ from app.services.ledger_service import LedgerService
 
 
 @pytest.fixture
-async def membership_with_balance(db_session):
+async def user_with_membership(db_session):
     user = User(email="u@example.com", password_hash="x", is_active=True)
     db_session.add(user)
     await db_session.flush()
@@ -21,20 +21,21 @@ async def membership_with_balance(db_session):
     await db_session.flush()
     m = Membership(
         partner_id=partner.id, user_id=user.id,
-        points_balance=0, total_points_earned=0,
+        lifetime_earned=0,
         joined_at=datetime.now(timezone.utc)
     )
     db_session.add(m)
     await db_session.flush()
-    return m
+    return user, m
 
 
 @pytest.mark.asyncio
-async def test_log_entry_creates_record(db_session, membership_with_balance):
+async def test_log_entry_creates_record(db_session, user_with_membership):
+    user, m = user_with_membership
     service = LedgerService(db_session)
     entry = await service.log_entry(
-        partner_id=membership_with_balance.partner_id,
-        membership_id=membership_with_balance.id,
+        partner_id=m.partner_id,
+        user_id=user.id,
         delta=100,
         reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL,
@@ -48,12 +49,13 @@ async def test_log_entry_creates_record(db_session, membership_with_balance):
 
 
 @pytest.mark.asyncio
-async def test_get_history_paginated(db_session, membership_with_balance):
+async def test_get_history_paginated(db_session, user_with_membership):
+    user, m = user_with_membership
     service = LedgerService(db_session)
     for i in range(5):
         await service.log_entry(
-            partner_id=membership_with_balance.partner_id,
-            membership_id=membership_with_balance.id,
+            partner_id=m.partner_id,
+            user_id=user.id,
             delta=10,
             reason=LedgerReason.EARN,
             ref_type=LedgerRefType.MANUAL,
@@ -63,8 +65,8 @@ async def test_get_history_paginated(db_session, membership_with_balance):
     await db_session.flush()
 
     history = await service.get_history(
-        partner_id=membership_with_balance.partner_id,
-        membership_id=membership_with_balance.id,
+        partner_id=m.partner_id,
+        user_id=user.id,
         limit=3,
     )
     assert len(history) == 3
@@ -72,12 +74,13 @@ async def test_get_history_paginated(db_session, membership_with_balance):
 
 
 @pytest.mark.asyncio
-async def test_reconcile_consistent(db_session, membership_with_balance):
+async def test_reconcile_consistent(db_session, user_with_membership):
+    user, m = user_with_membership
     service = LedgerService(db_session)
-    membership_with_balance.points_balance = 50
+    user.points_balance = 50
     await service.log_entry(
-        partner_id=membership_with_balance.partner_id,
-        membership_id=membership_with_balance.id,
+        partner_id=m.partner_id,
+        user_id=user.id,
         delta=50,
         reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL,
@@ -86,21 +89,19 @@ async def test_reconcile_consistent(db_session, membership_with_balance):
     )
     await db_session.flush()
 
-    result = await service.reconcile(
-        partner_id=membership_with_balance.partner_id,
-        membership_id=membership_with_balance.id,
-    )
+    result = await service.reconcile(user_id=user.id)
     assert result.is_consistent is True
     assert result.diff == 0
 
 
 @pytest.mark.asyncio
-async def test_reconcile_inconsistent_detects_diff(db_session, membership_with_balance):
+async def test_reconcile_inconsistent_detects_diff(db_session, user_with_membership):
+    user, m = user_with_membership
     service = LedgerService(db_session)
-    membership_with_balance.points_balance = 50
+    user.points_balance = 50
     await service.log_entry(
-        partner_id=membership_with_balance.partner_id,
-        membership_id=membership_with_balance.id,
+        partner_id=m.partner_id,
+        user_id=user.id,
         delta=100,
         reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL,
@@ -109,10 +110,7 @@ async def test_reconcile_inconsistent_detects_diff(db_session, membership_with_b
     )
     await db_session.flush()
 
-    result = await service.reconcile(
-        partner_id=membership_with_balance.partner_id,
-        membership_id=membership_with_balance.id,
-    )
+    result = await service.reconcile(user_id=user.id)
     assert result.is_consistent is False
     assert result.diff == 50
     assert result.expected_balance == 100

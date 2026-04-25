@@ -160,7 +160,7 @@ async def partner_with_tiers(db_session):
 async def test_earn_with_bronze_then_promote_to_gold(db_session, partner_with_tiers):
     """
     Tạo member Bronze → earn 1000₫ → 0 points (< unit_amount).
-    Nâng total_points_earned = 1000 → recompute_tier → Gold.
+    Nâng lifetime_earned = 1000 → recompute_tier → Gold.
     Earn 10.000₫ với tier Gold(×1.50) → 15 points.
     """
     from datetime import UTC, datetime
@@ -188,8 +188,7 @@ async def test_earn_with_bronze_then_promote_to_gold(db_session, partner_with_ti
         partner_id=partner.id,
         user_id=user.id,
         current_tier_id=bronze.id,
-        points_balance=0,
-        total_points_earned=0,
+        lifetime_earned=0,
     )
     db_session.add(membership)
     await db_session.flush()
@@ -210,8 +209,8 @@ async def test_earn_with_bronze_then_promote_to_gold(db_session, partner_with_ti
     points_at_bronze_100k = TransactionService._calculate_points(rule, 100_000, membership=membership)
     assert points_at_bronze_100k == 10, f"Expected 10 at Bronze for 100000 VND, got {points_at_bronze_100k}"
 
-    # Promote: nâng total_points_earned lên 1000 (vừa đủ Gold threshold=1000)
-    membership.total_points_earned = 1_000
+    # Promote: nâng lifetime_earned lên 1000 (vừa đủ Gold threshold=1000)
+    membership.lifetime_earned = 1_000
     await db_session.flush()
 
     # recompute_tier → Gold
@@ -267,8 +266,7 @@ async def test_earn_with_use_tiers_false_ignores_multiplier(db_session, partner_
         partner_id=partner.id,
         user_id=user.id,
         current_tier_id=gold.id,
-        points_balance=1_000,
-        total_points_earned=1_000,
+        lifetime_earned=1_000,
     )
     db_session.add(membership)
     await db_session.flush()

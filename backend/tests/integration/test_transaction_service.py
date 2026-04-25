@@ -2,6 +2,7 @@ import pytest
 from decimal import Decimal
 from datetime import datetime, timezone
 
+from app.models.membership import Membership
 from app.models.point_rule import PointRule
 from app.models.partner import Partner, PartnerStatus
 from app.models.tier import Tier
@@ -52,18 +53,19 @@ async def test_create_manual_transaction_brand_new_customer(
     service = TransactionService(db_session)
 
     result = await service.create_manual(
-        partner_id=ctx["tenant"].id,
+        partner_id=ctx["partner"].id,
         request=CreateManualTransactionRequest(phone="0912345678", gross_amount=50000),
     )
     await db_session.flush()
 
     assert result.transaction.points_earned == 50  # 50000 / 1000 * 1.00
     assert result.new_balance == 50
-    assert result.new_total_earned == 50
+    assert result.new_lifetime_earned == 50
     assert result.new_tier_name == "Bronze"
     assert result.tier_upgraded is False
 
-    await assert_ledger_invariant(db_session, result.transaction.membership_id)
+    membership = await db_session.get(Membership, result.transaction.membership_id)
+    await assert_ledger_invariant(db_session, membership.user_id)
 
 
 @pytest.mark.asyncio
@@ -76,7 +78,7 @@ async def test_create_transaction_triggers_tier_upgrade(
 
     # Lần 1: 450000 VND → 450 điểm → vẫn Bronze
     r1 = await service.create_manual(
-        partner_id=ctx["tenant"].id,
+        partner_id=ctx["partner"].id,
         request=CreateManualTransactionRequest(phone="0911111111", gross_amount=450000),
     )
     await db_session.flush()
@@ -85,15 +87,16 @@ async def test_create_transaction_triggers_tier_upgrade(
 
     # Lần 2: 100000 VND → 100 điểm → tổng 550 → Silver
     r2 = await service.create_manual(
-        partner_id=ctx["tenant"].id,
+        partner_id=ctx["partner"].id,
         request=CreateManualTransactionRequest(phone="0911111111", gross_amount=100000),
     )
     await db_session.flush()
-    assert r2.new_total_earned == 550
+    assert r2.new_lifetime_earned == 550
     assert r2.new_tier_name == "Silver"
     assert r2.tier_upgraded is True
 
-    await assert_ledger_invariant(db_session, r2.transaction.membership_id)
+    membership_r2 = await db_session.get(Membership, r2.transaction.membership_id)
+    await assert_ledger_invariant(db_session, membership_r2.user_id)
 
 
 @pytest.mark.asyncio

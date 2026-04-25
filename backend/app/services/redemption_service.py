@@ -1,4 +1,4 @@
-"""RedemptionService — atomic đổi quà + ledger (Luồng D)."""
+"""RedemptionService — atomic đổi quà + ledger (HYBRID: scope user_id global)."""
 
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -7,10 +7,10 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType
 from app.models.redemption import Redemption, RedemptionStatus
 from app.models.reward import Reward
+from app.models.user import User
 from app.services.ledger_service import LedgerService
 
 
@@ -41,25 +41,19 @@ class RedemptionService:
         self,
         *,
         partner_id: int,
-        membership_id: int,
+        user_id: int,
         reward_id: int,
         ttl_days: int = 14,
     ) -> Redemption:
-        """Đổi quà — atomic: lock membership → check balance → decrement stock → ledger."""
-        # 1. SELECT FOR UPDATE membership
-        membership = await self.db.scalar(
-            select(Membership)
-            .where(
-                Membership.id == membership_id,
-                Membership.partner_id == partner_id,
-            )
-            .with_for_update()
-        )
-        if membership is None:
-            raise ValueError(f"Membership {membership_id} not in partner {partner_id}")
+        """Đổi quà — atomic: lock reward → atomic-decrement user.points_balance → ledger.
 
-        # 2. Get reward — FOR UPDATE để khoá points_cost/is_active/deleted_at
-        # khỏi admin edit concurrent (lock order: memberships → rewards, đúng spec 6.1).
+        HYBRID: ví điểm global trên users.points_balance. Dùng atomic UPDATE
+        với WHERE points_balance >= cost để tránh lost-update mà không cần
+        SELECT FOR UPDATE trên users (giảm contention khi user đổi quà cùng
+        lúc earn ở shop khác).
+        """
+        # 1. Get reward — FOR UPDATE để khoá points_cost/is_active/deleted_at
+        # khỏi admin edit concurrent.
         reward = await self.db.scalar(
             select(Reward)
             .where(
@@ -73,13 +67,7 @@ class RedemptionService:
         if reward is None:
             raise ValueError(f"Reward {reward_id} not found")
 
-        # 3. Check balance
-        if membership.points_balance < reward.points_cost:
-            raise InsufficientPointsError(
-                f"Need {reward.points_cost}, have {membership.points_balance}"
-            )
-
-        # 4. Atomic decrement stock (nếu có)
+        # 2. Atomic decrement stock (nếu có)
         if reward.stock is not None:
             result = await self.db.execute(
                 update(Reward)
@@ -89,11 +77,31 @@ class RedemptionService:
             if result.rowcount == 0:
                 raise OutOfStockError(f"Reward {reward_id} out of stock")
 
-        # 5. Decrement membership balance
-        new_balance = membership.points_balance - reward.points_cost
-        membership.points_balance = new_balance
+        # 3. Atomic decrement user wallet (race-safe vs concurrent earn cross-shop)
+        try:
+            result = await self.db.execute(
+                update(User)
+                .where(User.id == user_id, User.points_balance >= reward.points_cost)
+                .values(points_balance=User.points_balance - reward.points_cost)
+                .returning(User.points_balance)
+            )
+            new_balance = result.scalar_one_or_none()
+        except IntegrityError as e:
+            raise InsufficientPointsError("Balance constraint violated") from e
 
-        # 6. Generate unique redemption code
+        if new_balance is None:
+            # Stock đã trừ rồi → cần rollback. Chỉ revert nếu reward có stock.
+            if reward.stock is not None:
+                await self.db.execute(
+                    update(Reward)
+                    .where(Reward.id == reward_id)
+                    .values(stock=Reward.stock + 1)
+                )
+            raise InsufficientPointsError(
+                f"User {user_id} insufficient points (need {reward.points_cost})"
+            )
+
+        # 4. Generate unique redemption code (per partner)
         code: str | None = None
         for _attempt in range(3):
             candidate = _generate_code()
@@ -113,7 +121,7 @@ class RedemptionService:
 
         redemption = Redemption(
             partner_id=partner_id,
-            membership_id=membership_id,
+            user_id=user_id,
             reward_id=reward_id,
             points_spent=reward.points_cost,
             redemption_code=code,
@@ -122,21 +130,13 @@ class RedemptionService:
             expires_at=datetime.now(timezone.utc) + timedelta(days=ttl_days),
         )
         self.db.add(redemption)
-        try:
-            await self.db.flush()
-        except IntegrityError as e:
-            err_msg = str(e).lower()
-            if "ck_memberships_balance_nonneg" in err_msg:
-                raise InsufficientPointsError("Balance constraint violated") from e
-            if "ck_rewards_stock_nonneg" in err_msg:
-                raise OutOfStockError("Stock constraint violated") from e
-            raise
+        await self.db.flush()
 
-        # 7. Insert ledger
+        # 5. Insert ledger
         ledger_svc = LedgerService(self.db)
         await ledger_svc.log_entry(
             partner_id=partner_id,
-            membership_id=membership_id,
+            user_id=user_id,
             delta=-reward.points_cost,
             reason=LedgerReason.REDEEM,
             ref_type=LedgerRefType.REDEMPTION,
@@ -174,16 +174,13 @@ class RedemptionService:
         return redemption
 
     async def list_my_redemptions(
-        self, *, partner_id: int, membership_id: int
+        self, *, user_id: int, partner_id: int | None = None
     ) -> list[Redemption]:
-        rows = await self.db.scalars(
-            select(Redemption)
-            .where(
-                Redemption.partner_id == partner_id,
-                Redemption.membership_id == membership_id,
-            )
-            .order_by(Redemption.redeemed_at.desc())
-        )
+        """Lịch sử đổi quà của user. partner_id=None → cross-shop."""
+        stmt = select(Redemption).where(Redemption.user_id == user_id)
+        if partner_id is not None:
+            stmt = stmt.where(Redemption.partner_id == partner_id)
+        rows = await self.db.scalars(stmt.order_by(Redemption.redeemed_at.desc()))
         return list(rows.all())
 
     async def list_tenant_redemptions(

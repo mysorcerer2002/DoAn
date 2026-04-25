@@ -28,11 +28,11 @@ async def _setup_with_member(db_session):
     db_session.add(partner)
     await db_session.flush()
 
+    member_user.points_balance = 100
     membership = Membership(
         partner_id=partner.id,
         user_id=member_user.id,
-        points_balance=100,
-        total_points_earned=100,
+        lifetime_earned=100,
         joined_at=datetime.now(timezone.utc),
     )
     db_session.add(membership)
@@ -41,7 +41,7 @@ async def _setup_with_member(db_session):
     # Tạo 1 ledger entry để test GET ledger
     ledger = PointLedger(
         partner_id=partner.id,
-        membership_id=membership.id,
+        user_id=member_user.id,
         delta=100,
         reason=LedgerReason.EARN,
         ref_type=LedgerRefType.TRANSACTION,

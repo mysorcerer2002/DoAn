@@ -14,8 +14,8 @@ class MemberResponse(BaseModel):
     user_phone: str | None
     user_full_name: str | None
     user_email: str | None
-    points_balance: int
-    total_points_earned: int
+    points_balance: int  # Global wallet — users.points_balance
+    lifetime_earned: int  # Per-shop tier metric — memberships.lifetime_earned
     current_tier_id: int | None
     current_tier_name: str | None
     joined_at: datetime

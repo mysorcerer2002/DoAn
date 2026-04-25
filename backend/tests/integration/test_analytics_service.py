@@ -52,24 +52,21 @@ async def _seed_analytics(db_session):
         user_id=u1.id,
         joined_at=now,
         current_tier_id=silver.id,
-        points_balance=100,
-        total_points_earned=100,
+        lifetime_earned=100,
     )
     m2 = Membership(
         partner_id=partner.id,
         user_id=u2.id,
         joined_at=now,
         current_tier_id=gold.id,
-        points_balance=600,
-        total_points_earned=600,
+        lifetime_earned=600,
     )
     m3 = Membership(
         partner_id=partner.id,
         user_id=u3.id,
         joined_at=now,
         current_tier_id=None,
-        points_balance=0,
-        total_points_earned=0,
+        lifetime_earned=0,
     )
     db_session.add_all([m1, m2, m3])
     await db_session.flush()
@@ -103,7 +100,7 @@ async def _seed_analytics(db_session):
 
     redemption = Redemption(
         partner_id=partner.id,
-        membership_id=m1.id,
+        user_id=m1.user_id,
         reward_id=reward.id,
         points_spent=50,
         redemption_code="RDANALYC",
@@ -128,18 +125,6 @@ async def test_count_members(db_session):
     service = AnalyticsService(db_session)
     count = await service._count_members(data["partner"].id)
     assert count == 3
-
-
-@pytest.mark.asyncio
-async def test_count_members_excludes_archived(db_session):
-    data = await _seed_analytics(db_session)
-    # Archive 1 member
-    data["memberships"][2].archived_at = datetime.now(timezone.utc)
-    await db_session.flush()
-
-    service = AnalyticsService(db_session)
-    count = await service._count_members(data["partner"].id)
-    assert count == 2
 
 
 @pytest.mark.asyncio

@@ -31,8 +31,8 @@ async def list_members(
             user_phone=m.user.phone,
             user_full_name=m.user.full_name,
             user_email=m.user.email,
-            points_balance=m.points_balance,
-            total_points_earned=m.total_points_earned,
+            points_balance=m.user.points_balance,
+            lifetime_earned=m.lifetime_earned,
             current_tier_id=m.current_tier_id,
             current_tier_name=m.current_tier.name if m.current_tier else None,
             joined_at=m.joined_at,
@@ -63,8 +63,8 @@ async def get_member(
         user_phone=m.user.phone,
         user_full_name=m.user.full_name,
         user_email=m.user.email,
-        points_balance=m.points_balance,
-        total_points_earned=m.total_points_earned,
+        points_balance=m.user.points_balance,
+        lifetime_earned=m.lifetime_earned,
         current_tier_id=m.current_tier_id,
         current_tier_name=m.current_tier.name if m.current_tier else None,
         joined_at=m.joined_at,
@@ -81,8 +81,21 @@ async def get_member_ledger(
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ) -> list[LedgerEntryResponse]:
+    """Lịch sử điểm của member trong shop hiện tại (filter theo partner_id)."""
+    from sqlalchemy import select
+    from app.models.membership import Membership
+
+    member_user_id = await db.scalar(
+        select(Membership.user_id).where(
+            Membership.id == membership_id,
+            Membership.partner_id == partner_id,
+        )
+    )
+    if member_user_id is None:
+        raise HTTPException(status_code=404, detail="Member not found")
+
     service = LedgerService(db)
     rows = await service.get_history(
-        partner_id=partner_id, membership_id=membership_id, limit=limit
+        user_id=member_user_id, partner_id=partner_id, limit=limit
     )
     return [LedgerEntryResponse.model_validate(r) for r in rows]

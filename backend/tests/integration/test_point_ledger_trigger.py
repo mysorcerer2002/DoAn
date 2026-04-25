@@ -11,7 +11,7 @@ from app.models.user import User
 
 
 @pytest.fixture
-async def membership(db_session):
+async def user_membership(db_session):
     user = User(email="u@example.com", password_hash="x", is_active=True)
     db_session.add(user)
     await db_session.flush()
@@ -22,19 +22,20 @@ async def membership(db_session):
     db_session.add(partner)
     await db_session.flush()
     m = Membership(
-        partner_id=partner.id, user_id=user.id, points_balance=0,
-        total_points_earned=0, joined_at=datetime.now(timezone.utc)
+        partner_id=partner.id, user_id=user.id,
+        lifetime_earned=0, joined_at=datetime.now(timezone.utc)
     )
     db_session.add(m)
     await db_session.flush()
-    return m
+    return user, m
 
 
 @pytest.mark.asyncio
-async def test_can_insert_ledger_entry(db_session, membership):
+async def test_can_insert_ledger_entry(db_session, user_membership):
+    user, m = user_membership
     entry = PointLedger(
-        partner_id=membership.partner_id,
-        membership_id=membership.id,
+        partner_id=m.partner_id,
+        user_id=user.id,
         delta=100,
         reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL,
@@ -46,10 +47,11 @@ async def test_can_insert_ledger_entry(db_session, membership):
 
 
 @pytest.mark.asyncio
-async def test_cannot_update_ledger_entry(db_session, membership):
+async def test_cannot_update_ledger_entry(db_session, user_membership):
+    user, m = user_membership
     entry = PointLedger(
-        partner_id=membership.partner_id,
-        membership_id=membership.id,
+        partner_id=m.partner_id,
+        user_id=user.id,
         delta=100, reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL, balance_after=100,
     )
@@ -66,10 +68,11 @@ async def test_cannot_update_ledger_entry(db_session, membership):
 
 
 @pytest.mark.asyncio
-async def test_cannot_delete_ledger_entry(db_session, membership):
+async def test_cannot_delete_ledger_entry(db_session, user_membership):
+    user, m = user_membership
     entry = PointLedger(
-        partner_id=membership.partner_id,
-        membership_id=membership.id,
+        partner_id=m.partner_id,
+        user_id=user.id,
         delta=100, reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL, balance_after=100,
     )

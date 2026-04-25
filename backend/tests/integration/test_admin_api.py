@@ -37,27 +37,27 @@ async def _make_partner_with_member(db_session) -> tuple[Partner, Membership]:
     )
     db_session.add(partner)
     await db_session.flush()
+    owner.points_balance = 100
     member = Membership(
         partner_id=partner.id,
         user_id=owner.id,
-        points_balance=100,
-        total_points_earned=100,
+        lifetime_earned=100,
     )
     db_session.add(member)
     await db_session.flush()
-    return partner, member
+    return partner, member, owner
 
 
 async def test_reconcile_membership_consistent(client: AsyncClient, db_session):
     """C1 fix: /admin/reconcile/{id} không crash với TypeError."""
     admin = await _make_admin(db_session)
-    partner, member = await _make_partner_with_member(db_session)
+    partner, member, owner = await _make_partner_with_member(db_session)
 
     # Add 1 ledger entry khớp với balance
     db_session.add(
         PointLedger(
             partner_id=partner.id,
-            membership_id=member.id,
+            user_id=owner.id,
             delta=100,
             reason=LedgerReason.EARN,
             ref_type=LedgerRefType.TRANSACTION,
@@ -68,12 +68,12 @@ async def test_reconcile_membership_consistent(client: AsyncClient, db_session):
     await db_session.flush()
 
     response = await client.post(
-        f"/admin/reconcile/{member.id}",
+        f"/admin/reconcile/{owner.id}",
         headers={"Authorization": f"Bearer {create_access_token(user_id=admin.id)}"},
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["membership_id"] == member.id
+    assert data["user_id"] == owner.id
     assert data["expected_balance"] == 100
     assert data["actual_balance"] == 100
     assert data["is_consistent"] is True
@@ -104,7 +104,7 @@ async def test_reconcile_requires_super_admin(client: AsyncClient, db_session):
 async def test_admin_approve_already_active_returns_409(client: AsyncClient, db_session):
     """C6 fix Section 2: invalid status transition → 409 thay vì 200."""
     admin = await _make_admin(db_session, email="admin-tt@x.com")
-    partner, _ = await _make_partner_with_member(db_session)
+    partner, _, _ = await _make_partner_with_member(db_session)
     # tenant đã ACTIVE → approve lại nên 409
     response = await client.post(
         f"/admin/partners/{partner.id}/approve",

@@ -122,13 +122,13 @@ async def test_list_partners_membership_fields(client: AsyncClient, db_session):
     db_session.add(tier)
     await db_session.flush()
 
+    customer.points_balance = 320
     db_session.add(
         Membership(
             partner_id=member_shop.id,
             user_id=customer.id,
             current_tier_id=tier.id,
-            points_balance=320,
-            total_points_earned=420,
+            lifetime_earned=420,
         )
     )
     await db_session.flush()
@@ -158,8 +158,9 @@ async def test_partner_detail_non_member(client: AsyncClient, db_session):
     assert resp.status_code == 200
     data = resp.json()
     assert data["is_member"] is False
-    assert data["points_balance"] is None
-    assert data["total_points_earned"] is None
+    # points_balance luôn = ví toàn cục (mặc định 0 cho user mới)
+    assert data["points_balance"] == 0
+    assert data["lifetime_earned"] is None
     assert data["current_tier_name"] is None
     assert data["joined_at"] is None
 
@@ -169,11 +170,11 @@ async def test_partner_detail_member(client: AsyncClient, db_session):
     partner = await _make_active_partner(db_session, "Member Shop", "member-shop")
     customer = await _make_customer(db_session, "member@test.com")
 
+    customer.points_balance = 250
     membership = Membership(
         partner_id=partner.id,
         user_id=customer.id,
-        points_balance=250,
-        total_points_earned=250,
+        lifetime_earned=250,
     )
     db_session.add(membership)
     await db_session.flush()
@@ -183,7 +184,7 @@ async def test_partner_detail_member(client: AsyncClient, db_session):
     data = resp.json()
     assert data["is_member"] is True
     assert data["points_balance"] == 250
-    assert data["total_points_earned"] == 250
+    assert data["lifetime_earned"] == 250
 
 
 async def test_partner_detail_not_found(client: AsyncClient, db_session):

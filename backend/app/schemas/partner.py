@@ -106,8 +106,8 @@ class PartnerStaffSummary(BaseModel):
 class MyPartnerSummary(BaseModel):
     """Tóm tắt partner ACTIVE cho customer browse.
 
-    Membership-conditional fields (is_member, points_balance, current_tier_name)
-    là null nếu user chưa join; có giá trị khi user đã là member.
+    `points_balance` = ví toàn cục (luôn có khi user đăng nhập).
+    `current_tier_name` chỉ có khi user là member shop (per-shop tier).
     """
 
     id: int
@@ -117,7 +117,7 @@ class MyPartnerSummary(BaseModel):
     description: str | None = None
     logo_url: str | None = None
     is_member: bool = False
-    points_balance: int | None = None
+    points_balance: int = 0
     current_tier_name: str | None = None
 
 
@@ -137,9 +137,10 @@ class PartnerDetailForMember(BaseModel):
     website: str | None = None
     business_hours: str | None = None
     is_member: bool
-    # Chỉ có giá trị khi is_member=True
+    # `points_balance` = ví toàn cục (luôn có khi user đăng nhập, kể cả chưa member shop)
+    # `lifetime_earned` chỉ có khi is_member=True (per-shop tier metric)
     points_balance: int | None = None
-    total_points_earned: int | None = None
+    lifetime_earned: int | None = None
     current_tier_name: str | None = None
     joined_at: datetime | None = None
     last_activity_at: datetime | None = None

@@ -13,7 +13,7 @@ from tests.helpers.ledger_invariant import assert_ledger_invariant
 
 
 @pytest.fixture
-async def membership_for_invariant(db_session):
+async def user_for_invariant(db_session):
     user = User(email="inv@example.com", password_hash="x", is_active=True)
     db_session.add(user)
     await db_session.flush()
@@ -25,54 +25,54 @@ async def membership_for_invariant(db_session):
     await db_session.flush()
     m = Membership(
         partner_id=partner.id, user_id=user.id,
-        points_balance=0, total_points_earned=0,
+        lifetime_earned=0,
         joined_at=datetime.now(timezone.utc)
     )
     db_session.add(m)
     await db_session.flush()
-    return m
+    return user, m
 
 
 @pytest.mark.asyncio
-async def test_invariant_after_earn(db_session, membership_for_invariant):
-    m = membership_for_invariant
+async def test_invariant_after_earn(db_session, user_for_invariant):
+    user, m = user_for_invariant
     service = LedgerService(db_session)
-    m.points_balance = 100
+    user.points_balance = 100
     await service.log_entry(
-        partner_id=m.partner_id, membership_id=m.id,
+        partner_id=m.partner_id, user_id=user.id,
         delta=100, reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL, ref_id=None,
         new_balance=100,
     )
     await db_session.flush()
-    await assert_ledger_invariant(db_session, m.id)
+    await assert_ledger_invariant(db_session, user.id)
 
 
 @pytest.mark.asyncio
-async def test_invariant_after_earn_and_redeem(db_session, membership_for_invariant):
-    m = membership_for_invariant
+async def test_invariant_after_earn_and_redeem(db_session, user_for_invariant):
+    user, m = user_for_invariant
     service = LedgerService(db_session)
-    m.points_balance = 100
+    user.points_balance = 100
     await service.log_entry(
-        partner_id=m.partner_id, membership_id=m.id,
+        partner_id=m.partner_id, user_id=user.id,
         delta=100, reason=LedgerReason.EARN,
         ref_type=LedgerRefType.MANUAL, ref_id=None,
         new_balance=100,
     )
-    m.points_balance = 60
+    user.points_balance = 60
     await service.log_entry(
-        partner_id=m.partner_id, membership_id=m.id,
+        partner_id=m.partner_id, user_id=user.id,
         delta=-40, reason=LedgerReason.REDEEM,
         ref_type=LedgerRefType.MANUAL, ref_id=None,
         new_balance=60,
     )
     await db_session.flush()
-    await assert_ledger_invariant(db_session, m.id)
+    await assert_ledger_invariant(db_session, user.id)
 
 
 @pytest.mark.asyncio
 async def test_invariant_e2e_via_transaction_service(db_session):
-    """E2E: TransactionService tạo giao dịch -> invariant vẫn đúng."""
+    """E2E: TransactionService tạo giao dịch → invariant ví toàn cục vẫn đúng."""
     owner = User(email="e2e-inv@example.com", password_hash="x", is_active=True)
     db_session.add(owner)
     await db_session.flush()
@@ -98,7 +98,6 @@ async def test_invariant_e2e_via_transaction_service(db_session):
 
     tx_service = TransactionService(db_session)
 
-    # Tạo 3 giao dịch liên tiếp cho cùng 1 SĐT
     for amount in [10_000, 25_000, 50_000]:
         result = await tx_service.create_manual(
             partner_id=partner.id,
@@ -107,6 +106,5 @@ async def test_invariant_e2e_via_transaction_service(db_session):
             ),
         )
 
-    # Kiểm tra invariant
-    membership_id = result.transaction.membership_id
-    await assert_ledger_invariant(db_session, membership_id)
+    membership = await db_session.get(Membership, result.transaction.membership_id)
+    await assert_ledger_invariant(db_session, membership.user_id)

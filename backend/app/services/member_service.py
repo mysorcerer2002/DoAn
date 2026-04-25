@@ -69,8 +69,6 @@ class MemberService:
                         partner_id=partner_id,
                         user_id=existing_user.id,
                         current_tier_id=None,
-                        points_balance=0,
-                        total_points_earned=0,
                         joined_at=datetime.now(timezone.utc),
                     )
                     self.db.add(existing_membership)
@@ -99,8 +97,8 @@ class MemberService:
             user_phone=existing_user.phone,
             user_full_name=existing_user.full_name,
             user_email=existing_user.email,
-            points_balance=existing_membership.points_balance,
-            total_points_earned=existing_membership.total_points_earned,
+            points_balance=existing_user.points_balance,
+            lifetime_earned=existing_membership.lifetime_earned,
             current_tier_id=existing_membership.current_tier_id,
             current_tier_name=existing_membership.current_tier.name
             if existing_membership.current_tier

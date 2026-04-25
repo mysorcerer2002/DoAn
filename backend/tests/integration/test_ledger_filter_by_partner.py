@@ -31,23 +31,23 @@ async def _make_partner_with_membership(
     )
     db_session.add(partner)
     await db_session.flush()
+    customer.points_balance = (customer.points_balance or 0) + points
     membership = Membership(
         partner_id=partner.id,
         user_id=customer.id,
-        points_balance=points,
-        total_points_earned=points,
+        lifetime_earned=points,
     )
     db_session.add(membership)
     await db_session.flush()
 
     ledger = PointLedger(
         partner_id=partner.id,
-        membership_id=membership.id,
+        user_id=customer.id,
         delta=points,
         reason=LedgerReason.EARN,
         ref_type=LedgerRefType.TRANSACTION,
         ref_id=1,
-        balance_after=points,
+        balance_after=customer.points_balance,
     )
     db_session.add(ledger)
     await db_session.flush()
@@ -161,9 +161,10 @@ async def test_ledger_pagination(client: AsyncClient, db_session):
     )
     db_session.add(partner)
     await db_session.flush()
+    customer.points_balance = 300
     membership = Membership(
         partner_id=partner.id, user_id=customer.id,
-        points_balance=300, total_points_earned=300
+        lifetime_earned=300,
     )
     db_session.add(membership)
     await db_session.flush()
@@ -174,7 +175,7 @@ async def test_ledger_pagination(client: AsyncClient, db_session):
         running_balance += delta
         db_session.add(PointLedger(
             partner_id=partner.id,
-            membership_id=membership.id,
+            user_id=customer.id,
             delta=delta,
             reason=LedgerReason.EARN,
             ref_type=LedgerRefType.TRANSACTION,

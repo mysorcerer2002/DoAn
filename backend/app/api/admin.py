@@ -50,7 +50,6 @@ async def list_all_partners(
             Membership.partner_id.label("partner_id"),
             func.count().label("cnt"),
         )
-        .where(Membership.archived_at.is_(None))
         .group_by(Membership.partner_id)
         .subquery()
     )
@@ -134,23 +133,21 @@ async def approve_partner(
 
 
 @router.post(
-    "/reconcile/{membership_id}",
+    "/reconcile/{user_id}",
     response_model=ReconcileResponse,
     status_code=status.HTTP_200_OK,
 )
-async def reconcile_member_balance(
-    membership_id: int,
+async def reconcile_user_balance(
+    user_id: int,
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ) -> ReconcileResponse:
-    """Super Admin kiểm tra tính nhất quán giữa points_balance và ledger."""
-    membership = await db.get(Membership, membership_id)
-    if membership is None:
-        raise HTTPException(status_code=404, detail="Membership không tồn tại")
+    """Super Admin so khớp users.points_balance vs SUM(point_ledger.delta) global."""
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User không tồn tại")
     service = LedgerService(db)
-    return await service.reconcile(
-        partner_id=membership.partner_id, membership_id=membership_id
-    )
+    return await service.reconcile(user_id=user_id)
 
 
 @router.get("/partners/{partner_id}/detail", response_model=PartnerDetailResponse)
@@ -180,10 +177,7 @@ async def get_partner_detail(
         await db.scalar(
             select(func.count())
             .select_from(Membership)
-            .where(
-                Membership.partner_id == partner_id,
-                Membership.archived_at.is_(None),
-            )
+            .where(Membership.partner_id == partner_id)
         )
         or 0
     )
@@ -315,11 +309,10 @@ async def list_partner_members(
             full_name=u.full_name,
             email=u.email,
             phone=u.phone,
-            points_balance=m.points_balance,
-            total_points_earned=m.total_points_earned,
+            points_balance=u.points_balance,
+            lifetime_earned=m.lifetime_earned,
             current_tier_name=tier_name,
             joined_at=m.joined_at,
-            archived=m.archived_at is not None,
         )
         for m, u, tier_name in rows
     ]
@@ -517,11 +510,9 @@ class AdminMembershipInfo(BaseModel):
     partner_id: int
     partner_name: str
     partner_slug: str
-    points_balance: int
-    total_points_earned: int
+    lifetime_earned: int  # Per-shop tier metric. Ví toàn cục = user.points_balance.
     current_tier_name: str | None
     joined_at: datetime
-    archived: bool
 
 
 class AdminUserDetailResponse(BaseModel):
@@ -592,11 +583,9 @@ async def get_user_detail(
             partner_id=p.id,
             partner_name=p.name,
             partner_slug=p.slug,
-            points_balance=m.points_balance,
-            total_points_earned=m.total_points_earned,
+            lifetime_earned=m.lifetime_earned,
             current_tier_name=tier_name,
             joined_at=m.joined_at,
-            archived=m.archived_at is not None,
         )
         for m, p, tier_name in rows
     ]

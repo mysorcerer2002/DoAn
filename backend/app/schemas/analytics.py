@@ -77,8 +77,7 @@ class PartnerDetailResponse(BaseModel):
 class AdminPartnerListRow(BaseModel):
     """Row cho /admin/partners: đã kèm metric + owner để tránh N+1 ở FE.
 
-    `active_member_count`: membership với `archived_at IS NULL` (semantic
-    giống `PartnerDetailResponse.active_member_count`). `active_member_count_30d`:
+    `active_member_count`: tổng số membership thuộc partner. `active_member_count_30d`:
     khách có giao dịch trong 30 ngày gần nhất — tham gia "active shop" tag.
     """
 
@@ -112,7 +111,11 @@ class AdminPartnerStaffRow(BaseModel):
 
 
 class AdminPartnerMemberRow(BaseModel):
-    """Khách hàng của một đối tác."""
+    """Khách hàng của một đối tác.
+
+    `points_balance` = ví toàn cục từ users.points_balance.
+    `lifetime_earned` = tổng điểm tích luỹ tại shop này (per-shop tier metric).
+    """
 
     membership_id: int
     user_id: int
@@ -120,10 +123,9 @@ class AdminPartnerMemberRow(BaseModel):
     email: str | None = None
     phone: str | None = None
     points_balance: int
-    total_points_earned: int
+    lifetime_earned: int
     current_tier_name: str | None = None
     joined_at: datetime
-    archived: bool
 
 
 class PlatformStatsResponse(BaseModel):

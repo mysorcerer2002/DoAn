@@ -1,19 +1,20 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.membership import Membership
 from app.models.point_ledger import PointLedger
+from app.models.user import User
 
 
-async def assert_ledger_invariant(db: AsyncSession, membership_id: int) -> None:
-    """Kiểm tra bất biến: SUM(delta) == points_balance."""
+async def assert_ledger_invariant(db: AsyncSession, user_id: int) -> None:
+    """Bất biến HYBRID: SUM(delta) toàn cục per user == users.points_balance."""
     expected = await db.scalar(
         select(func.coalesce(func.sum(PointLedger.delta), 0)).where(
-            PointLedger.membership_id == membership_id
+            PointLedger.user_id == user_id
         )
     )
-    membership = await db.get(Membership, membership_id)
-    assert membership is not None, f"Membership {membership_id} không tồn tại"
-    assert int(expected) == membership.points_balance, (
-        f"Ledger invariant FAILED: SUM(delta)={expected} != balance={membership.points_balance}"
+    user = await db.get(User, user_id)
+    assert user is not None, f"User {user_id} không tồn tại"
+    assert int(expected) == user.points_balance, (
+        f"Ledger invariant FAILED: SUM(delta)={expected} != "
+        f"user.points_balance={user.points_balance}"
     )

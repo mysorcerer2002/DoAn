@@ -31,12 +31,12 @@ async def _setup_analytics(db_session):
     await db_session.flush()
     await db_session.flush()
 
+    member_user.points_balance = 100
     membership = Membership(
         partner_id=partner.id,
         user_id=member_user.id,
         joined_at=now,
-        points_balance=100,
-        total_points_earned=100,
+        lifetime_earned=100,
     )
     db_session.add(membership)
     await db_session.flush()
@@ -163,12 +163,12 @@ async def _setup_admin(db_session):
     db_session.add(member_user)
     await db_session.flush()
 
+    member_user.points_balance = 50
     membership = Membership(
         partner_id=partner.id,
         user_id=member_user.id,
         joined_at=now,
-        points_balance=50,
-        total_points_earned=50,
+        lifetime_earned=50,
     )
     db_session.add(membership)
     await db_session.flush()

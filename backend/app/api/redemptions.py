@@ -1,4 +1,7 @@
-"""Redemptions API — đổi quà + xác nhận sử dụng."""
+"""Redemptions API — staff-side đổi quà + xác nhận sử dụng.
+
+Customer self-redeem ở `POST /users/me/redemptions` (partners.users_router).
+"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,45 +26,6 @@ from app.services.redemption_service import (
 router = APIRouter(prefix="/partner/redemptions", tags=["partner-redemptions"])
 
 
-@router.post("", response_model=RedemptionResponse, status_code=201)
-@limiter.limit("10/minute")
-async def redeem_reward(
-    request: Request,
-    body: RedeemRequest,
-    partner_id: int = Depends(get_partner_id),
-    _=Depends(require_owner_in_partner),
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> RedemptionResponse:
-    """Customer tự đổi quà bằng membership của chính họ trong partner hiện tại."""
-    from sqlalchemy import select
-
-    # Tìm membership của user hiện tại trong tenant
-    membership = await db.scalar(
-        select(Membership).where(
-            Membership.partner_id == partner_id,
-            Membership.user_id == user.id,
-        )
-    )
-    if membership is None:
-        raise HTTPException(status_code=404, detail="Membership not found")
-
-    service = RedemptionService(db)
-    try:
-        redemption = await service.redeem(
-            partner_id=partner_id,
-            membership_id=membership.id,
-            reward_id=body.reward_id,
-        )
-    except InsufficientPointsError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except OutOfStockError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    return RedemptionResponse.model_validate(redemption)
-
-
 @router.post("/for-member/{membership_id}", response_model=RedemptionResponse, status_code=201)
 @limiter.limit("10/minute")
 async def redeem_reward_for_member(
@@ -73,11 +37,22 @@ async def redeem_reward_for_member(
     db: AsyncSession = Depends(get_db),
 ) -> RedemptionResponse:
     """Owner đổi quà thay cho member."""
+    from sqlalchemy import select
+
+    member_user_id = await db.scalar(
+        select(Membership.user_id).where(
+            Membership.id == membership_id,
+            Membership.partner_id == partner_id,
+        )
+    )
+    if member_user_id is None:
+        raise HTTPException(status_code=404, detail="Membership not found")
+
     service = RedemptionService(db)
     try:
         redemption = await service.redeem(
             partner_id=partner_id,
-            membership_id=membership_id,
+            user_id=member_user_id,
             reward_id=body.reward_id,
         )
     except InsufficientPointsError as e:

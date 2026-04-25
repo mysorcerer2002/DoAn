@@ -169,23 +169,27 @@ async def two_tenants_full_data(db_session):
     db_session.add_all([cust_a1, cust_a2, cust_b1, cust_b2])
     await db_session.flush()
 
-    # Memberships
-    mem_a1 = Membership(partner_id=tenant_a.id, user_id=cust_a1.id, points_balance=100, total_points_earned=100)
-    mem_a2 = Membership(partner_id=tenant_a.id, user_id=cust_a2.id, points_balance=200, total_points_earned=200)
-    mem_b1 = Membership(partner_id=tenant_b.id, user_id=cust_b1.id, points_balance=300, total_points_earned=300)
-    mem_b2 = Membership(partner_id=tenant_b.id, user_id=cust_b2.id, points_balance=400, total_points_earned=400)
+    # Memberships (lifetime_earned per shop; ví toàn cục trên user.points_balance)
+    cust_a1.points_balance = 100
+    cust_a2.points_balance = 200
+    cust_b1.points_balance = 300
+    cust_b2.points_balance = 400
+    mem_a1 = Membership(partner_id=tenant_a.id, user_id=cust_a1.id, lifetime_earned=100)
+    mem_a2 = Membership(partner_id=tenant_a.id, user_id=cust_a2.id, lifetime_earned=200)
+    mem_b1 = Membership(partner_id=tenant_b.id, user_id=cust_b1.id, lifetime_earned=300)
+    mem_b2 = Membership(partner_id=tenant_b.id, user_id=cust_b2.id, lifetime_earned=400)
     db_session.add_all([mem_a1, mem_a2, mem_b1, mem_b2])
     await db_session.flush()
 
     # Transactions
     db_session.add_all([
         Transaction(
-            partner_id=tenant_a.id, membership_id=mem_a1.id, staff_id=owner_a.id,
+            partner_id=tenant_a.id, membership_id=mem_a1.id,
             gross_amount=50000, net_amount=50000, points_earned=5,
             method=TransactionMethod.MANUAL, note="A txn 1",
         ),
         Transaction(
-            partner_id=tenant_b.id, membership_id=mem_b1.id, staff_id=owner_b.id,
+            partner_id=tenant_b.id, membership_id=mem_b1.id,
             gross_amount=70000, net_amount=70000, points_earned=7,
             method=TransactionMethod.MANUAL, note="B txn 1",
         ),
@@ -317,7 +321,7 @@ async def test_isolation_user_me_ledger_own_only(
 
     entry = PointLedger(
         partner_id=ctx["tenant_a"].id,
-        membership_id=ctx["mem_a1"].id,
+        user_id=ctx["cust_a1"].id,
         delta=50,
         reason=LedgerReason.ADJUST,
         ref_type=LedgerRefType.MANUAL,
