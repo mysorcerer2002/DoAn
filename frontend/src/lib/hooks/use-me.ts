@@ -6,7 +6,7 @@ import type { Membership, User } from "@/types/auth";
 
 function hasToken(): boolean {
   if (typeof window === "undefined") return false;
-  return Boolean(sessionStorage.getItem("access_token"));
+  return Boolean(localStorage.getItem("access_token"));
 }
 
 export function useMe() {

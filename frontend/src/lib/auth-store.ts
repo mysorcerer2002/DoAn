@@ -17,8 +17,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setTokens: (accessToken, refreshToken) => {
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("access_token", accessToken);
-      sessionStorage.setItem("refresh_token", refreshToken);
+      localStorage.setItem("access_token", accessToken);
+      localStorage.setItem("refresh_token", refreshToken);
     }
   },
 
@@ -34,23 +34,23 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     if (typeof window !== "undefined") {
-      sessionStorage.removeItem("access_token");
-      sessionStorage.removeItem("refresh_token");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
     }
     set({ user: null });
   },
 
   rehydrate: async () => {
     if (typeof window === "undefined") return;
-    const token = sessionStorage.getItem("access_token");
+    const token = localStorage.getItem("access_token");
     if (!token) return;
     set({ isLoading: true });
     try {
       const { data } = await authApi.me();
       set({ user: data, isLoading: false });
     } catch {
-      sessionStorage.removeItem("access_token");
-      sessionStorage.removeItem("refresh_token");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
       set({ user: null, isLoading: false });
     }
   },
