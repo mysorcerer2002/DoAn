@@ -97,7 +97,11 @@ class PartnerStaffSummary(BaseModel):
 
 
 class MyPartnerSummary(BaseModel):
-    """Tóm tắt partner ACTIVE cho customer browse — không kèm membership info."""
+    """Tóm tắt partner ACTIVE cho customer browse.
+
+    Membership-conditional fields (is_member, points_balance, current_tier_name)
+    là null nếu user chưa join; có giá trị khi user đã là member.
+    """
 
     id: int
     name: str
@@ -105,6 +109,9 @@ class MyPartnerSummary(BaseModel):
     category: str
     description: str | None = None
     logo_url: str | None = None
+    is_member: bool = False
+    points_balance: int | None = None
+    current_tier_name: str | None = None
 
 
 class PartnerDetailForMember(BaseModel):

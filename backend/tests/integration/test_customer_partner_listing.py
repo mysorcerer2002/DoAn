@@ -92,7 +92,7 @@ async def test_list_partners_unauthenticated(client: AsyncClient):
 
 
 async def test_list_partners_schema(client: AsyncClient, db_session):
-    """Response phải có đúng fields của MyPartnerSummary."""
+    """Response phải có đúng fields của MyPartnerSummary, kèm membership-conditional fields."""
     await _make_active_partner(db_session, "Schema Shop", "schema-shop")
     customer = await _make_customer(db_session, "schema@test.com")
 
@@ -104,9 +104,50 @@ async def test_list_partners_schema(client: AsyncClient, db_session):
     assert "name" in item
     assert "slug" in item
     assert "category" in item
-    # Không được chứa is_member, points_balance (đó là PartnerDetailForMember)
-    assert "is_member" not in item
-    assert "points_balance" not in item
+    # Membership-conditional: customer chưa join shop này
+    assert item["is_member"] is False
+    assert item["points_balance"] is None
+    assert item["current_tier_name"] is None
+
+
+async def test_list_partners_membership_fields(client: AsyncClient, db_session):
+    """Customer là member của 1 shop: shop đó có points + tier; shop kia null."""
+    from app.models.tier import Tier
+
+    member_shop = await _make_active_partner(db_session, "Member Shop", "list-member")
+    other_shop = await _make_active_partner(db_session, "Other Shop", "list-other")
+    customer = await _make_customer(db_session, "listmember@test.com")
+
+    tier = Tier(
+        partner_id=member_shop.id,
+        name="Bạc",
+        min_points=100,
+    )
+    db_session.add(tier)
+    await db_session.flush()
+
+    db_session.add(
+        Membership(
+            partner_id=member_shop.id,
+            user_id=customer.id,
+            current_tier_id=tier.id,
+            points_balance=320,
+            total_points_earned=420,
+        )
+    )
+    await db_session.flush()
+
+    resp = await client.get("/users/me/partners", headers=_auth(customer.id))
+    assert resp.status_code == 200
+    by_slug = {p["slug"]: p for p in resp.json()}
+
+    assert by_slug["list-member"]["is_member"] is True
+    assert by_slug["list-member"]["points_balance"] == 320
+    assert by_slug["list-member"]["current_tier_name"] == "Bạc"
+
+    assert by_slug["list-other"]["is_member"] is False
+    assert by_slug["list-other"]["points_balance"] is None
+    assert by_slug["list-other"]["current_tier_name"] is None
 
 
 # ── GET /users/me/partners/{slug} ──

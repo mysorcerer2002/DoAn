@@ -219,9 +219,11 @@ async def list_my_partners(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[MyPartnerSummary]:
-    """Tất cả partner ACTIVE trên platform (không kèm membership info).
+    """Tất cả partner ACTIVE trên platform.
 
-    Dùng cho trang `/member/partners` để customer khám phá shop.
+    Với partner mà user đã là member, kèm `is_member=True`, `points_balance`,
+    `current_tier_name`. Dùng cho trang `/member/partners` để customer
+    vừa khám phá shop vừa thấy hạng + điểm hiện tại trên card.
     """
     partners = (
         await db.scalars(
@@ -231,17 +233,35 @@ async def list_my_partners(
         )
     ).all()
 
-    return [
-        MyPartnerSummary(
-            id=p.id,
-            name=p.name,
-            slug=p.slug,
-            category=str(p.category.value if hasattr(p.category, "value") else p.category),
-            description=p.description,
-            logo_url=p.logo_url,
+    memberships = (
+        await db.scalars(
+            select(Membership)
+            .options(joinedload(Membership.current_tier))
+            .where(
+                Membership.user_id == user.id,
+                Membership.archived_at.is_(None),
+            )
         )
-        for p in partners
-    ]
+    ).all()
+    membership_by_partner = {m.partner_id: m for m in memberships}
+
+    result: list[MyPartnerSummary] = []
+    for p in partners:
+        m = membership_by_partner.get(p.id)
+        result.append(
+            MyPartnerSummary(
+                id=p.id,
+                name=p.name,
+                slug=p.slug,
+                category=str(p.category.value if hasattr(p.category, "value") else p.category),
+                description=p.description,
+                logo_url=p.logo_url,
+                is_member=m is not None,
+                points_balance=m.points_balance if m else None,
+                current_tier_name=m.current_tier.name if m and m.current_tier else None,
+            )
+        )
+    return result
 
 
 @users_router.get("/me/partners/{slug}", response_model=PartnerDetailForMember)

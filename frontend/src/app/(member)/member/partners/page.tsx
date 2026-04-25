@@ -16,6 +16,9 @@ interface PartnerSummary {
   category: TenantCategory;
   description: string | null;
   logo_url: string | null;
+  is_member: boolean;
+  points_balance: number | null;
+  current_tier_name: string | null;
 }
 
 const CATEGORY_META: Record<
@@ -168,11 +171,22 @@ export default function MemberPartnersPage() {
                     <span className={`text-[11px] font-bold ${meta.accentColor}`}>
                       {meta.label}
                     </span>
-                    {p.description && (
+                    {p.is_member ? (
+                      <div className="mt-1 flex items-center gap-2">
+                        {p.current_tier_name && (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                            ⭐ {p.current_tier_name}
+                          </span>
+                        )}
+                        <span className="text-[11px] font-bold text-brand-indigo">
+                          {(p.points_balance ?? 0).toLocaleString("vi-VN")} điểm
+                        </span>
+                      </div>
+                    ) : p.description ? (
                       <p className="truncate text-[11px] text-slate-400 mt-0.5">
                         {p.description}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </Link>
               );
