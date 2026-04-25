@@ -10,7 +10,6 @@ from app.api import auth as auth_router
 from app.api.admin import router as admin_router
 from app.api.analytics import router as analytics_router
 from app.api.members import router as members_router
-from app.api.notifications import router as notifications_router
 from app.api.point_rules import router as point_rules_router
 from app.api.qr import router as qr_router
 from app.api.redemptions import router as redemptions_router
@@ -73,7 +72,6 @@ app.include_router(members_router)
 app.include_router(qr_router)
 app.include_router(rewards_router)
 app.include_router(redemptions_router)
-app.include_router(notifications_router)
 app.include_router(analytics_router)
 
 

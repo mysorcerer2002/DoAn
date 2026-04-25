@@ -1,7 +1,3 @@
-from typing import Any
-
-from datetime import datetime
-
 from pydantic import BaseModel, Field
 
 
@@ -25,14 +21,3 @@ class SettingsUpdateRequest(BaseModel):
     default_tier_id: int | None = None
 
     model_config = {"extra": "forbid"}
-
-
-class SettingsAuditEntry(BaseModel):
-    id: int
-    field_key: str
-    old_value: Any
-    new_value: Any
-    user_id: int
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
