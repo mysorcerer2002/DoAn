@@ -1,11 +1,10 @@
 """Seed data phong phú cho demo + test.
 
 Tạo 2 đối tác độc lập (Cafe Cộng + Trà Sữa Lala) với đầy đủ:
-- tier, point_rule, reward, campaign
+- tier, point_rule, reward
 - 5 customer/đối tác + membership với tier đa dạng
 - 14 ngày transactions (~30 txn/đối tác)
 - point_ledger entries (earn + adjust + redeem)
-- voucher claims từ campaign
 - redemption records từ reward
 
 Dùng để test mọi endpoint có data + verify multi-tenant isolation.
@@ -22,7 +21,6 @@ from sqlalchemy import select
 
 from app.core.db import AsyncSessionLocal
 from app.core.security import hash_password
-from app.models.campaign import Campaign, DiscountType
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
@@ -33,7 +31,6 @@ from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
-from app.models.voucher import Voucher, VoucherStatus
 
 
 def _rand_code(n: int = 8) -> str:
@@ -72,7 +69,6 @@ async def _seed_tenant(
     tier_defs: list[tuple[str, int, Decimal]],  # (name, min_points, earn_multiplier)
     use_tiers: bool,
     rewards: list[tuple[str, int, int | None]],
-    campaigns: list[tuple[str, int, int]],  # (name, discount_percent, max_discount)
     customers: list[tuple[str, str, str, int, str]],  # (email, name, phone, points, tier_name)
     logo_url: str | None = None,
     banner_url: str | None = None,
@@ -102,7 +98,6 @@ async def _seed_tenant(
             settings={
                 "points_on_gross": False,
                 "signup_bonus_points": 100,
-                "voucher_default_ttl_days": 14,
                 "redemption_default_ttl_days": 14,
             },
             activated_at=datetime.now(UTC),
@@ -226,50 +221,6 @@ async def _seed_tenant(
         )
     ).all()
 
-    # Campaigns
-    now = datetime.now(UTC)
-    existing_campaigns = (
-        await db.scalars(select(Campaign).where(Campaign.partner_id == partner.id))
-    ).all()
-    if not existing_campaigns:
-        for c_name, discount, max_disc in campaigns:
-            db.add(Campaign(
-                partner_id=partner.id,
-                name=c_name,
-                description=f"Khuyến mãi {c_name} — áp dụng cho mọi khách thành viên.",
-                terms=(
-                    "• Áp dụng cho hoá đơn từ 50.000₫\n"
-                    "• Không áp dụng cùng chương trình khuyến mãi khác\n"
-                    "• Mỗi khách chỉ sử dụng 1 voucher/hoá đơn\n"
-                    "• Chương trình không áp dụng hoàn tiền"
-                ),
-                usage_guide=(
-                    "1. Đưa mã voucher cho nhân viên khi thanh toán\n"
-                    "2. Nhân viên nhập mã vào POS\n"
-                    "3. Hệ thống tự động giảm giá theo điều kiện\n"
-                    "4. Voucher tự động đánh dấu đã sử dụng sau khi xác nhận"
-                ),
-                support_contact=(
-                    "Hotline CSKH: 1900-xxxx (8:00-22:00) · "
-                    "Email: hotro@loyalty.vn"
-                ),
-                source="manual",
-                discount_type=DiscountType.PERCENT,
-                discount_value=discount,
-                max_discount=max_disc,
-                min_order=50_000,
-                starts_at=now - timedelta(days=2),
-                ends_at=now + timedelta(days=30),
-                max_issuances=1000,
-                is_active=True,
-            ))
-        await db.flush()
-        print(f"  ✓ {len(campaigns)} campaigns")
-
-    campaigns_list = (
-        await db.scalars(select(Campaign).where(Campaign.partner_id == partner.id))
-    ).all()
-
     # Staff accounts (ngoài owner) — seed 2 staff/đối tác để test staff-only flows
     staff_seeds_by_tenant = {
         "cafe-cong": [
@@ -337,7 +288,6 @@ async def _seed_tenant(
         "owner": owner,
         "tiers": tiers_map,
         "rewards": rewards_list,
-        "campaigns": campaigns_list,
         "memberships": memberships,
     }
 
@@ -452,36 +402,6 @@ async def _seed_redemptions(
     print(f"  ✓ 3 redemptions + ledger entries")
 
 
-async def _seed_vouchers(
-    db, *, partner: Partner, memberships: list[Membership], campaigns: list[Campaign]
-) -> None:
-    """Phát voucher từ campaign cho 2 customer đầu."""
-    if not campaigns:
-        return
-    existing = await db.scalar(
-        select(Voucher.id).where(Voucher.partner_id == partner.id).limit(1)
-    )
-    if existing is not None:
-        return
-
-    now = datetime.now(UTC)
-    campaign = campaigns[0]
-    for i, membership in enumerate(memberships[:2]):
-        voucher = Voucher(
-            partner_id=partner.id,
-            campaign_id=campaign.id,
-            membership_id=membership.id,
-            code=_rand_code(),
-            status=VoucherStatus.ISSUED,
-            issued_at=now - timedelta(days=i + 1),
-            expires_at=now + timedelta(days=14),
-        )
-        db.add(voucher)
-
-    await db.flush()
-    print(f"  ✓ 2 vouchers phát hành")
-
-
 async def main() -> None:
     async with AsyncSessionLocal() as db:
         print("=" * 50)
@@ -524,9 +444,8 @@ async def main() -> None:
             rewards=[
                 ("Cafe Latte size M Free", 150, 50),
                 ("Bánh ngọt cao cấp", 200, 30),
-                ("Voucher giảm 50K", 500, None),
+                ("Phiếu giảm 50K", 500, None),
             ],
-            campaigns=[("Giảm 20% Coffee", 20, 50_000)],
             customers=[
                 ("khach1@gmail.com", "Nguyễn Thị Hoa", "0901234501", 120, "Hạng Đồng"),
                 ("khach2@gmail.com", "Trần Văn Nam", "0901234502", 780, "Hạng Bạc"),
@@ -536,12 +455,9 @@ async def main() -> None:
             ],
         )
 
-        print("\n  -- Transactions, ledger, vouchers, redemptions --")
+        print("\n  -- Transactions, ledger, redemptions --")
         await _seed_transactions_and_ledger(
             db, partner=ctx1["partner"], owner=owner1, memberships=ctx1["memberships"], count=30
-        )
-        await _seed_vouchers(
-            db, partner=ctx1["partner"], memberships=ctx1["memberships"], campaigns=ctx1["campaigns"]
         )
         await _seed_redemptions(
             db, partner=ctx1["partner"], memberships=ctx1["memberships"], rewards=ctx1["rewards"]
@@ -573,11 +489,7 @@ async def main() -> None:
             rewards=[
                 ("Trà sữa topping free", 100, 80),
                 ("Set 2 ly trà sữa", 250, 40),
-                ("Voucher sinh nhật 100K", 800, None),
-            ],
-            campaigns=[
-                ("Buy 1 Get 1", 50, 30_000),
-                ("Giảm 15% Topping", 15, 20_000),
+                ("Quà sinh nhật 100K", 800, None),
             ],
             customers=[
                 ("lala1@gmail.com", "Vũ Minh Anh", "0902234501", 90, "Lala Member"),
@@ -588,12 +500,9 @@ async def main() -> None:
             ],
         )
 
-        print("\n  -- Transactions, ledger, vouchers, redemptions --")
+        print("\n  -- Transactions, ledger, redemptions --")
         await _seed_transactions_and_ledger(
             db, partner=ctx2["partner"], owner=owner2, memberships=ctx2["memberships"], count=35
-        )
-        await _seed_vouchers(
-            db, partner=ctx2["partner"], memberships=ctx2["memberships"], campaigns=ctx2["campaigns"]
         )
         await _seed_redemptions(
             db, partner=ctx2["partner"], memberships=ctx2["memberships"], rewards=ctx2["rewards"]

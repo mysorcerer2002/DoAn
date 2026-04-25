@@ -5,13 +5,11 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.core.security import create_access_token
-from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
 from app.models.partner import Partner, PartnerStatus
 from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
-from app.models.voucher import Voucher, VoucherStatus
 
 
 async def _setup_analytics(db_session):
@@ -91,7 +89,6 @@ async def test_dashboard_api(client, db_session):
     assert data["total_revenue"] == 100000
     assert "daily_transactions" in data
     assert "tier_distribution" in data
-    assert "campaign_roi" in data
     assert data["period_from"] is not None
     assert data["period_to"] is not None
 

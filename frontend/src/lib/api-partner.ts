@@ -9,9 +9,6 @@ import type {
   AdminUserListResponse,
   AdminUserUpdateRequest,
   AuditFeedItem,
-  CampaignCreateRequest,
-  CampaignResponse,
-  CampaignRoiResponse,
   CreateManualTransactionRequest,
   DashboardResponse,
   LedgerEntryResponse,
@@ -36,7 +33,6 @@ import type {
   TransactionResponse,
   TransactionUpdateRequest,
   TransactionWithMemberResponse,
-  VoucherResponse,
 } from "@/types/partner";
 
 // ==================== Partner Analytics ====================
@@ -80,20 +76,6 @@ export const rewardsApi = {
     api.patch<RewardResponse>(`/partner/rewards/${id}`, data),
   remove: (id: number) =>
     api.delete<RewardResponse>(`/partner/rewards/${id}`),
-};
-
-// ==================== Partner Campaigns ====================
-export const campaignsApi = {
-  list: (params?: { active_only?: boolean }) =>
-    api.get<CampaignResponse[]>("/partner/campaigns", { params }),
-  get: (id: number) => api.get<CampaignResponse>(`/partner/campaigns/${id}`),
-  roi: (id: number) =>
-    api.get<CampaignRoiResponse>(`/partner/campaigns/${id}/roi`),
-  create: (data: CampaignCreateRequest) =>
-    api.post<CampaignResponse>("/partner/campaigns", data),
-  update: (id: number, data: Partial<CampaignCreateRequest>) =>
-    api.patch<CampaignResponse>(`/partner/campaigns/${id}`, data),
-  remove: (id: number) => api.delete(`/partner/campaigns/${id}`),
 };
 
 // ==================== Partner Staff ====================
@@ -190,16 +172,8 @@ export const adminApi = {
   settings: () => api.get<AdminSettingsResponse>("/admin/settings"),
 };
 
-// ==================== Partner Vouchers ====================
-export const merchantVouchersApi = {
-  list: (params?: { status?: string; limit?: number; offset?: number }) =>
-    api.get<VoucherResponse[]>("/partner/vouchers", { params }),
-};
-
 // ==================== Customer Extended ====================
 export const customerApi = {
   myLedger: (params?: { limit?: number; offset?: number; partner_slug?: string }) =>
     api.get<LedgerEntryResponse[]>("/users/me/ledger", { params }),
-  myVouchers: (params?: { status?: string }) =>
-    api.get<VoucherResponse[]>("/users/me/vouchers", { params }),
 };

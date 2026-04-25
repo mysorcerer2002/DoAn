@@ -1,5 +1,4 @@
 from datetime import datetime
-from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -10,7 +9,6 @@ class CreateManualTransactionRequest(BaseModel):
     phone: str = Field(min_length=8, max_length=20)
     gross_amount: int = Field(gt=0, le=100_000_000)
     note: str | None = Field(default=None, max_length=1000)
-    voucher_code: str | None = Field(default=None, min_length=8, max_length=8)
     receipt_code: str | None = Field(default=None, max_length=50)
 
     @field_validator("receipt_code", mode="before")
@@ -31,8 +29,6 @@ class TransactionResponse(BaseModel):
     membership_id: int
     staff_id: int
     gross_amount: int
-    voucher_id: int | None
-    voucher_discount_amount: int | None
     net_amount: int
     points_earned: int
     method: TransactionMethod
@@ -52,7 +48,6 @@ class TransactionWithMemberResponse(BaseModel):
     new_tier_id: int | None
     new_tier_name: str | None
     tier_upgraded: bool
-    welcome_voucher_code: str | None = None
 
 
 class CreateQrCustomerTransactionRequest(BaseModel):
@@ -80,11 +75,9 @@ class TransactionListItem(BaseModel):
     membership_display_name: str
     staff_display_name: str | None
     gross_amount: int
-    voucher_discount_amount: int | None
     net_amount: int
     points_earned: int
     method: str
-    voucher_code: str | None
 
     model_config = {"from_attributes": True}
 
@@ -98,7 +91,6 @@ class TransactionListResponse(BaseModel):
 
 class TransactionDetailResponse(TransactionListItem):
     note: str | None
-    legal_discount_ratio: Decimal | None
 
 
 class TransactionUpdateRequest(BaseModel):

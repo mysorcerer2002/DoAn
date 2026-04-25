@@ -4,7 +4,6 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from app.models.campaign import Campaign, CampaignSource, DiscountType
 from app.models.membership import Membership
 from app.models.redemption import Redemption, RedemptionStatus
 from app.models.reward import Reward
@@ -12,13 +11,12 @@ from app.models.partner import Partner, PartnerStatus
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
-from app.models.voucher import Voucher, VoucherStatus
 from app.services.analytics_service import AnalyticsService, _fill_missing_days
 from app.schemas.analytics import DailyTransactionPoint
 
 
 async def _seed_analytics(db_session):
-    """Tạo partner, 3 members, tiers, transactions, redemptions, campaign+vouchers."""
+    """Tạo partner, 3 members, tiers, transactions, redemptions."""
     now = datetime.now(timezone.utc)
 
     owner = User(email="analytics-owner@test.com", password_hash="x", is_active=True)
@@ -117,56 +115,11 @@ async def _seed_analytics(db_session):
     db_session.add(redemption)
     await db_session.flush()
 
-    # Campaign + Voucher
-    campaign = Campaign(
-        partner_id=partner.id,
-        name="Summer Sale",
-        discount_type=DiscountType.PERCENT,
-        discount_value=10,
-        is_active=True,
-        source=CampaignSource.MANUAL,
-        program_form="giam_gia",
-        approval_status="auto_approved",
-        approval_tier="none",
-        estimated_cost=0,
-        starts_at=now - timedelta(days=10),
-        ends_at=now + timedelta(days=20),
-    )
-    db_session.add(campaign)
-    await db_session.flush()
-
-    v1 = Voucher(
-        partner_id=partner.id,
-        campaign_id=campaign.id,
-        membership_id=m1.id,
-        code="VANA0001",
-        status=VoucherStatus.USED,
-        issue_source="manual",
-        discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
-        issued_at=now - timedelta(days=5),
-        expires_at=now + timedelta(days=30),
-    )
-    v2 = Voucher(
-        partner_id=partner.id,
-        campaign_id=campaign.id,
-        membership_id=m2.id,
-        code="VANA0002",
-        status=VoucherStatus.ISSUED,
-        issue_source="manual",
-        discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
-        issued_at=now - timedelta(days=5),
-        expires_at=now + timedelta(days=30),
-    )
-    db_session.add_all([v1, v2])
-    await db_session.flush()
-
     return {
         "partner": partner,
         "owner": owner,
         "memberships": [m1, m2, m3],
         "tiers": [silver, gold],
-        "campaign": campaign,
-        "vouchers": [v1, v2],
     }
 
 
@@ -246,20 +199,6 @@ async def test_tier_distribution(db_session):
 
 
 @pytest.mark.asyncio
-async def test_campaign_roi(db_session):
-    data = await _seed_analytics(db_session)
-    service = AnalyticsService(db_session)
-    today = date.today()
-    roi = await service._campaign_roi(
-        data["partner"].id, today - timedelta(days=30), today
-    )
-    assert len(roi) == 1
-    assert roi[0].campaign_name == "Summer Sale"
-    assert roi[0].vouchers_issued == 2
-    assert roi[0].vouchers_used == 1
-
-
-@pytest.mark.asyncio
 async def test_get_dashboard_full(db_session):
     data = await _seed_analytics(db_session)
     service = AnalyticsService(db_session)
@@ -277,7 +216,6 @@ async def test_get_dashboard_full(db_session):
     assert abs(result.redemption_rate - 0.2) < 0.01
     assert len(result.daily_transactions) == 31
     assert len(result.tier_distribution) == 3
-    assert len(result.campaign_roi) == 1
 
 
 @pytest.mark.asyncio

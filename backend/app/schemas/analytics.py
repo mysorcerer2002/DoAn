@@ -22,17 +22,6 @@ class TierDistributionPoint(BaseModel):
     member_count: int
 
 
-class CampaignRoiPoint(BaseModel):
-    """ROI từng campaign."""
-
-    campaign_id: int
-    campaign_name: str
-    vouchers_issued: int
-    vouchers_used: int
-    total_discount: int
-    total_revenue_from_voucher_txns: int
-
-
 class DashboardResponse(BaseModel):
     """Phản hồi tổng hợp dashboard analytics."""
 
@@ -45,7 +34,6 @@ class DashboardResponse(BaseModel):
     redemption_rate: float
     daily_transactions: list[DailyTransactionPoint]
     tier_distribution: list[TierDistributionPoint]
-    campaign_roi: list[CampaignRoiPoint]
 
 
 class PartnerDetailStats(BaseModel):
@@ -83,9 +71,6 @@ class PartnerDetailResponse(BaseModel):
     staff_count: int
     transaction_count: int
     total_revenue: int
-    campaign_count: int
-    active_campaign_count: int
-    voucher_count: int
     redemption_count: int
     reward_count: int
 

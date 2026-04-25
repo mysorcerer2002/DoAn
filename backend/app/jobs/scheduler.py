@@ -3,7 +3,6 @@
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 
 from app.core.config import get_settings
 
@@ -39,36 +38,9 @@ def shutdown_scheduler() -> None:
 
 
 def _register_jobs(sched: AsyncIOScheduler) -> None:
-    """Đăng ký tất cả background jobs."""
-    from app.jobs.birthday_voucher import birthday_voucher_job
-    from app.jobs.check_post_report_overdue import check_post_report_overdue_job
-    from app.jobs.expire_vouchers import expire_vouchers_job
-    from app.jobs.purge_retention import purge_retention_job
+    """Đăng ký tất cả background jobs.
 
-    sched.add_job(
-        birthday_voucher_job,
-        trigger=CronTrigger(hour=0, minute=5),
-        id="birthday_voucher_job",
-        replace_existing=True,
-    )
-    # Phase 11 — expire voucher mỗi giờ (:00).
-    sched.add_job(
-        expire_vouchers_job,
-        trigger=CronTrigger(hour="*", minute=0),
-        id="expire_vouchers_job",
-        replace_existing=True,
-    )
-    # Phase 11 — quét campaign quá hạn báo cáo kết thúc mỗi ngày 01:00.
-    sched.add_job(
-        check_post_report_overdue_job,
-        trigger=CronTrigger(hour=1, minute=0),
-        id="check_post_report_overdue_job",
-        replace_existing=True,
-    )
-    # Phase 11 — purge retention (Luật Kế toán 10 năm) mỗi Chủ nhật 02:00.
-    sched.add_job(
-        purge_retention_job,
-        trigger=CronTrigger(day_of_week="sun", hour=2, minute=0),
-        id="purge_retention_job",
-        replace_existing=True,
-    )
+    MVP đồ án: chưa có job nào — giữ infrastructure scheduler để các phase
+    sau (vd: refresh analytics, expire redemption) cắm vào.
+    """
+    _ = sched  # placeholder — chưa có job

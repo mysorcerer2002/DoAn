@@ -9,11 +9,9 @@ import {
   Globe,
   Loader2,
   MapPin,
-  Megaphone,
   Phone,
   Receipt,
   Store,
-  Ticket,
   TrendingUp,
   Users,
   UserSquare2,
@@ -487,20 +485,9 @@ function OverviewTab({ detail }: { detail: PartnerDetailResponse }) {
             tone="emerald"
           />
           <MetricTile
-            icon={Megaphone}
-            label="Chiến dịch"
-            value={`${formatNumber(detail.active_campaign_count)} / ${formatNumber(detail.campaign_count)}`}
-            hint="đang chạy / tổng"
-          />
-          <MetricTile
             icon={Gift}
             label="Phần thưởng"
             value={formatNumber(detail.reward_count)}
-          />
-          <MetricTile
-            icon={Ticket}
-            label="Voucher phát hành"
-            value={formatNumber(detail.voucher_count)}
           />
           <MetricTile
             icon={Gift}

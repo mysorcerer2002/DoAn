@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  AlertCircle,
   Camera,
   Check,
   CheckCircle2,
@@ -12,12 +11,9 @@ import {
   QrCode,
   Receipt,
   Sparkles,
-  Tag,
-  XCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { api } from "@/lib/api";
 import {
   useCreateQrTransaction,
   useCreateTransaction,
@@ -35,20 +31,6 @@ const numberPad: readonly PadKey[] = [
   "7", "8", "9",
   "000", "0", "del",
 ];
-
-interface VoucherCheckResponse {
-  valid: boolean;
-  code: string;
-  campaign_name: string;
-  discount_type: "percent" | "fixed";
-  discount_value: number;
-  min_order: number;
-  max_discount: number | null;
-  expires_at: string;
-  preview_discount: number;
-  preview_net: number;
-  meets_min_order: boolean;
-}
 
 function formatVnd(n: string | number): string {
   const num = typeof n === "string" ? Number(n) : n;
@@ -72,12 +54,6 @@ export function PosTransactionForm({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [amount, setAmount] = useState("");
   const [receiptCode, setReceiptCode] = useState("");
-  const [voucherCode, setVoucherCode] = useState("");
-  const [voucherCheck, setVoucherCheck] = useState<VoucherCheckResponse | null>(
-    null
-  );
-  const [voucherError, setVoucherError] = useState<string | null>(null);
-  const [voucherChecking, setVoucherChecking] = useState(false);
   const [result, setResult] = useState<TransactionWithMemberResponse | null>(
     null
   );
@@ -146,8 +122,6 @@ export function PosTransactionForm({
   const handlePad = (key: PadKey) => {
     if (key === "del") {
       setAmount((v) => v.slice(0, -1));
-      // Re-check voucher if amount changed
-      if (voucherCheck && voucherCode) handleCheckVoucher();
       return;
     }
     if (key === "000") {
@@ -155,28 +129,6 @@ export function PosTransactionForm({
       return;
     }
     setAmount((v) => (v === "" || v === "0" ? key : v + key));
-  };
-
-  const handleCheckVoucher = async () => {
-    setVoucherError(null);
-    setVoucherCheck(null);
-    if (!voucherCode.trim()) {
-      setVoucherError("Vui lòng nhập mã voucher");
-      return;
-    }
-    setVoucherChecking(true);
-    try {
-      const { data } = await api.get<VoucherCheckResponse>(
-        `/partner/vouchers/check/${voucherCode.trim().toUpperCase()}`,
-        { params: { gross_amount: Number(amount) || 0 } }
-      );
-      setVoucherCheck(data);
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } } };
-      setVoucherError(err.response?.data?.detail ?? "Voucher không hợp lệ");
-    } finally {
-      setVoucherChecking(false);
-    }
   };
 
   const handleSubmit = async () => {
@@ -210,14 +162,11 @@ export function PosTransactionForm({
       const res = await createTxn.mutateAsync({
         phone: phone.trim(),
         gross_amount: Number(amount),
-        voucher_code: voucherCheck?.code ?? null,
         note: null,
         receipt_code: receiptCode.trim() || null,
       });
       setResult(res.data);
       setAmount("");
-      setVoucherCode("");
-      setVoucherCheck(null);
       setReceiptCode("");
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
@@ -232,9 +181,6 @@ export function PosTransactionForm({
     setScanError(null);
     setAmount("");
     setReceiptCode("");
-    setVoucherCode("");
-    setVoucherCheck(null);
-    setVoucherError(null);
     setResult(null);
     setError(null);
   };
@@ -246,12 +192,6 @@ export function PosTransactionForm({
       : "from-brand-indigo to-brand-violet shadow-indigo-200";
   const accentLight =
     accentColor === "emerald" ? "bg-emerald-50 text-emerald-700" : "bg-indigo-50 text-brand-indigo";
-
-  const grossNum = Number(amount) || 0;
-  const finalAmount =
-    voucherCheck?.meets_min_order && voucherCheck.preview_discount > 0
-      ? voucherCheck.preview_net
-      : grossNum;
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -390,102 +330,6 @@ export function PosTransactionForm({
           </div>
         </div>
 
-        {/* Voucher */}
-        <div className="border-t border-slate-100 pt-4">
-          <h2 className="font-headline text-[16px] font-bold text-slate-800">
-            Mã voucher
-          </h2>
-          <p className="mt-1 text-[11px] text-slate-500">
-            Nhập mã → Áp dụng để xem giảm giá tự động
-          </p>
-          <div className="mt-3 flex gap-2">
-            <div className="relative flex-1">
-              <Tag className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={voucherCode}
-                onChange={(e) => {
-                  setVoucherCode(e.target.value.toUpperCase());
-                  setVoucherCheck(null);
-                  setVoucherError(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleCheckVoucher();
-                  }
-                }}
-                placeholder="VD: ABC12345"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-9 pr-3 font-mono text-[13px] uppercase outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleCheckVoucher}
-              disabled={voucherChecking || !voucherCode.trim()}
-              className={`flex items-center gap-1 rounded-xl ${accentBg} px-4 py-3 text-[12px] font-bold text-white hover:opacity-90 disabled:opacity-50`}
-            >
-              {voucherChecking ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-              Áp dụng
-            </button>
-          </div>
-
-          {voucherError && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-600">
-              <XCircle className="h-4 w-4" />
-              {voucherError}
-            </div>
-          )}
-
-          {voucherCheck && (
-            <div
-              className={
-                voucherCheck.meets_min_order
-                  ? "mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3"
-                  : "mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3"
-              }
-            >
-              <div className="flex items-start gap-2">
-                {voucherCheck.meets_min_order ? (
-                  <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-600" />
-                )}
-                <div className="flex-1">
-                  <p className="text-[13px] font-bold text-slate-800">
-                    {voucherCheck.campaign_name}
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Giảm{" "}
-                    {voucherCheck.discount_type === "percent"
-                      ? `${voucherCheck.discount_value}%`
-                      : formatVnd(voucherCheck.discount_value)}
-                    {voucherCheck.max_discount
-                      ? ` (tối đa ${formatVnd(voucherCheck.max_discount)})`
-                      : ""}
-                  </p>
-                  {!voucherCheck.meets_min_order && (
-                    <p className="mt-1 text-[11px] text-amber-700">
-                      ⚠ Đơn tối thiểu {formatVnd(voucherCheck.min_order)} — hiện
-                      tại {formatVnd(grossNum)}
-                    </p>
-                  )}
-                  {voucherCheck.meets_min_order &&
-                    voucherCheck.preview_discount > 0 && (
-                      <p className="mt-1 font-headline text-[14px] font-bold text-emerald-700">
-                        Giảm {formatVnd(voucherCheck.preview_discount)}
-                      </p>
-                    )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Mã hoá đơn — chỉ cho luồng phone (backend POST "/qr" chưa nhận receipt_code) */}
         {mode === "phone" && (
           <div className="border-t border-slate-100 pt-4">
@@ -536,28 +380,6 @@ export function PosTransactionForm({
                   : phone || "—"}
               </span>
             </li>
-            {voucherCheck && voucherCheck.meets_min_order && (
-              <>
-                <li className="flex items-center justify-between">
-                  <span className="text-slate-500">Voucher</span>
-                  <span className="font-mono text-[12px] text-brand-orange">
-                    {voucherCheck.code}
-                  </span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span className="text-slate-500">Giảm giá</span>
-                  <span className="font-bold text-emerald-600">
-                    -{formatVnd(voucherCheck.preview_discount)}
-                  </span>
-                </li>
-                <li className="flex items-center justify-between border-t border-slate-100 pt-2">
-                  <span className="font-bold text-slate-800">Khách trả</span>
-                  <span className="font-headline text-[18px] font-bold text-brand-orange">
-                    {formatVnd(finalAmount)}
-                  </span>
-                </li>
-              </>
-            )}
           </ul>
         </section>
 
@@ -594,14 +416,6 @@ export function PosTransactionForm({
                 <p className="mt-2 flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-1 font-bold text-amber-800">
                   <Crown className="h-4 w-4" fill="currentColor" />
                   Đã lên hạng {result.new_tier_name}
-                </p>
-              )}
-              {result.welcome_voucher_code && (
-                <p className="mt-2 rounded-lg bg-indigo-100 px-2 py-1 font-bold text-brand-indigo">
-                  🎁 Phiếu mua hàng chào mừng:{" "}
-                  <span className="font-mono tracking-wider">
-                    {result.welcome_voucher_code}
-                  </span>
                 </p>
               )}
             </div>

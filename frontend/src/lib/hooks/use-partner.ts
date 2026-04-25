@@ -5,10 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   adminApi,
   analyticsApi,
-  campaignsApi,
   customerApi,
   membersApi,
-  merchantVouchersApi,
   rewardsApi,
   staffApi,
   tenantApi,
@@ -17,7 +15,6 @@ import {
 import { usePartnerStore } from "@/lib/partner-store";
 import type {
   AdminUserUpdateRequest,
-  CampaignCreateRequest,
   CreateManualTransactionRequest,
   PartnerSettings,
   PartnerUpdateRequest,
@@ -130,42 +127,6 @@ export function useDeleteReward() {
   return useMutation({
     mutationFn: (id: number) => rewardsApi.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "rewards"] }),
-  });
-}
-
-// ==================== Campaigns ====================
-export function useCampaigns(params?: { active_only?: boolean }) {
-  const partnerId = usePartnerId();
-  return useQuery({
-    queryKey: ["partner", "campaigns", partnerId, params],
-    queryFn: async () => (await campaignsApi.list(params)).data,
-    enabled: partnerId != null,
-  });
-}
-
-export function useCreateCampaign() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: CampaignCreateRequest) => campaignsApi.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "campaigns"] }),
-  });
-}
-
-export function useCampaignDetail(id: number | null) {
-  const partnerId = usePartnerId();
-  return useQuery({
-    queryKey: ["partner", "campaigns", "detail", partnerId, id],
-    queryFn: async () => (await campaignsApi.get(id as number)).data,
-    enabled: partnerId != null && id != null,
-  });
-}
-
-export function useCampaignRoi(id: number | null) {
-  const partnerId = usePartnerId();
-  return useQuery({
-    queryKey: ["partner", "campaigns", "roi", partnerId, id],
-    queryFn: async () => (await campaignsApi.roi(id as number)).data,
-    enabled: partnerId != null && id != null,
   });
 }
 
@@ -297,13 +258,6 @@ export function useMyLedger(params?: { limit?: number; offset?: number; partnerS
   });
 }
 
-export function useMyVouchers(params?: { status?: string }) {
-  return useQuery({
-    queryKey: ["customer", "vouchers", params?.status],
-    queryFn: async () => (await customerApi.myVouchers(params)).data,
-  });
-}
-
 // ==================== Admin extensions ====================
 export function useAdminUsers(params?: {
   q?: string;
@@ -359,16 +313,3 @@ export function useAdminSettings() {
   });
 }
 
-// ==================== Partner Vouchers ====================
-export function useMerchantVouchers(params?: {
-  status?: string;
-  limit?: number;
-  offset?: number;
-}) {
-  const partnerId = usePartnerId();
-  return useQuery({
-    queryKey: ["partner", "vouchers", partnerId, params],
-    queryFn: async () => (await merchantVouchersApi.list(params)).data,
-    enabled: partnerId != null,
-  });
-}

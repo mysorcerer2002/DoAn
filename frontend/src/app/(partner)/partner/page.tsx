@@ -4,14 +4,12 @@ import {
   Calendar,
   Download,
   Loader2,
-  Sparkles,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
 
 import { useDashboard } from "@/lib/hooks/use-partner";
 import type {
-  CampaignRoiPoint,
   DailyTransactionPoint,
   TierDistributionPoint,
 } from "@/types/partner";
@@ -197,85 +195,6 @@ export default function MerchantDashboardPage() {
         </article>
       </section>
 
-      {/* Campaign ROI */}
-      <section className="mt-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-        <header className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-brand-orange">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="font-headline text-[18px] font-bold text-slate-800">
-              Top chiến dịch
-            </h2>
-            <p className="text-[12px] text-slate-400">
-              Hiệu quả voucher theo chiến dịch
-            </p>
-          </div>
-        </header>
-        <div className="mt-4">
-          {data.campaign_roi.length === 0 ? (
-            <p className="text-[13px] text-slate-400">Chưa có chiến dịch nào.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px]">
-                <thead>
-                  <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                    <th className="pb-3">Chiến dịch</th>
-                    <th className="pb-3 text-right">Đã phát</th>
-                    <th className="pb-3 text-right">Đã dùng</th>
-                    <th className="pb-3 text-right">Tỷ lệ</th>
-                    <th className="pb-3 text-right">Tổng giảm</th>
-                    <th className="pb-3 text-right">Doanh thu</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.campaign_roi.map((c: CampaignRoiPoint) => {
-                    const useRate =
-                      c.vouchers_issued > 0
-                        ? (c.vouchers_used / c.vouchers_issued) * 100
-                        : 0;
-                    return (
-                      <tr
-                        key={c.campaign_id}
-                        className="border-t border-slate-100"
-                      >
-                        <td className="py-3 text-[13px] font-bold text-slate-800">
-                          {c.campaign_name}
-                        </td>
-                        <td className="py-3 text-right text-[13px]">
-                          {c.vouchers_issued}
-                        </td>
-                        <td className="py-3 text-right text-[13px] font-bold text-emerald-600">
-                          {c.vouchers_used}
-                        </td>
-                        <td className="py-3 text-right text-[13px]">
-                          <div className="inline-flex items-center gap-2">
-                            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
-                              <div
-                                className="h-full rounded-full bg-gradient-to-r from-brand-indigo to-brand-violet"
-                                style={{ width: `${useRate}%` }}
-                              />
-                            </div>
-                            <span className="text-[11px] font-medium text-slate-600">
-                              {useRate.toFixed(0)}%
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 text-right text-[13px] text-brand-orange">
-                          {formatVnd(c.total_discount)}
-                        </td>
-                        <td className="py-3 text-right text-[13px] font-bold text-slate-800">
-                          {formatVnd(c.total_revenue_from_voucher_txns)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </section>
     </main>
   );
 }

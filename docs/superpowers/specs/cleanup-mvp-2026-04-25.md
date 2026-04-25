@@ -239,12 +239,15 @@ M2 (Phase 2):
   - DROP TABLE vouchers (FK → campaigns)
   - DROP TABLE campaigns (FK → campaign_templates)
   - DROP TABLE campaign_templates (no FK)
+  - DROP TABLE partner_authorization_documents (FK → partner_authorizations) — promoted từ M3 vì model có FK cứng tới campaigns
+  - DROP TABLE partner_authorizations — partner_authorization tồn tại chỉ để authorize phát hành campaign; khi campaign biến mất authorization mất ý nghĩa → drop kèm M2
   - ALTER TABLE transactions DROP COLUMN voucher_id, DROP COLUMN voucher_discount_amount, DROP COLUMN legal_discount_ratio (GENERATED — drop dễ)
+  - UPDATE partners SET settings = settings - 'voucher_default_ttl_days' - 'birthday_campaign_id' (prune JSONB key cũ để PartnerSettings extra="forbid" không vỡ)
 
 M3 (Phase 3):
-  - DROP TABLE partner_authorizations
   - DROP TABLE partner_staff
   - ALTER TABLE transactions DROP COLUMN staff_id (FK → partner_staff)
+  - (Lưu ý: partner_authorizations + partner_authorization_documents đã drop trong M2.)
 
 M4 (Phase 4):
   - DROP TABLE notifications

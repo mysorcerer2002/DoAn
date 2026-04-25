@@ -1,14 +1,11 @@
 import enum
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
-    Computed,
     ForeignKey,
     Index,
     Integer,
-    Numeric,
     String,
     text as sa_text,
 )
@@ -19,7 +16,6 @@ from app.models.base import Base, TimestampMixin
 if TYPE_CHECKING:
     from app.models.membership import Membership
     from app.models.user import User
-    from app.models.voucher import Voucher
 
 
 class TransactionMethod(str, enum.Enum):
@@ -59,10 +55,6 @@ class Transaction(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     gross_amount: Mapped[int] = mapped_column(Integer, nullable=False)
-    voucher_id: Mapped[int | None] = mapped_column(
-        ForeignKey("vouchers.id", ondelete="SET NULL"), nullable=True
-    )
-    voucher_discount_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
     net_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     points_earned: Mapped[int] = mapped_column(Integer, nullable=False)
     method: Mapped[TransactionMethod] = mapped_column(
@@ -70,22 +62,10 @@ class Transaction(Base, TimestampMixin):
     )
     note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     receipt_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    # Phase 10 M12 — GENERATED STORED (DB tự tính), read-only trong app.
-    legal_discount_ratio: Mapped[Decimal | None] = mapped_column(
-        Numeric(5, 2),
-        Computed(
-            "voucher_discount_amount::NUMERIC / NULLIF(gross_amount, 0) * 100",
-            persisted=True,
-        ),
-        nullable=True,
-    )
 
     membership: Mapped["Membership"] = relationship(
         "Membership", foreign_keys=[membership_id], lazy="noload"
     )
     staff: Mapped["User | None"] = relationship(
         "User", foreign_keys=[staff_id], lazy="noload"
-    )
-    voucher: Mapped["Voucher | None"] = relationship(
-        "Voucher", foreign_keys=[voucher_id], lazy="noload"
     )

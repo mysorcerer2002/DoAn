@@ -32,19 +32,6 @@ class Settings(BaseSettings):
     enable_scheduler: bool = False
     frontend_origins: str = "http://localhost:3000"
 
-    # NĐ 81/2018 Điều 17/19 — threshold tier phê duyệt (VND).
-    # estimated_cost <= auto → auto_approved;
-    # < notify → notify_so_ct; >= notify → dang_ky_so_ct.
-    campaign_auto_threshold: int = 500_000
-    campaign_notify_threshold: int = 2_000_000
-
-    # Voucher rebuild v2.2 — post-report và retention.
-    # 45 ngày nộp báo cáo kết thúc (Điều 20 NĐ 81). 10 năm lưu uỷ quyền
-    # (Luật Kế toán 2015 Điều 41).
-    campaign_default_post_report_days: int = 45
-    auth_retention_years: int = 10
-    consent_text_version: str = "v1.0-2026-04"
-
     @model_validator(mode="after")
     def _validate_secrets(self) -> "Settings":
         """Kiểm tra secrets đủ mạnh trong production."""

@@ -93,56 +93,6 @@ export interface RewardUpdateRequest {
   image_url?: string | null;
 }
 
-// Campaigns
-export interface CampaignResponse {
-  id: number;
-  tenant_id: number;
-  name: string;
-  description: string | null;
-  terms?: string | null;
-  usage_guide?: string | null;
-  support_contact?: string | null;
-  source: string;
-  discount_type: string;
-  discount_value: number;
-  max_discount: number | null;
-  min_order: number | null;
-  starts_at: string;
-  ends_at: string;
-  max_issuances: number | null;
-  issued_count: number;
-  is_active: boolean;
-  target_tier_id: number | null;
-  created_at: string;
-  deleted_at: string | null;
-  used_count: number;
-  total_discount_amount: number;
-  total_revenue_from_voucher_txns: number;
-}
-
-export interface CampaignRoiResponse {
-  campaign_id: number;
-  name: string;
-  vouchers_issued: number;
-  vouchers_used: number;
-  total_discount_amount: number;
-  total_revenue_from_voucher_txns: number;
-}
-
-export interface CampaignCreateRequest {
-  name: string;
-  description?: string | null;
-  source?: string;
-  discount_type: "percent" | "fixed";
-  discount_value: number;
-  max_discount?: number | null;
-  min_order?: number | null;
-  starts_at: string;
-  ends_at: string;
-  max_issuances?: number | null;
-  target_tier_id?: number | null;
-}
-
 // Staff
 export interface StaffResponse {
   id: number;
@@ -171,8 +121,6 @@ export interface TransactionResponse {
   membership_id: number;
   staff_id: number | null;
   gross_amount: number;
-  voucher_id: number | null;
-  voucher_discount_amount: number | null;
   net_amount: number;
   points_earned: number;
   method: string;
@@ -190,13 +138,11 @@ export interface TransactionWithMemberResponse {
   new_tier_id: number | null;
   new_tier_name: string | null;
   tier_upgraded: boolean;
-  welcome_voucher_code?: string | null;
 }
 
 export interface CreateManualTransactionRequest {
   phone: string;
   gross_amount: number;
-  voucher_code?: string | null;
   note?: string | null;
   receipt_code?: string | null;
 }
@@ -209,11 +155,9 @@ export interface TransactionListItem {
   membership_display_name: string;
   staff_display_name: string | null;
   gross_amount: number;
-  voucher_discount_amount: number | null;
   net_amount: number;
   points_earned: number;
   method: string;
-  voucher_code: string | null;
 }
 
 export interface TransactionListResponse {
@@ -225,34 +169,11 @@ export interface TransactionListResponse {
 
 export interface TransactionDetailResponse extends TransactionListItem {
   note: string | null;
-  legal_discount_ratio: string | null;
 }
 
 export interface TransactionUpdateRequest {
   receipt_code?: string | null;
   note?: string | null;
-}
-
-// Vouchers
-export interface VoucherResponse {
-  id: number;
-  tenant_id: number;
-  campaign_id: number;
-  membership_id: number;
-  code: string;
-  status: "issued" | "used" | "expired";
-  issued_at: string;
-  used_at: string | null;
-  expires_at: string;
-  campaign_name?: string | null;
-  campaign_description?: string | null;
-  campaign_terms?: string | null;
-  campaign_usage_guide?: string | null;
-  campaign_support_contact?: string | null;
-  discount_type?: string | null;
-  discount_value?: number | null;
-  min_order?: number | null;
-  max_discount?: number | null;
 }
 
 // Analytics dashboard (match backend schemas/analytics.py)
@@ -269,15 +190,6 @@ export interface TierDistributionPoint {
   member_count: number;
 }
 
-export interface CampaignRoiPoint {
-  campaign_id: number;
-  campaign_name: string;
-  vouchers_issued: number;
-  vouchers_used: number;
-  total_discount: number;
-  total_revenue_from_voucher_txns: number;
-}
-
 export interface DashboardResponse {
   period_from: string;
   period_to: string;
@@ -288,7 +200,6 @@ export interface DashboardResponse {
   redemption_rate: number;
   daily_transactions: DailyTransactionPoint[];
   tier_distribution: TierDistributionPoint[];
-  campaign_roi: CampaignRoiPoint[];
 }
 
 // Tiers
@@ -334,10 +245,8 @@ export interface PointRuleUpdateRequest {
 export interface PartnerSettings {
   points_on_gross: boolean;
   signup_bonus_points: number;
-  voucher_default_ttl_days: number;
   redemption_default_ttl_days: number;
   default_tier_id: number | null;
-  birthday_campaign_id: number | null;
 }
 
 // Ledger
@@ -386,9 +295,6 @@ export interface PartnerDetailResponse {
   staff_count: number;
   transaction_count: number;
   total_revenue: number;
-  campaign_count: number;
-  active_campaign_count: number;
-  voucher_count: number;
   redemption_count: number;
   reward_count: number;
 }

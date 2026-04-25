@@ -180,7 +180,7 @@ export default function RegisterPage() {
 
               <p className="rounded-lg bg-indigo-50 px-3 py-2 text-[11px] text-brand-indigo">
                 Bạn có thể cập nhật ngày sinh trong trang Hồ sơ sau khi đăng ký
-                để nhận voucher sinh nhật hàng năm.
+                để nhận phần thưởng sinh nhật từ đối tác.
               </p>
 
               {error && (

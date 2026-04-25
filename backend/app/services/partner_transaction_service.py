@@ -32,7 +32,6 @@ class PartnerTransactionService:
             .options(
                 joinedload(Transaction.membership).joinedload(Membership.user),
                 joinedload(Transaction.staff),
-                joinedload(Transaction.voucher),
             )
         )
 
@@ -126,7 +125,6 @@ class PartnerTransactionService:
     def _to_list_item(t: Transaction) -> TransactionListItem:
         member_user = t.membership.user if t.membership else None
         staff_user = t.staff
-        voucher = t.voucher
         return TransactionListItem(
             id=t.id,
             created_at=t.created_at,
@@ -140,11 +138,9 @@ class PartnerTransactionService:
                 staff_user.full_name or staff_user.phone if staff_user else None
             ),
             gross_amount=t.gross_amount,
-            voucher_discount_amount=t.voucher_discount_amount,
             net_amount=t.net_amount,
             points_earned=t.points_earned,
             method=t.method.value if hasattr(t.method, "value") else str(t.method),
-            voucher_code=voucher.code if voucher else None,
         )
 
     @staticmethod
@@ -153,5 +149,4 @@ class PartnerTransactionService:
         return TransactionDetailResponse(
             **base,
             note=t.note,
-            legal_discount_ratio=t.legal_discount_ratio,
         )

@@ -122,14 +122,6 @@ export function TransactionDetailSheet({
                 value={t.membership_display_name}
               />
               <InfoRow label="Doanh thu" value={fmtMoney(t.gross_amount)} />
-              <InfoRow
-                label="Voucher"
-                value={
-                  t.voucher_code
-                    ? `${t.voucher_code} (−${fmtMoney(t.voucher_discount_amount)})`
-                    : "—"
-                }
-              />
               <InfoRow label="Thực thu" value={fmtMoney(t.net_amount)} />
               <InfoRow
                 label="Điểm đã tích"

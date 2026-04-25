@@ -32,7 +32,7 @@ async def test_get_default_settings(client, db_session):
     assert response.status_code == 200
     data = response.json()
     assert data["points_on_gross"] is False
-    assert data["voucher_default_ttl_days"] == 30
+    assert data["redemption_default_ttl_days"] == 14
 
 
 @pytest.mark.asyncio
@@ -42,13 +42,13 @@ async def test_update_settings(client, db_session):
 
     response = await client.patch(
         "/partners/me/settings",
-        json={"points_on_gross": True, "voucher_default_ttl_days": 60},
+        json={"points_on_gross": True, "redemption_default_ttl_days": 60},
         headers=headers,
     )
     assert response.status_code == 200
     data = response.json()
     assert data["points_on_gross"] is True
-    assert data["voucher_default_ttl_days"] == 60
+    assert data["redemption_default_ttl_days"] == 60
 
 
 @pytest.mark.asyncio

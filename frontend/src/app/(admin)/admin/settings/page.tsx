@@ -98,7 +98,7 @@ export default function AdminSettingsPage() {
                 },
                 {
                   label: "Jobs đã cấu hình",
-                  value: "Birthday voucher (VN timezone)",
+                  value: "Chưa có (placeholder)",
                 },
               ]}
             />

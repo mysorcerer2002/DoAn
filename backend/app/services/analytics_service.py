@@ -3,17 +3,14 @@
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import case, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.campaign import Campaign
 from app.models.membership import Membership
 from app.models.redemption import Redemption
 from app.models.tier import Tier
 from app.models.transaction import Transaction
-from app.models.voucher import Voucher, VoucherStatus
 from app.schemas.analytics import (
-    CampaignRoiPoint,
     DailyTransactionPoint,
     DashboardResponse,
     TierDistributionPoint,
@@ -68,7 +65,6 @@ class AnalyticsService:
         )
         daily = await self._daily_transactions(partner_id, from_date, to_date)
         tier_dist = await self._tier_distribution(partner_id)
-        campaign_roi = await self._campaign_roi(partner_id, from_date, to_date)
 
         # redemption_rate = redemptions / transactions (% giao dịch có đổi quà)
         if txn_stats["count"] > 0:
@@ -86,7 +82,6 @@ class AnalyticsService:
             redemption_rate=redemption_rate,
             daily_transactions=daily,
             tier_distribution=tier_dist,
-            campaign_roi=campaign_roi,
         )
 
     async def _count_members(self, partner_id: int) -> int:
@@ -124,7 +119,7 @@ class AnalyticsService:
     async def _redemption_count(
         self, partner_id: int, from_date: date, to_date: date
     ) -> int:
-        """Đếm lượt đổi quà trong khoảng thời gian (loại EXPIRED — voucher hết hạn không tính)."""
+        """Đếm lượt đổi quà trong khoảng thời gian (loại EXPIRED)."""
         from app.models.redemption import RedemptionStatus
 
         from_dt, to_dt_excl = _date_range_to_utc(from_date, to_date)
@@ -208,83 +203,4 @@ class AnalyticsService:
                 member_count=int(row.cnt),
             )
             for row in result
-        ]
-
-    async def _campaign_roi(
-        self, partner_id: int, from_date: date, to_date: date
-    ) -> list[CampaignRoiPoint]:
-        """ROI campaign — 2 queries riêng tránh cross-product."""
-        from_dt, to_dt_excl = _date_range_to_utc(from_date, to_date)
-
-        # Query 1: voucher counts theo campaign
-        voucher_query = (
-            select(
-                Campaign.id.label("campaign_id"),
-                Campaign.name.label("campaign_name"),
-                func.count(Voucher.id).label("issued"),
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (Voucher.status == VoucherStatus.USED, 1), else_=0
-                        )
-                    ),
-                    0,
-                ).label("used"),
-            )
-            .outerjoin(
-                Voucher,
-                (Voucher.campaign_id == Campaign.id)
-                & (Voucher.partner_id == partner_id),  # defense-in-depth
-            )
-            .where(
-                Campaign.partner_id == partner_id,
-                Campaign.deleted_at.is_(None),
-            )
-            .group_by(Campaign.id, Campaign.name)
-            .order_by(Campaign.id.desc())
-            .limit(10)
-        )
-        voucher_rows = list((await self.db.execute(voucher_query)).all())
-        if not voucher_rows:
-            return []
-
-        campaign_ids = [r.campaign_id for r in voucher_rows]
-
-        # Query 2: transaction sums theo campaign (qua voucher_id)
-        txn_query = (
-            select(
-                Voucher.campaign_id.label("campaign_id"),
-                func.coalesce(
-                    func.sum(Transaction.voucher_discount_amount), 0
-                ).label("total_discount"),
-                func.coalesce(func.sum(Transaction.net_amount), 0).label(
-                    "total_revenue"
-                ),
-            )
-            .join(Transaction, Transaction.voucher_id == Voucher.id)
-            .where(
-                Voucher.campaign_id.in_(campaign_ids),
-                Transaction.partner_id == partner_id,
-                Transaction.created_at >= from_dt,
-                Transaction.created_at < to_dt_excl,
-            )
-            .group_by(Voucher.campaign_id)
-        )
-        txn_rows = {
-            r.campaign_id: (int(r.total_discount), int(r.total_revenue))
-            for r in (await self.db.execute(txn_query)).all()
-        }
-
-        return [
-            CampaignRoiPoint(
-                campaign_id=r.campaign_id,
-                campaign_name=r.campaign_name,
-                vouchers_issued=int(r.issued),
-                vouchers_used=int(r.used),
-                total_discount=txn_rows.get(r.campaign_id, (0, 0))[0],
-                total_revenue_from_voucher_txns=txn_rows.get(
-                    r.campaign_id, (0, 0)
-                )[1],
-            )
-            for r in voucher_rows
         ]

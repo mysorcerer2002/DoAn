@@ -19,7 +19,6 @@ from app.models.partner import Partner, PartnerStatus
 from app.models.partner_staff import PartnerStaffRole
 from app.models.reward import Reward
 from app.models.user import User
-from app.models.voucher import Voucher, VoucherStatus
 from app.schemas.ledger import LedgerEntryResponse
 from app.schemas.member import MemberResponse
 from app.schemas.partner import (
@@ -30,7 +29,6 @@ from app.schemas.partner import (
     PartnerStaffSummary,
     PartnerUpdateRequest,
 )
-from app.schemas.voucher import VoucherResponse
 from app.services.partner_service import PartnerNotFoundError, PartnerService
 
 partner_router = APIRouter(prefix="/partner", tags=["partner"])
@@ -110,67 +108,6 @@ async def list_my_ledger(
         )
     ).all()
     return [LedgerEntryResponse.model_validate(r) for r in rows]
-
-
-def _voucher_to_response(v: Voucher) -> VoucherResponse:
-    """Helper map Voucher (với joinedload campaign) → VoucherResponse đầy đủ field."""
-    campaign = v.campaign
-    discount_type_str: str | None = None
-    if campaign is not None:
-        dt = campaign.discount_type
-        discount_type_str = dt.value if hasattr(dt, "value") else str(dt)
-    return VoucherResponse(
-        id=v.id,
-        partner_id=v.partner_id,
-        campaign_id=v.campaign_id,
-        membership_id=v.membership_id,
-        code=v.code,
-        status=v.status,
-        issued_at=v.issued_at,
-        used_at=v.used_at,
-        expires_at=v.expires_at,
-        campaign_name=campaign.name if campaign else None,
-        campaign_description=campaign.description if campaign else None,
-        campaign_terms=campaign.terms if campaign else None,
-        campaign_usage_guide=campaign.usage_guide if campaign else None,
-        campaign_support_contact=campaign.support_contact if campaign else None,
-        discount_type=discount_type_str,
-        discount_value=campaign.discount_value if campaign else None,
-        min_order=campaign.min_order if campaign else None,
-        max_discount=campaign.max_discount if campaign else None,
-    )
-
-
-@users_router.get("/me/vouchers", response_model=list[VoucherResponse])
-async def list_my_vouchers_all_partners(
-    user: User = Depends(get_current_user),
-    status: VoucherStatus | None = Query(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> list[VoucherResponse]:
-    """Voucher của current user qua TẤT CẢ partner họ là member."""
-    membership_ids = [
-        row.id
-        for row in (
-            await db.scalars(
-                select(Membership).where(
-                    Membership.user_id == user.id,
-                    Membership.archived_at.is_(None),
-                )
-            )
-        ).all()
-    ]
-    if not membership_ids:
-        return []
-    stmt = (
-        select(Voucher)
-        .options(joinedload(Voucher.campaign))
-        .where(Voucher.membership_id.in_(membership_ids))
-    )
-    if status is not None:
-        stmt = stmt.where(Voucher.status == status)
-    stmt = stmt.order_by(Voucher.issued_at.desc())
-    rows = (await db.scalars(stmt)).all()
-    return [_voucher_to_response(v) for v in rows]
 
 
 @users_router.get("/me/memberships", response_model=list[MemberResponse])
@@ -456,54 +393,3 @@ async def update_my_partner(
     return PartnerResponse.model_validate(partner)
 
 
-@partner_router.get("/vouchers/check/{code}")
-async def check_voucher_by_code(
-    code: str,
-    gross_amount: int = Query(default=0, ge=0),
-    partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Staff/owner check voucher code: trả info + tính discount preview cho gross_amount."""
-    from app.services.voucher_service import (
-        VoucherExpiredError,
-        VoucherInvalidStatusError,
-        VoucherNotFoundError,
-        VoucherService,
-    )
-
-    service = VoucherService(db)
-    try:
-        return await service.check_voucher_for_use(
-            partner_id=partner_id,
-            code=code,
-            gross_amount=gross_amount,
-        )
-    except VoucherNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except (VoucherInvalidStatusError, VoucherExpiredError) as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-
-
-@partner_router.get("/vouchers", response_model=list[VoucherResponse])
-async def list_partner_vouchers(
-    vstatus: VoucherStatus | None = Query(default=None, alias="status"),
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
-    partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
-    db: AsyncSession = Depends(get_db),
-) -> list[VoucherResponse]:
-    """Merchant xem tất cả voucher đã phát cho partner này."""
-    stmt = (
-        select(Voucher)
-        .options(joinedload(Voucher.campaign))
-        .where(Voucher.partner_id == partner_id)
-        .order_by(Voucher.issued_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
-    if vstatus is not None:
-        stmt = stmt.where(Voucher.status == vstatus)
-    rows = (await db.scalars(stmt)).all()
-    return [_voucher_to_response(v) for v in rows]

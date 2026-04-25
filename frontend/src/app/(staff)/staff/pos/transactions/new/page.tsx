@@ -11,7 +11,7 @@ export default function StaffPosNewTransactionPage() {
           Tạo giao dịch tích điểm
         </h1>
         <p className="mt-1 text-[14px] text-slate-500">
-          Nhập SĐT khách + tổng tiền + voucher (nếu có) → tích điểm tự động
+          Nhập SĐT khách + tổng tiền → tích điểm tự động
         </p>
       </header>
       <div className="mt-6">

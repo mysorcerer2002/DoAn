@@ -172,7 +172,7 @@ export default function ProfilePage() {
             tone="indigo"
             border
           />
-          <Stat value="—" label="Voucher" tone="indigo" />
+          <Stat value="—" label="Phần thưởng" tone="indigo" />
         </section>
 
         <section className="space-y-3">
@@ -393,7 +393,7 @@ function EditProfileModal({
               />
             </div>
             <p className="pl-1 text-[11px] text-slate-400">
-              Dùng để nhận voucher sinh nhật hàng năm
+              Dùng để nhận phần thưởng sinh nhật từ đối tác
             </p>
           </div>
 

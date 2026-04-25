@@ -3,18 +3,14 @@
 Mục đích: đảm bảo user của tenant A không thao tác được dữ liệu của tenant B,
 KHÔNG dựa vào ORM scoping mặc định mà phải qua partner_id filter ở mọi query.
 """
-from datetime import UTC, datetime, timedelta
-
 import pytest
 
 from app.core.security import create_access_token
-from app.models.campaign import Campaign, DiscountType
 from app.models.membership import Membership
 from app.models.partner import Partner, PartnerStatus
 from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
-from app.models.voucher import Voucher, VoucherStatus
 
 
 @pytest.fixture
@@ -137,14 +133,14 @@ async def test_tiers_listed_for_a_not_visible_to_b(client, two_tenants_with_owne
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Fixture mở rộng: 2 tenant với members, transactions, voucher đầy đủ
-# Dùng để test cross-tenant query không bị rò rỉ data giữa members/txn/voucher.
+# Fixture mở rộng: 2 tenant với members + transactions
+# Dùng để test cross-tenant query không bị rò rỉ data giữa members/txn.
 # ─────────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
 async def two_tenants_full_data(db_session):
-    """Setup: 2 tenant, mỗi tenant 2 customer + 2 transaction + 1 voucher."""
+    """Setup: 2 tenant, mỗi tenant 2 customer + 2 transaction."""
     # Owners
     owner_a = User(email="a-owner@x.com", password_hash="x", is_active=True)
     owner_b = User(email="b-owner@x.com", password_hash="x", is_active=True)
@@ -201,45 +197,6 @@ async def two_tenants_full_data(db_session):
     ])
     await db_session.flush()
 
-    # Campaigns + Vouchers
-    now = datetime.now(UTC)
-    camp_a = Campaign(
-        partner_id=tenant_a.id, name="A Campaign", source="manual",
-        discount_type=DiscountType.PERCENT, discount_value=10,
-        min_order=10_000, max_discount=20_000,
-        starts_at=now - timedelta(days=1), ends_at=now + timedelta(days=30),
-        is_active=True,
-        program_form="giam_gia", approval_status="auto_approved",
-        approval_tier="none", estimated_cost=0,
-    )
-    camp_b = Campaign(
-        partner_id=tenant_b.id, name="B Campaign", source="manual",
-        discount_type=DiscountType.PERCENT, discount_value=15,
-        min_order=10_000, max_discount=30_000,
-        starts_at=now - timedelta(days=1), ends_at=now + timedelta(days=30),
-        is_active=True,
-        program_form="giam_gia", approval_status="auto_approved",
-        approval_tier="none", estimated_cost=0,
-    )
-    db_session.add_all([camp_a, camp_b])
-    await db_session.flush()
-
-    db_session.add_all([
-        Voucher(
-            partner_id=tenant_a.id, campaign_id=camp_a.id, membership_id=mem_a1.id,
-            code="AAAA1111", status=VoucherStatus.ISSUED, issue_source="manual",
-            discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
-            issued_at=now, expires_at=now + timedelta(days=14),
-        ),
-        Voucher(
-            partner_id=tenant_b.id, campaign_id=camp_b.id, membership_id=mem_b1.id,
-            code="BBBB1111", status=VoucherStatus.ISSUED, issue_source="manual",
-            discount_snapshot={"discount_type": "fixed", "discount_value": 10000},
-            issued_at=now, expires_at=now + timedelta(days=14),
-        ),
-    ])
-    await db_session.flush()
-
     return {
         "tenant_a": tenant_a, "tenant_b": tenant_b,
         "owner_a": owner_a, "owner_b": owner_b,
@@ -252,7 +209,7 @@ async def two_tenants_full_data(db_session):
     }
 
 
-# ─── Merchant-side isolation: members, transactions, vouchers ───
+# ─── Merchant-side isolation: members, transactions ───
 
 
 @pytest.mark.asyncio
@@ -304,21 +261,6 @@ async def test_isolation_transactions_list(client, two_tenants_full_data):
 
 
 @pytest.mark.asyncio
-async def test_isolation_vouchers_list(client, two_tenants_full_data):
-    """Owner A list /partner/vouchers → chỉ thấy voucher của tenant A."""
-    ctx = two_tenants_full_data
-    headers_a = {
-        "Authorization": f"Bearer {ctx['token_a']}",
-        "X-Partner-Id": str(ctx["tenant_a"].id),
-    }
-    resp = await client.get("/partner/vouchers", headers=headers_a)
-    assert resp.status_code == 200
-    codes = {v["code"] for v in resp.json()}
-    assert "AAAA1111" in codes
-    assert "BBBB1111" not in codes
-
-
-@pytest.mark.asyncio
 async def test_isolation_owner_a_spoofs_tenant_b_for_members(
     client, two_tenants_full_data
 ):
@@ -341,21 +283,6 @@ async def test_isolation_owner_a_spoofs_tenant_b_for_transactions(
     ctx = two_tenants_full_data
     resp = await client.get(
         "/partner/transactions",
-        headers={
-            "Authorization": f"Bearer {ctx['token_a']}",
-            "X-Partner-Id": str(ctx["tenant_b"].id),
-        },
-    )
-    assert resp.status_code == 403
-
-
-@pytest.mark.asyncio
-async def test_isolation_owner_a_spoofs_tenant_b_for_vouchers(
-    client, two_tenants_full_data
-):
-    ctx = two_tenants_full_data
-    resp = await client.get(
-        "/partner/vouchers",
         headers={
             "Authorization": f"Bearer {ctx['token_a']}",
             "X-Partner-Id": str(ctx["tenant_b"].id),

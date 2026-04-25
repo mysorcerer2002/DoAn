@@ -8,10 +8,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.api import auth as auth_router
 from app.api.admin import router as admin_router
-from app.api.admin_campaigns import router as admin_campaigns_router
 from app.api.analytics import router as analytics_router
-from app.api.campaign_enrollment import router as campaign_enrollment_router
-from app.api.campaigns import router as campaigns_router
 from app.api.members import router as members_router
 from app.api.notifications import router as notifications_router
 from app.api.point_rules import router as point_rules_router
@@ -19,12 +16,10 @@ from app.api.qr import router as qr_router
 from app.api.redemptions import router as redemptions_router
 from app.api.rewards import router as rewards_router
 from app.api.settings import router as settings_router
-from app.api.partner_authorization import router as partner_authorization_router
 from app.api.partner_staff import router as partner_staff_router
 from app.api.partners import partner_router, partners_router, users_router
 from app.api.tiers import router as tiers_router
 from app.api.transactions import router as transactions_router
-from app.api.vouchers import router as vouchers_router
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.jobs.scheduler import init_scheduler, shutdown_scheduler
@@ -71,7 +66,6 @@ app.include_router(partner_router)
 app.include_router(partners_router)
 app.include_router(users_router)
 app.include_router(admin_router)
-app.include_router(admin_campaigns_router)
 app.include_router(partner_staff_router)
 app.include_router(tiers_router)
 app.include_router(point_rules_router)
@@ -81,10 +75,6 @@ app.include_router(members_router)
 app.include_router(qr_router)
 app.include_router(rewards_router)
 app.include_router(redemptions_router)
-app.include_router(campaigns_router)
-app.include_router(campaign_enrollment_router)
-app.include_router(partner_authorization_router)
-app.include_router(vouchers_router)
 app.include_router(notifications_router)
 app.include_router(analytics_router)
 

@@ -32,7 +32,6 @@ type TenantForm = {
 type SettingsForm = {
   points_on_gross: boolean;
   signup_bonus_points: string;
-  voucher_default_ttl_days: string;
   redemption_default_ttl_days: string;
 };
 
@@ -60,7 +59,6 @@ export default function MerchantSettingsPage() {
   const [settingsForm, setSettingsForm] = useState<SettingsForm>({
     points_on_gross: false,
     signup_bonus_points: "0",
-    voucher_default_ttl_days: "14",
     redemption_default_ttl_days: "14",
   });
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
@@ -87,7 +85,6 @@ export default function MerchantSettingsPage() {
       setSettingsForm({
         points_on_gross: settings.points_on_gross,
         signup_bonus_points: String(settings.signup_bonus_points),
-        voucher_default_ttl_days: String(settings.voucher_default_ttl_days),
         redemption_default_ttl_days: String(
           settings.redemption_default_ttl_days
         ),
@@ -122,9 +119,6 @@ export default function MerchantSettingsPage() {
       await updateSettings.mutateAsync({
         points_on_gross: settingsForm.points_on_gross,
         signup_bonus_points: Number(settingsForm.signup_bonus_points),
-        voucher_default_ttl_days: Number(
-          settingsForm.voucher_default_ttl_days
-        ),
         redemption_default_ttl_days: Number(
           settingsForm.redemption_default_ttl_days
         ),
@@ -345,7 +339,7 @@ export default function MerchantSettingsPage() {
                   Tính điểm trên giá gốc
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  Mặc định: tính trên giá sau voucher
+                  Mặc định: tính trên net_amount (= gross do MVP chưa có discount)
                 </p>
               </div>
               <input
@@ -370,22 +364,6 @@ export default function MerchantSettingsPage() {
                   setSettingsForm({
                     ...settingsForm,
                     signup_bonus_points: e.target.value,
-                  })
-                }
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-              />
-            </Field>
-
-            <Field label="Thời hạn voucher mặc định (ngày)">
-              <input
-                type="number"
-                min="1"
-                max="365"
-                value={settingsForm.voucher_default_ttl_days}
-                onChange={(e) =>
-                  setSettingsForm({
-                    ...settingsForm,
-                    voucher_default_ttl_days: e.target.value,
                   })
                 }
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"

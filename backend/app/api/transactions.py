@@ -29,7 +29,6 @@ from app.services.partner_transaction_service import (
     TransactionNotFoundError,
 )
 from app.services.transaction_service import (
-    InvalidVoucherError,
     NoActivePointRuleError,
     NoMembershipError,
     TransactionService,
@@ -57,8 +56,6 @@ async def create_manual_transaction(
         raise HTTPException(status_code=422, detail=f"Invalid phone: {e}") from e
     except NoActivePointRuleError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
-    except InvalidVoucherError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
     except IntegrityError as e:
         if "ux_transactions_partner_receipt_code" in str(getattr(e, "orig", "")):
             raise HTTPException(

@@ -47,8 +47,8 @@ export default function StaffDashboardPage() {
               Tạo giao dịch tích điểm
             </h2>
             <p className="mt-2 max-w-md text-[14px] text-emerald-100">
-              Quét QR khách hoặc nhập SĐT, áp voucher (nếu có), tự động cộng
-              điểm + cập nhật hạng thành viên.
+              Quét QR khách hoặc nhập SĐT, tự động cộng điểm + cập nhật hạng
+              thành viên.
             </p>
             <Link
               href="/staff/pos/transactions/new"

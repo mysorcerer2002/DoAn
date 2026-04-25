@@ -119,10 +119,10 @@ export default function RedemptionSuccessPage() {
             Lưu ảnh QR
           </button>
           <Link
-            href="/member/vouchers"
+            href="/member/rewards"
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/40 py-4 font-medium text-white transition-colors hover:bg-white/10"
           >
-            Xem voucher của tôi
+            Xem phần thưởng đã đổi
           </Link>
         </div>
       </main>
