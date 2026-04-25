@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Clock, Globe, Mail, MapPin, Phone } from "lucide-react";
+import { useState } from "react";
 
 import { api } from "@/lib/api";
 import { PartnerLedgerList } from "@/components/member/partner-ledger-list";
@@ -20,11 +21,23 @@ type PartnerDetail = {
   business_hours: string | null;
   website: string | null;
   tax_code: string | null;
+  is_member: boolean;
   points_balance: number | null;
   total_points_earned: number | null;
   current_tier_name: string | null;
   joined_at: string | null;
   last_activity_at: string | null;
+};
+
+type PartnerReward = {
+  id: number;
+  name: string;
+  description: string | null;
+  points_cost: number;
+  stock: number | null;
+  image_url: string | null;
+  user_points_balance: number;
+  can_redeem: boolean;
 };
 
 const TIER_EMOJI: Record<string, string> = {
@@ -42,12 +55,21 @@ const CATEGORY_LABEL: Record<string, string> = {
   other: "Khác",
 };
 
+type TabId = "rewards" | "info" | "history";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "rewards", label: "Ưu đãi" },
+  { id: "info", label: "Thông tin" },
+  { id: "history", label: "Lịch sử tích điểm" },
+];
+
 export default function PartnerDetailPage({
   params,
 }: {
   params: { slug: string };
 }) {
   const { slug } = params;
+  const [activeTab, setActiveTab] = useState<TabId>("rewards");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["partner-detail", slug],
@@ -72,7 +94,7 @@ export default function PartnerDetailPage({
     );
   }
 
-  const hasMembership = data.points_balance !== null;
+  const hasMembership = data.is_member;
 
   return (
     <div className="pb-24">
@@ -93,126 +115,209 @@ export default function PartnerDetailPage({
         </span>
       </header>
 
-      {/* Section 1: Thông tin đối tác */}
-      <section className="space-y-3 p-4">
-        {data.logo_url && (
-          <img
-            src={data.logo_url}
-            alt={data.name}
-            className="h-24 w-24 rounded-2xl object-cover shadow-sm"
-          />
-        )}
-        {data.description && (
-          <p className="text-[13px] text-slate-500">{data.description}</p>
-        )}
-        <div className="space-y-2 text-[13px]">
-          {data.address && (
-            <div className="flex items-start gap-2 text-slate-600">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-indigo" />
-              <span>{data.address}</span>
-            </div>
-          )}
-          {data.contact_phone && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Phone className="h-4 w-4 shrink-0 text-brand-indigo" />
-              <a href={`tel:${data.contact_phone}`} className="hover:underline">
-                {data.contact_phone}
-              </a>
-            </div>
-          )}
-          {data.contact_email && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Mail className="h-4 w-4 shrink-0 text-brand-indigo" />
-              <a href={`mailto:${data.contact_email}`} className="hover:underline">
-                {data.contact_email}
-              </a>
-            </div>
-          )}
-          {data.business_hours && (
-            <div className="flex items-start gap-2 text-slate-600">
-              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-brand-indigo" />
-              <span>{data.business_hours}</span>
-            </div>
-          )}
-          {data.website && (
-            <div className="flex items-center gap-2 text-slate-600">
-              <Globe className="h-4 w-4 shrink-0 text-brand-indigo" />
-              <a
-                href={data.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                {data.website}
-              </a>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Section 2: Điểm của bạn */}
-      <section className="border-t border-slate-100 p-4 space-y-3">
-        <h2 className="font-headline text-[16px] font-bold text-slate-800">
-          Điểm của bạn tại đây
-        </h2>
-        {hasMembership ? (
-          <div className="space-y-3">
-            <div className="rounded-2xl bg-gradient-to-br from-brand-indigo to-brand-violet p-4">
-              <p className="text-[11px] font-medium text-indigo-100/80">Điểm khả dụng</p>
-              <p className="font-headline text-[40px] font-bold leading-none text-brand-orange">
-                {data.points_balance?.toLocaleString("vi-VN")}
-              </p>
-            </div>
-            {data.current_tier_name && (
-              <div className="flex items-center gap-2 text-[13px] text-slate-700">
-                <span className="text-2xl">
-                  {TIER_EMOJI[data.current_tier_name] ?? "🎖️"}
-                </span>
-                <span>
-                  Hạng hiện tại:{" "}
-                  <strong className="font-semibold">{data.current_tier_name}</strong>
-                </span>
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              {data.total_points_earned !== null && (
-                <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                  <p className="text-[11px] text-slate-400">Tổng đã tích</p>
-                  <p className="font-headline text-[18px] font-bold text-slate-800">
-                    {data.total_points_earned.toLocaleString("vi-VN")}
-                  </p>
-                </div>
-              )}
-              {data.joined_at && (
-                <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                  <p className="text-[11px] text-slate-400">Tham gia từ</p>
-                  <p className="font-headline text-[14px] font-bold text-slate-800">
-                    {new Date(data.joined_at).toLocaleDateString("vi-VN")}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
-            <p className="text-[13px] text-slate-500">
-              Chưa có giao dịch tại đối tác này.
-              <br />
-              Hãy quét QR khi mua hàng để bắt đầu tích điểm.
+      {/* Hero: Điểm + Tier (chỉ hiện khi đã member) */}
+      {hasMembership && (
+        <section className="space-y-3 p-4">
+          <div className="rounded-2xl bg-gradient-to-br from-brand-indigo to-brand-violet p-4">
+            <p className="text-[11px] font-medium text-indigo-100/80">Điểm khả dụng</p>
+            <p className="font-headline text-[40px] font-bold leading-none text-brand-orange">
+              {data.points_balance?.toLocaleString("vi-VN")}
             </p>
           </div>
-        )}
-      </section>
+          {data.current_tier_name && (
+            <div className="flex items-center gap-2 text-[13px] text-slate-700">
+              <span className="text-2xl">
+                {TIER_EMOJI[data.current_tier_name] ?? "🎖️"}
+              </span>
+              <span>
+                Hạng hiện tại:{" "}
+                <strong className="font-semibold">{data.current_tier_name}</strong>
+              </span>
+            </div>
+          )}
+        </section>
+      )}
 
-      {/* Section 3: Lịch sử */}
-      {hasMembership && (
-        <section className="border-t border-slate-100 p-4 space-y-3">
-          <h2 className="font-headline text-[16px] font-bold text-slate-800">
-            Lịch sử tích/đổi điểm
-          </h2>
-          <PartnerLedgerList partnerSlug={slug} />
+      {/* Tabs */}
+      <div className="sticky top-16 z-30 flex border-b border-slate-100 bg-slate-50/95 backdrop-blur">
+        {TABS.map((t) => {
+          const isActive = activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveTab(t.id)}
+              className={
+                isActive
+                  ? "flex-1 border-b-2 border-brand-indigo px-2 py-3 text-[13px] font-bold text-brand-indigo"
+                  : "flex-1 border-b-2 border-transparent px-2 py-3 text-[13px] font-medium text-slate-500"
+              }
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab content */}
+      {activeTab === "rewards" && <RewardsTab slug={slug} />}
+      {activeTab === "info" && <InfoTab data={data} />}
+      {activeTab === "history" && (
+        <section className="p-4">
+          {hasMembership ? (
+            <PartnerLedgerList partnerSlug={slug} />
+          ) : (
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-[13px] text-slate-500">
+              Bạn chưa có giao dịch tại đối tác này.
+            </p>
+          )}
         </section>
       )}
     </div>
+  );
+}
+
+function RewardsTab({ slug }: { slug: string }) {
+  const { data: rewards, isLoading, isError } = useQuery({
+    queryKey: ["partner-rewards", slug],
+    queryFn: async () => {
+      const resp = await api.get<PartnerReward[]>(
+        `/users/me/partners/${slug}/rewards`
+      );
+      return resp.data;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <p className="p-4 text-center text-[13px] text-slate-400">Đang tải...</p>
+    );
+  }
+  if (isError) {
+    return (
+      <p className="p-4 text-center text-[13px] text-red-600">
+        Không tải được danh sách ưu đãi
+      </p>
+    );
+  }
+  if (!rewards || rewards.length === 0) {
+    return (
+      <p className="p-6 text-center text-[13px] text-slate-500">
+        Đối tác chưa có ưu đãi nào.
+      </p>
+    );
+  }
+
+  return (
+    <section className="space-y-3 p-4">
+      {rewards.map((r) => {
+        const missing = r.points_cost - r.user_points_balance;
+        return (
+          <article
+            key={r.id}
+            className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-3xl">
+                🎁
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-headline text-[14px] font-bold text-slate-800">
+                  {r.name}
+                </h3>
+                {r.description && (
+                  <p className="mt-0.5 line-clamp-2 text-[12px] text-slate-500">
+                    {r.description}
+                  </p>
+                )}
+                <p className="mt-1 font-headline text-[14px] font-bold text-brand-orange">
+                  {r.points_cost.toLocaleString("vi-VN")} điểm
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between">
+              {r.stock !== null && r.stock > 0 && r.stock <= 5 && (
+                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-brand-orange">
+                  Còn {r.stock}
+                </span>
+              )}
+              {r.can_redeem ? (
+                <button
+                  type="button"
+                  className="ml-auto rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white shadow-sm active:scale-95"
+                >
+                  Đổi ngay
+                </button>
+              ) : (
+                <span className="ml-auto text-[12px] font-medium text-slate-500">
+                  Tích thêm {missing.toLocaleString("vi-VN")} điểm để đổi
+                </span>
+              )}
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+function InfoTab({ data }: { data: PartnerDetail }) {
+  return (
+    <section className="space-y-3 p-4">
+      {data.logo_url && (
+        <img
+          src={data.logo_url}
+          alt={data.name}
+          className="h-24 w-24 rounded-2xl object-cover shadow-sm"
+        />
+      )}
+      {data.description && (
+        <p className="text-[13px] text-slate-500">{data.description}</p>
+      )}
+      <div className="space-y-2 text-[13px]">
+        {data.address && (
+          <div className="flex items-start gap-2 text-slate-600">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-indigo" />
+            <span>{data.address}</span>
+          </div>
+        )}
+        {data.contact_phone && (
+          <div className="flex items-center gap-2 text-slate-600">
+            <Phone className="h-4 w-4 shrink-0 text-brand-indigo" />
+            <a href={`tel:${data.contact_phone}`} className="hover:underline">
+              {data.contact_phone}
+            </a>
+          </div>
+        )}
+        {data.contact_email && (
+          <div className="flex items-center gap-2 text-slate-600">
+            <Mail className="h-4 w-4 shrink-0 text-brand-indigo" />
+            <a href={`mailto:${data.contact_email}`} className="hover:underline">
+              {data.contact_email}
+            </a>
+          </div>
+        )}
+        {data.business_hours && (
+          <div className="flex items-start gap-2 text-slate-600">
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-brand-indigo" />
+            <span>{data.business_hours}</span>
+          </div>
+        )}
+        {data.website && (
+          <div className="flex items-center gap-2 text-slate-600">
+            <Globe className="h-4 w-4 shrink-0 text-brand-indigo" />
+            <a
+              href={data.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              {data.website}
+            </a>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

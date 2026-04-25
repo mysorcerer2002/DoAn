@@ -309,6 +309,61 @@ async def get_partner_detail_for_member(
     )
 
 
+@users_router.get("/me/partners/{slug}/rewards")
+async def list_partner_rewards_for_member(
+    slug: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Rewards active của 1 partner. user_points_balance/can_redeem dựa trên membership.
+
+    Non-member: balance=0, can_redeem=False (không đổi được kể cả đủ điểm).
+    """
+    partner = await db.scalar(
+        select(Partner).where(
+            Partner.slug == slug, Partner.status == PartnerStatus.ACTIVE
+        )
+    )
+    if partner is None:
+        raise HTTPException(status_code=404, detail="Partner not found")
+
+    membership = await db.scalar(
+        select(Membership).where(
+            Membership.partner_id == partner.id,
+            Membership.user_id == user.id,
+            Membership.archived_at.is_(None),
+        )
+    )
+    is_member = membership is not None
+    balance = membership.points_balance if membership else 0
+
+    rewards = (
+        await db.scalars(
+            select(Reward)
+            .where(
+                Reward.partner_id == partner.id,
+                Reward.deleted_at.is_(None),
+                Reward.is_active.is_(True),
+            )
+            .order_by(Reward.points_cost.asc())
+        )
+    ).all()
+
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "description": r.description,
+            "points_cost": r.points_cost,
+            "stock": r.stock,
+            "image_url": r.image_url,
+            "user_points_balance": balance,
+            "can_redeem": is_member and balance >= r.points_cost,
+        }
+        for r in rewards
+    ]
+
+
 @users_router.get("/me/rewards")
 async def list_my_rewards(
     user: User = Depends(get_current_user),
