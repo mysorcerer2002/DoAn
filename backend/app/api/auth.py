@@ -3,7 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import JWTError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -24,8 +24,23 @@ class UpdateMeRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
     phone: str | None = Field(default=None, pattern=r"^\+?[0-9\s\-()]{8,20}$")
     birthday: date | None = None
-from app.schemas.claim_shadow import ClaimShadowRequest, RequestClaimRequest
-from app.services.auth_service import AuthService, EmailAlreadyExistsError, InvalidCredentialsError
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
+
+
+from app.services.auth_service import (
+    AuthService,
+    EmailAlreadyExistsError,
+    InvalidCredentialsError,
+    _hash_email_for_log,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -101,20 +116,6 @@ async def refresh(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive"
         )
 
-    # Reject token nếu issued trước khi user đổi password (ngăn dùng refresh token cũ).
-    # Compare integer timestamps (JWT iat lưu giây nguyên — datetime DB có microseconds).
-    if user.password_changed_at is not None and payload.iat:
-        pwd_changed_ts = int(user.password_changed_at.timestamp())
-        if payload.iat < pwd_changed_ts:
-            logger.warning(
-                "auth.refresh.stale_token",
-                extra={"user_id": user.id, "token_iat": payload.iat},
-            )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token is stale (password changed)",
-            )
-
     return TokenResponse(
         access_token=create_access_token(user_id=user_id),
         refresh_token=create_refresh_token(user_id=user_id),
@@ -166,37 +167,42 @@ async def update_me(
     return current_user
 
 
-@router.post("/request-claim", status_code=202)
-@limiter.limit("10/minute")
-async def request_claim(
+@router.post("/forgot-password", status_code=200)
+@limiter.limit("5/minute")
+async def forgot_password(
     request: Request,
-    body: RequestClaimRequest,
+    body: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    """Cấp mật khẩu tạm gửi qua email. Idempotent: dù user có hay không vẫn trả 200."""
     service = AuthService(db)
-    await service.request_claim(email=body.email)
-    return {"message": "If account exists and is shadow, code has been sent"}
+    temp_password = await service.reset_password_send_temp(email=body.email)
+    if temp_password is not None:
+        # MVP đồ án: dev-leak temp password ra log để demo.
+        # TODO Phase 6: gửi qua SMTP, KHÔNG log plaintext.
+        logger.warning(
+            "auth.forgot_password.DEV_LEAK",
+            extra={
+                "email_hash": _hash_email_for_log(body.email),
+                "temp_password": temp_password,
+            },
+        )
+    return {"message": "Nếu email hợp lệ, mật khẩu mới đã được gửi."}
 
 
-@router.post("/claim-shadow", response_model=TokenResponse)
-@limiter.limit("15/minute")
-async def claim_shadow(
-    request: Request,
-    body: ClaimShadowRequest,
+@router.patch("/me/password", status_code=204)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> TokenResponse:
+) -> None:
     service = AuthService(db)
     try:
-        user = await service.claim_shadow(
-            email=body.email,
-            code=body.code,
-            password=body.password,
-            full_name=body.full_name,
-            birthday=body.birthday,
+        await service.change_password(
+            user=current_user,
+            current_password=body.current_password,
+            new_password=body.new_password,
         )
     except InvalidCredentialsError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
-    return TokenResponse(
-        access_token=create_access_token(user_id=user.id),
-        refresh_token=create_refresh_token(user_id=user.id),
-    )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    await db.commit()

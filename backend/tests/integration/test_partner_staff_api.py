@@ -31,7 +31,7 @@ async def _make_active_partner_with_owner(db_session):
     return partner, owner, create_access_token(user_id=owner.id)
 
 
-async def test_add_staff_returns_201_with_verification_code(client: AsyncClient, db_session):
+async def test_add_staff_returns_201(client: AsyncClient, db_session):
     partner, _owner, owner_token = await _make_active_partner_with_owner(db_session)
 
     response = await client.post(
@@ -45,8 +45,7 @@ async def test_add_staff_returns_201_with_verification_code(client: AsyncClient,
     assert response.status_code == 201
     data = response.json()
     assert data["staff"]["role"] == "staff"
-    assert data["verification_code"] is not None
-    assert len(data["verification_code"]) == 6
+    assert data["verification_code"] is None
 
 
 async def test_add_staff_non_owner_returns_403(client: AsyncClient, db_session):

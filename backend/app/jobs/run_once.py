@@ -1,14 +1,13 @@
 """CLI runner — chạy job thủ công cho debug.
 
 Usage:
-    python -m app.jobs.run_once cleanup_codes
+    python -m app.jobs.run_once birthday
 """
 
 import asyncio
 import sys
 
 JOBS = {
-    "cleanup_codes": "app.jobs.cleanup_codes:cleanup_expired_verification_codes",
     "birthday": "app.jobs.birthday_voucher:birthday_voucher_job",
 }
 

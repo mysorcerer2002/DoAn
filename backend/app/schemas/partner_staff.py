@@ -28,7 +28,4 @@ class StaffResponse(BaseModel):
 
 
 class StaffAddResponse(BaseModel):
-    """Response khi thêm staff. Nếu user mới (shadow), kèm verification_code (MVP)."""
-
     staff: StaffResponse
-    verification_code: str | None = None

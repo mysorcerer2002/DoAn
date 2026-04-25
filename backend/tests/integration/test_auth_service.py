@@ -18,7 +18,6 @@ async def test_register_creates_user(db_session):
     assert user.full_name == "Alice"
     assert user.password_hash != "supersecret123"
     assert user.is_active is True
-    assert user.is_shadow is False
     assert user.system_role == "regular"
 
 

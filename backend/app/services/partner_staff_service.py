@@ -5,14 +5,12 @@ from sqlalchemy.orm import joinedload
 
 from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
-from app.models.verification_code import VerificationCodePurpose
 from app.schemas.partner_staff import (
     StaffAddRequest,
     StaffAddResponse,
     StaffResponse,
     StaffUpdateRoleRequest,
 )
-from app.services.verification_code_service import VerificationCodeService
 
 
 class StaffNotFoundError(Exception):
@@ -46,16 +44,15 @@ class PartnerStaffService:
     async def add_staff(
         self, *, partner_id: int, request: StaffAddRequest
     ) -> StaffAddResponse:
-        """Thêm staff vào đối tác. Tạo shadow user nếu email chưa tồn tại.
+        """Thêm staff vào đối tác. Tạo user mới (chưa có password) nếu email chưa tồn tại.
 
-        Check link existence TRƯỚC khi tạo shadow để tránh orphan rows
+        Check link existence TRƯỚC khi tạo user để tránh orphan rows
         khi user đã tồn tại + đã link.
         """
         existing_user = await self.db.scalar(
             select(User).where(User.email == request.email)
         )
 
-        # Nếu user đã tồn tại, check link trước khi tạo shadow / verification code
         if existing_user is not None:
             existing_link = await self.db.scalar(
                 select(PartnerStaff).where(
@@ -68,27 +65,16 @@ class PartnerStaffService:
                     f"User {request.email} already in partner {partner_id}"
                 )
 
-        verification_code: str | None = None
-
         if existing_user is None:
-            # Tạo shadow user — chưa có password
             existing_user = User(
                 email=request.email,
                 full_name=request.full_name,
                 password_hash=None,
                 is_active=True,
-                is_shadow=True,
                 system_role="regular",
             )
             self.db.add(existing_user)
             await self.db.flush()
-
-            # Sinh verification code qua HMAC service
-            vcs = VerificationCodeService(self.db)
-            verification_code = await vcs.create_code(
-                user_id=existing_user.id,
-                purpose=VerificationCodePurpose.CLAIM_SHADOW,
-            )
 
         staff = PartnerStaff(
             partner_id=partner_id,
@@ -114,7 +100,6 @@ class PartnerStaffService:
                 user_full_name=existing_user.full_name,
                 created_at=staff.added_at,
             ),
-            verification_code=verification_code,
         )
 
     async def remove_staff(self, *, partner_id: int, staff_id: int) -> int:

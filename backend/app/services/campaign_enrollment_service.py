@@ -297,20 +297,6 @@ class CampaignEnrollmentService:
         )
         template = await self._load_template(form.template_id)
 
-        # Verify OTP (inline import tránh circular).
-        from app.models.verification_code import VerificationCodePurpose
-        from app.services.verification_code_service import (
-            VerificationCodeService,
-        )
-
-        vc = VerificationCodeService(self.db)
-        await vc.verify_code(
-            user_id=user_id,
-            code=otp_code,
-            purpose=VerificationCodePurpose.AUTHORIZATION_SIGN,
-            context_hash=form_commitment(form),
-        )
-
         settings = get_settings()
         now = datetime.now(timezone.utc)
 

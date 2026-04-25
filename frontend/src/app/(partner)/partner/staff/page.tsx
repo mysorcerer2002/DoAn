@@ -40,27 +40,22 @@ export default function MerchantStaffPage() {
     role: "staff" as "owner" | "staff",
   });
   const [error, setError] = useState<string | null>(null);
-  const [lastCode, setLastCode] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLastCode(null);
     if (!form.email.trim()) {
       setError("Vui lòng nhập email");
       return;
     }
     try {
-      const res = await addMutation.mutateAsync({
+      await addMutation.mutateAsync({
         email: form.email.trim(),
         full_name: form.full_name.trim() || null,
         role: form.role,
       });
-      setLastCode(res.data.verification_code);
       setForm({ email: "", full_name: "", role: "staff" });
-      if (!res.data.verification_code) {
-        setModalOpen(false);
-      }
+      setModalOpen(false);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
       setError(err.response?.data?.detail ?? "Lỗi thêm nhân viên");
@@ -93,10 +88,7 @@ export default function MerchantStaffPage() {
         </div>
         <button
           type="button"
-          onClick={() => {
-            setModalOpen(true);
-            setLastCode(null);
-          }}
+          onClick={() => setModalOpen(true)}
           className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet px-5 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-indigo-200 active:scale-95"
         >
           <Plus className="h-4 w-4" />
@@ -188,32 +180,7 @@ export default function MerchantStaffPage() {
               </button>
             </div>
 
-            {lastCode ? (
-              <div className="space-y-3">
-                <div className="rounded-xl bg-emerald-50 p-4 text-center">
-                  <p className="text-[13px] text-emerald-800">
-                    Đã tạo nhân viên mới. Gửi mã xác minh cho họ:
-                  </p>
-                  <p className="mt-2 font-mono text-[24px] font-bold text-emerald-600">
-                    {lastCode}
-                  </p>
-                  <p className="mt-1 text-[11px] text-emerald-700">
-                    Hết hạn sau 10 phút
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLastCode(null);
-                    setModalOpen(false);
-                  }}
-                  className="w-full rounded-xl bg-brand-indigo py-2 text-[13px] font-bold text-white"
-                >
-                  Đóng
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">
                     Email
@@ -286,7 +253,6 @@ export default function MerchantStaffPage() {
                   </button>
                 </div>
               </form>
-            )}
           </div>
         </div>
       )}

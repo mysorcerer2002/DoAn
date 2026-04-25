@@ -1,6 +1,7 @@
 import hashlib
 import logging
-from datetime import UTC, date, datetime
+import secrets
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -12,12 +13,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
-from app.models.verification_code import VerificationCodePurpose
 from app.schemas.auth import RegisterRequest
-from app.services.verification_code_service import (
-    InvalidCodeError,
-    VerificationCodeService,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -44,16 +40,13 @@ class AuthService:
         if existing is not None:
             raise EmailAlreadyExistsError(f"Email {request.email} already registered")
 
-        now = datetime.now(UTC)
         user = User(
             email=request.email,
             password_hash=hash_password(request.password),
             full_name=request.full_name,
             birthday=request.birthday,
             is_active=True,
-            is_shadow=False,
             system_role="regular",
-            password_changed_at=now,
         )
         self.db.add(user)
         try:
@@ -102,56 +95,34 @@ class AuthService:
         logger.info("auth.login.success", extra={"user_id": user.id})
         return user
 
-    async def request_claim(self, *, email: str) -> bool:
-        """Gửi verification code cho shadow user. Trả False nếu không tồn tại hoặc không phải shadow."""
+    async def reset_password_send_temp(self, *, email: str) -> str | None:
+        """Forgot-password: gen temp password, set bcrypt, log/email plain.
+
+        Trả temp password (caller log/email). Trả None nếu user không tồn tại
+        — caller vẫn return generic 200 để tránh enumeration.
+        """
         user = await self.db.scalar(select(User).where(User.email == email))
-        if user is None or not user.is_shadow:
-            return False
-        vcs = VerificationCodeService(self.db)
-        await vcs.create_code(
-            user_id=user.id, purpose=VerificationCodePurpose.CLAIM_SHADOW
-        )
-        logger.info(
-            "auth.claim.code_sent",
-            extra={"user_id": user.id, "email_hash": _hash_email_for_log(email)},
-        )
-        return True
-
-    async def claim_shadow(
-        self,
-        *,
-        email: str,
-        code: str,
-        password: str,
-        full_name: str | None,
-        birthday: date | None,
-    ) -> User:
-        """Xác nhận code và set password cho shadow user."""
-        user = await self.db.scalar(select(User).where(User.email == email))
-        if user is None or not user.is_shadow:
-            raise InvalidCredentialsError("No claimable account for this email")
-
-        vcs = VerificationCodeService(self.db)
-        try:
-            await vcs.verify_code(
-                user_id=user.id,
-                code=code,
-                purpose=VerificationCodePurpose.CLAIM_SHADOW,
-            )
-        except InvalidCodeError as e:
-            raise InvalidCredentialsError("Invalid or expired code") from e
-
-        now = datetime.now(UTC)
-        user.password_hash = hash_password(password)
-        user.password_changed_at = now
-        user.is_shadow = False
-        if full_name is not None:
-            user.full_name = full_name
-        if birthday is not None:
-            user.birthday = birthday
+        if user is None:
+            # Equalize timing — chạy bcrypt cost dù user không tồn tại,
+            # tránh enumeration qua phản hồi nhanh/chậm.
+            hash_password(secrets.token_urlsafe(8))
+            return None
+        temp_password = secrets.token_urlsafe(8)
+        user.password_hash = hash_password(temp_password)
         await self.db.flush()
         logger.info(
-            "auth.claim.success",
+            "auth.forgot_password.reset",
             extra={"user_id": user.id, "email_hash": _hash_email_for_log(email)},
         )
-        return user
+        return temp_password
+
+    async def change_password(
+        self, *, user: User, current_password: str, new_password: str
+    ) -> None:
+        if user.password_hash is None or not verify_password(
+            current_password, user.password_hash
+        ):
+            raise InvalidCredentialsError("Mật khẩu hiện tại không đúng")
+        user.password_hash = hash_password(new_password)
+        await self.db.flush()
+        logger.info("auth.change_password.success", extra={"user_id": user.id})

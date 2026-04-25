@@ -63,12 +63,11 @@ async def test_add_staff_new_user_creates_shadow(db_session, active_partner):
         ),
     )
     assert result.staff.user_id is not None
-    assert result.verification_code is not None
-    assert len(result.verification_code) == 6
-    assert result.verification_code.isdigit()
+    assert result.verification_code is None
 
     user = await db_session.get(User, result.staff.user_id)
-    assert user.is_shadow is True
+    assert user is not None
+    assert user.password_hash is None
     assert user.email == "new@example.com"
 
 

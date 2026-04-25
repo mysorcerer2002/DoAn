@@ -14,17 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_partner_id, require_owner_in_partner
-from app.core.email import (
-    dev_code_leak_enabled,
-    mask_email,
-    send_otp_email,
-)
 from app.models.partner_staff import PartnerStaffRole
 from app.models.user import User
-from app.models.verification_code import VerificationCodePurpose
 from app.schemas.campaign_enrollment import (
-    AuthorizationOtpRequest,
-    AuthorizationOtpResponse,
     AuthorizationSignRequest,
     AuthorizationSignResponse,
     CampaignEnrollPreviewResponse,
@@ -37,13 +29,8 @@ from app.services.campaign_enrollment_service import (
     EnrollmentError,
     FormValidationError,
     TemplateInvalidError,
-    form_commitment,
 )
 from app.services.campaign_template_service import CampaignTemplateService
-from app.services.verification_code_service import (
-    InvalidCodeError,
-    VerificationCodeService,
-)
 
 
 router = APIRouter(tags=["merchant-enrollment"])
@@ -89,56 +76,6 @@ async def preview_enrollment(
 
 
 @router.post(
-    "/partner/authorizations/request-otp",
-    response_model=AuthorizationOtpResponse,
-)
-async def request_authorization_otp(
-    body: AuthorizationOtpRequest,
-    partner_id: int = Depends(get_partner_id),
-    user: User = Depends(get_current_user),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
-    db: AsyncSession = Depends(get_db),
-) -> AuthorizationOtpResponse:
-    # Validate form + preview trước khi phát OTP — tránh user nhận code rồi
-    # mới biết form sai cap.
-    try:
-        await CampaignEnrollmentService(db).preview(
-            partner_id=partner_id, user_id=user.id, form=body.form
-        )
-    except TemplateInvalidError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except FormValidationError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    if not user.email:
-        raise HTTPException(
-            status_code=400,
-            detail="Tài khoản owner chưa có email, không gửi OTP được",
-        )
-
-    # Bind OTP vào hash form cụ thể — sign sẽ fail nếu form bị tamper
-    # giữa request-otp và sign.
-    code = await VerificationCodeService(db).create_code(
-        user_id=user.id,
-        purpose=VerificationCodePurpose.AUTHORIZATION_SIGN,
-        context_hash=form_commitment(body.form),
-    )
-    await db.commit()
-
-    await send_otp_email(
-        to_email=user.email,
-        code=code,
-        purpose="authorization_sign",
-    )
-
-    return AuthorizationOtpResponse(
-        email_masked=mask_email(user.email),
-        ttl_minutes=VerificationCodeService.TTL_MINUTES,
-        dev_code=code if dev_code_leak_enabled() else None,
-    )
-
-
-@router.post(
     "/partner/authorizations/sign",
     response_model=AuthorizationSignResponse,
     status_code=201,
@@ -174,8 +111,3 @@ async def sign_authorization(
         # Include duplicate-pending campaign (partial unique), tenant/user
         # not found, etc.
         raise HTTPException(status_code=409, detail=str(e))
-    except InvalidCodeError:
-        raise HTTPException(
-            status_code=400,
-            detail="OTP không hợp lệ, đã hết hạn, đã dùng, hoặc form đã bị đổi",
-        )

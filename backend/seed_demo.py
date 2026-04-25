@@ -54,7 +54,6 @@ async def _get_or_create_user(
         full_name=full_name,
         is_active=True,
         system_role=system_role,
-        password_changed_at=datetime.now(UTC),
     )
     db.add(user)
     await db.flush()
@@ -75,6 +74,13 @@ async def _seed_tenant(
     rewards: list[tuple[str, int, int | None]],
     campaigns: list[tuple[str, int, int]],  # (name, discount_percent, max_discount)
     customers: list[tuple[str, str, str, int, str]],  # (email, name, phone, points, tier_name)
+    logo_url: str | None = None,
+    banner_url: str | None = None,
+    contact_phone: str | None = None,
+    contact_email: str | None = None,
+    address: str | None = None,
+    website: str | None = None,
+    business_hours: str | None = None,
 ) -> dict:
     """Seed 1 đối tác đầy đủ. Trả về dict với các id cần thiết."""
     partner = await db.scalar(select(Partner).where(Partner.slug == slug))
@@ -86,6 +92,13 @@ async def _seed_tenant(
             status=PartnerStatus.ACTIVE,
             category=category,
             description=description,
+            logo_url=logo_url,
+            banner_url=banner_url,
+            contact_phone=contact_phone,
+            contact_email=contact_email,
+            address=address,
+            website=website,
+            business_hours=business_hours,
             settings={
                 "points_on_gross": False,
                 "signup_bonus_points": 100,
@@ -105,6 +118,24 @@ async def _seed_tenant(
             partner.category = category
             await db.flush()
             print(f"  ↻ Cập nhật category cho {name}: {category}")
+        # Backfill các field profile chỉ khi đang null (không ghi đè data owner đã sửa)
+        profile_updates = {
+            "logo_url": logo_url,
+            "banner_url": banner_url,
+            "contact_phone": contact_phone,
+            "contact_email": contact_email,
+            "address": address,
+            "website": website,
+            "business_hours": business_hours,
+        }
+        backfilled = []
+        for field, value in profile_updates.items():
+            if value is not None and getattr(partner, field) is None:
+                setattr(partner, field, value)
+                backfilled.append(field)
+        if backfilled:
+            await db.flush()
+            print(f"  ↻ Backfill profile: {', '.join(backfilled)}")
         else:
             print(f"- Partner đã tồn tại: {name}")
 

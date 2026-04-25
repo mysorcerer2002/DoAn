@@ -67,8 +67,7 @@ const NO_REFRESH_PATHS = [
   "/auth/login",
   "/auth/register",
   "/auth/refresh",
-  "/auth/claim-shadow",
-  "/auth/request-claim",
+  "/auth/forgot-password",
 ];
 
 api.interceptors.response.use(

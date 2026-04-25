@@ -418,7 +418,6 @@ class AdminUserRow(BaseModel):
     full_name: str | None
     system_role: str
     is_active: bool
-    is_shadow: bool
     created_at: datetime
     last_login_at: datetime | None
 
@@ -458,8 +457,8 @@ async def list_platform_users(
     db: AsyncSession = Depends(get_db),
 ) -> AdminUserListResponse:
     """Super Admin xem danh sách user toàn platform."""
-    stmt = select(User).where(User.is_shadow.is_(False))
-    count_stmt = select(func.count()).select_from(User).where(User.is_shadow.is_(False))
+    stmt = select(User)
+    count_stmt = select(func.count()).select_from(User)
 
     if role:
         stmt = stmt.where(User.system_role == role)
@@ -528,7 +527,6 @@ async def get_audit_feed(
     recent_users = (
         await db.execute(
             select(User)
-            .where(User.is_shadow.is_(False))
             .order_by(User.created_at.desc())
             .limit(10)
         )
@@ -602,10 +600,8 @@ class AdminUserDetailResponse(BaseModel):
     full_name: str | None
     system_role: str
     is_active: bool
-    is_shadow: bool
     created_at: datetime
     last_login_at: datetime | None
-    password_changed_at: datetime | None
     memberships: list[AdminMembershipInfo]
 
 
@@ -633,7 +629,6 @@ async def _count_active_super_admins(db: AsyncSession) -> int:
             .where(
                 User.system_role == "super_admin",
                 User.is_active.is_(True),
-                User.is_shadow.is_(False),
             )
         )
         or 0
@@ -648,7 +643,7 @@ async def get_user_detail(
 ) -> AdminUserDetailResponse:
     """Super Admin xem chi tiết user + danh sách membership."""
     target = await db.get(User, user_id)
-    if target is None or target.is_shadow:
+    if target is None:
         raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
 
     rows = (
@@ -682,10 +677,8 @@ async def get_user_detail(
         full_name=target.full_name,
         system_role=target.system_role,
         is_active=target.is_active,
-        is_shadow=target.is_shadow,
         created_at=target.created_at,
         last_login_at=target.last_login_at,
-        password_changed_at=target.password_changed_at,
         memberships=memberships,
     )
 
@@ -706,7 +699,7 @@ async def update_user(
         raise HTTPException(status_code=400, detail="Không có trường nào để cập nhật")
 
     target = await db.get(User, user_id)
-    if target is None or target.is_shadow:
+    if target is None:
         raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
 
     if target.id == admin.id:
@@ -754,7 +747,7 @@ async def reset_user_password(
 ) -> AdminResetPasswordResponse:
     """Super Admin reset mật khẩu user, trả mật khẩu tạm thời để chuyển cho user."""
     target = await db.get(User, user_id)
-    if target is None or target.is_shadow:
+    if target is None:
         raise HTTPException(status_code=404, detail="Người dùng không tồn tại")
 
     if target.id == admin.id:
@@ -765,7 +758,6 @@ async def reset_user_password(
 
     temp_password = _generate_temp_password()
     target.password_hash = hash_password(temp_password)
-    target.password_changed_at = datetime.now(tz=UTC)
     await db.commit()
 
     return AdminResetPasswordResponse(

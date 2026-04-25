@@ -504,10 +504,6 @@ function UserDetailModal({
                 label="Đăng nhập cuối"
                 value={fmtDate(data.last_login_at)}
               />
-              <Info
-                label="Đổi mật khẩu cuối"
-                value={fmtDate(data.password_changed_at)}
-              />
             </div>
 
             <div>

@@ -24,10 +24,9 @@ class MemberService:
         IntegrityError xảy ra trong race window — chỉ rollback phần insert
         thay vì cả transaction cha.
 
-        Handles 3 cases:
-        - Case 1: User hoàn toàn mới → tạo shadow user + membership
-        - Case 2: User đã có (shadow đối tác khác) → tạo membership
-        - Case 3: User đã có (regular) → tạo membership
+        Handles 2 cases:
+        - Case 1: User chưa tồn tại → tạo user mới + membership
+        - Case 2: User đã tồn tại → chỉ tạo membership
         """
         normalized = normalize_phone(phone)
 
@@ -41,7 +40,6 @@ class MemberService:
                     existing_user = User(
                         phone=normalized,
                         is_active=True,
-                        is_shadow=True,
                         system_role="regular",
                     )
                     self.db.add(existing_user)

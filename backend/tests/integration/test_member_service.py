@@ -34,7 +34,8 @@ async def test_find_or_create_brand_new_user(db_session, active_partner):
     assert member.partner_id == active_partner.id
 
     user = await db_session.get(User, member.user_id)
-    assert user.is_shadow is True
+    assert user is not None
+    assert user.password_hash is None
 
 
 @pytest.mark.asyncio

@@ -110,7 +110,6 @@ async def partner_with_tiers(db_session):
         full_name="Owner B7",
         is_active=True,
         system_role="regular",
-        password_changed_at=datetime.now(UTC),
     )
     db_session.add(owner)
     await db_session.flush()
@@ -181,7 +180,6 @@ async def test_earn_with_bronze_then_promote_to_gold(db_session, partner_with_ti
         full_name="Khách B7",
         is_active=True,
         system_role="regular",
-        password_changed_at=datetime.now(UTC),
     )
     db_session.add(user)
     await db_session.flush()
@@ -261,7 +259,6 @@ async def test_earn_with_use_tiers_false_ignores_multiplier(db_session, partner_
         full_name="Khách B7 B",
         is_active=True,
         system_role="regular",
-        password_changed_at=datetime.now(UTC),
     )
     db_session.add(user)
     await db_session.flush()

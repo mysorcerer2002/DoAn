@@ -32,13 +32,11 @@ from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
-from app.models.verification_code import VerificationCode, VerificationCodePurpose
 from app.models.voucher import IssueSource, Voucher, VoucherStatus
 
 __all__ = [
     "User", "Partner", "PartnerStatus", "PartnerCategory", "PartnerStaff", "PartnerStaffRole",
     "Tier", "PointRule", "PartnerSettingsAudit",
-    "VerificationCode", "VerificationCodePurpose",
     "Membership", "Transaction", "TransactionMethod",
     "PointLedger", "LedgerReason", "LedgerRefType",
     "Reward", "Redemption", "RedemptionStatus",
