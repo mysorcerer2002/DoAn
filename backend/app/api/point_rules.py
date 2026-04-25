@@ -6,9 +6,7 @@ from app.core.db import get_db
 from app.core.deps import (
     get_partner_id,
     require_owner_in_partner,
-    require_staff_in_partner,
 )
-from app.models.partner_staff import PartnerStaffRole
 from app.models.point_rule import PointRule
 from app.schemas.point_rule import PointRuleCreateRequest, PointRuleResponse, PointRuleUpdate
 from app.services.point_rule_service import PointRuleService
@@ -19,7 +17,7 @@ router = APIRouter(prefix="/partner/point-rules", tags=["partner-point-rules"])
 @router.get("/active", response_model=PointRuleResponse | None)
 async def get_active_rule(
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> PointRuleResponse | None:
     service = PointRuleService(db)
@@ -32,7 +30,7 @@ async def get_active_rule(
 @router.get("", response_model=list[PointRuleResponse])
 async def list_rules(
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> list[PointRuleResponse]:
     service = PointRuleService(db)
@@ -43,7 +41,7 @@ async def list_rules(
 async def create_rule(
     request: PointRuleCreateRequest,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> PointRuleResponse:
     service = PointRuleService(db)
@@ -64,7 +62,7 @@ async def update_point_rule(
     request: PointRuleUpdate,
     db: AsyncSession = Depends(get_db),
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
 ) -> PointRuleResponse:
     rule = await db.get(PointRule, rule_id)
     if rule is None or rule.partner_id != partner_id:

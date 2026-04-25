@@ -8,7 +8,6 @@ import pytest
 from app.core.security import create_access_token
 from app.models.membership import Membership
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
 
@@ -32,8 +31,6 @@ async def two_tenants_with_owners(db_session):
     await db_session.flush()
 
     db_session.add_all([
-        PartnerStaff(partner_id=tenant_a.id, user_id=owner_a.id, role=PartnerStaffRole.OWNER),
-        PartnerStaff(partner_id=tenant_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER),
     ])
     await db_session.flush()
 
@@ -161,8 +158,6 @@ async def two_tenants_full_data(db_session):
 
     # Staff
     db_session.add_all([
-        PartnerStaff(partner_id=tenant_a.id, user_id=owner_a.id, role=PartnerStaffRole.OWNER),
-        PartnerStaff(partner_id=tenant_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER),
     ])
     await db_session.flush()
 

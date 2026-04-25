@@ -53,7 +53,6 @@ async def test_create_manual_transaction_brand_new_customer(
 
     result = await service.create_manual(
         partner_id=ctx["tenant"].id,
-        staff_id=ctx["owner"].id,
         request=CreateManualTransactionRequest(phone="0912345678", gross_amount=50000),
     )
     await db_session.flush()
@@ -78,7 +77,6 @@ async def test_create_transaction_triggers_tier_upgrade(
     # Lần 1: 450000 VND → 450 điểm → vẫn Bronze
     r1 = await service.create_manual(
         partner_id=ctx["tenant"].id,
-        staff_id=ctx["owner"].id,
         request=CreateManualTransactionRequest(phone="0911111111", gross_amount=450000),
     )
     await db_session.flush()
@@ -88,7 +86,6 @@ async def test_create_transaction_triggers_tier_upgrade(
     # Lần 2: 100000 VND → 100 điểm → tổng 550 → Silver
     r2 = await service.create_manual(
         partner_id=ctx["tenant"].id,
-        staff_id=ctx["owner"].id,
         request=CreateManualTransactionRequest(phone="0911111111", gross_amount=100000),
     )
     await db_session.flush()
@@ -115,7 +112,6 @@ async def test_create_transaction_without_active_rule_raises(db_session):
     with pytest.raises(NoActivePointRuleError):
         await service.create_manual(
             partner_id=partner.id,
-            staff_id=user.id,
             request=CreateManualTransactionRequest(phone="0912345678", gross_amount=50000),
         )
 
@@ -145,7 +141,6 @@ async def test_create_transaction_below_min_amount_zero_points(db_session):
     service = TransactionService(db_session)
     result = await service.create_manual(
         partner_id=partner.id,
-        staff_id=user.id,
         request=CreateManualTransactionRequest(phone="0912345678", gross_amount=50000),
     )
     await db_session.flush()

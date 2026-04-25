@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 from app.core.deps import get_partner_id, require_owner_in_partner
 from app.core.limiter import limiter
-from app.models.partner_staff import PartnerStaffRole
 from app.schemas.analytics import DashboardResponse
 from app.services.analytics_service import AnalyticsService
 
@@ -26,7 +25,7 @@ async def get_dashboard(
     from_date: date | None = Query(default=None, alias="from"),
     to_date: date | None = Query(default=None, alias="to"),
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> DashboardResponse:
     """Dashboard analytics — 6 chỉ số chính cho merchant.

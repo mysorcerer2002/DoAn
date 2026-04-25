@@ -7,7 +7,6 @@ import pytest
 from app.core.security import create_access_token
 from app.models.membership import Membership
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
 
@@ -30,14 +29,6 @@ async def _setup_analytics(db_session):
     )
     db_session.add(partner)
     await db_session.flush()
-
-    db_session.add(
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=owner.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
     await db_session.flush()
 
     membership = Membership(
@@ -56,7 +47,6 @@ async def _setup_analytics(db_session):
             Transaction(
                 partner_id=partner.id,
                 membership_id=membership.id,
-                staff_id=owner.id,
                 gross_amount=50000,
                 net_amount=50000,
                 points_earned=5,
@@ -128,21 +118,6 @@ async def test_dashboard_api_requires_owner(client, db_session):
     )
     db_session.add(partner)
     await db_session.flush()
-
-    db_session.add(
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=owner.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
-    db_session.add(
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=staff_user.id,
-            role=PartnerStaffRole.STAFF,
-        )
-    )
     await db_session.flush()
 
     staff_token = create_access_token(user_id=staff_user.id)
@@ -201,7 +176,6 @@ async def _setup_admin(db_session):
     txn = Transaction(
         partner_id=partner.id,
         membership_id=membership.id,
-        staff_id=admin.id,
         gross_amount=100000,
         net_amount=100000,
         points_earned=10,
@@ -359,13 +333,6 @@ async def test_dashboard_api_cross_tenant_forbidden(client, db_session):
     )
     db_session.add(tenant_b)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(
-            partner_id=tenant_b.id,
-            user_id=owner_b.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
     await db_session.flush()
     await db_session.commit()
 

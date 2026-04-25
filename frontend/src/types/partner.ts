@@ -119,7 +119,6 @@ export interface TransactionResponse {
   id: number;
   tenant_id: number;
   membership_id: number;
-  staff_id: number | null;
   gross_amount: number;
   net_amount: number;
   points_earned: number;
@@ -153,7 +152,6 @@ export interface TransactionListItem {
   created_at: string;
   receipt_code: string | null;
   membership_display_name: string;
-  staff_display_name: string | null;
   gross_amount: number;
   net_amount: number;
   points_earned: number;
@@ -292,7 +290,6 @@ export interface PartnerDetailResponse {
   owner_phone: string | null;
   member_count: number;
   active_member_count: number;
-  staff_count: number;
   transaction_count: number;
   total_revenue: number;
   redemption_count: number;
@@ -315,7 +312,6 @@ export interface AdminPartnerListRow {
   owner_email: string | null;
   active_member_count: number;
   active_member_count_30d: number;
-  staff_count: number;
 }
 
 export interface AdminPartnerStaffRow {

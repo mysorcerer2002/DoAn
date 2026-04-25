@@ -29,10 +29,7 @@ class PartnerService:
         self.db = db
 
     async def create_partner(self, *, owner: User, request: PartnerCreateRequest) -> Partner:
-        """Tạo đối tác mới (status=pending) + tự thêm owner vào partner_staff.
-
-        Slug query bound theo prefix (LIKE) thay vì load tất cả slugs trong DB.
-        """
+        """Tạo đối tác mới (status=pending). MVP final: 1 owner / shop, không có staff."""
         base = generate_slug(request.name) or "shop"
         existing_slugs = set(
             (
@@ -66,17 +63,6 @@ class PartnerService:
             raise SlugConflictError(
                 f"Slug '{slug}' already exists, please retry"
             ) from e
-
-        # Auto-insert owner vào partner_staff (import tại đây tránh circular)
-        from app.models.partner_staff import PartnerStaff, PartnerStaffRole
-
-        staff = PartnerStaff(
-            partner_id=partner.id,
-            user_id=owner.id,
-            role=PartnerStaffRole.OWNER,
-        )
-        self.db.add(staff)
-        await self.db.flush()
         await self.db.refresh(partner)
         return partner
 
@@ -129,27 +115,22 @@ class PartnerService:
         return partner
 
     async def list_partners_for_user(self, *, user_id: int) -> list[dict]:
-        """List đối tác mà user là staff/owner. Output match PartnerStaffSummary schema."""
-        from sqlalchemy.orm import joinedload
-
-        from app.models.partner_staff import PartnerStaff
-
-        rows = (
+        """List đối tác user sở hữu. MVP final: chỉ owner. Output match PartnerStaffSummary."""
+        partners = (
             await self.db.scalars(
-                select(PartnerStaff)
-                .options(joinedload(PartnerStaff.partner))
-                .where(PartnerStaff.user_id == user_id)
-                .order_by(PartnerStaff.added_at)
+                select(Partner)
+                .where(Partner.owner_user_id == user_id)
+                .order_by(Partner.created_at)
             )
         ).all()
         return [
             {
-                "id": row.partner.id,
-                "name": row.partner.name,
-                "slug": row.partner.slug,
-                "logo_url": row.partner.logo_url,
-                "status": row.partner.status,
-                "role": str(row.role),
+                "id": p.id,
+                "name": p.name,
+                "slug": p.slug,
+                "logo_url": p.logo_url,
+                "status": p.status,
+                "role": "owner",
             }
-            for row in rows
+            for p in partners
         ]

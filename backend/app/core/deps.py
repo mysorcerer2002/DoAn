@@ -120,60 +120,24 @@ async def require_super_admin(
     return user
 
 
-async def get_current_partner_role(
+async def require_owner_in_partner(
     user: User = Depends(get_current_user),
     partner_id: int = Depends(get_partner_id),
     db: AsyncSession = Depends(get_db),
-) -> "PartnerStaffRole":
-    """Lấy role của current user trong đối tác hiện tại.
+):
+    """MVP final 1 owner / shop: chỉ owner mới truy cập được route /partner/*.
 
-    1. Lookup cache (TTL 60s)
-    2. Cache miss → query DB partner_staff
-    3. Không có row → raise 403
+    Check partners.owner_user_id == current_user.id. Trả về Partner để route reuse.
     """
-    from sqlalchemy import select as sa_select
+    from app.models.partner import Partner
 
-    from app.core.partner_cache import partner_role_cache
-    from app.models.partner_staff import PartnerStaff, PartnerStaffRole
-
-    cached = partner_role_cache.get(user_id=user.id, partner_id=partner_id)
-    if cached is not None:
-        return PartnerStaffRole(cached)
-
-    staff = await db.scalar(
-        sa_select(PartnerStaff).where(
-            PartnerStaff.partner_id == partner_id,
-            PartnerStaff.user_id == user.id,
-        )
-    )
-    if staff is None:
+    partner = await db.get(Partner, partner_id)
+    if partner is None or partner.owner_user_id != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied for this partner",
+            detail="Bạn không phải chủ cửa hàng này.",
         )
-    partner_role_cache.set(user_id=user.id, partner_id=partner_id, role=staff.role)
-    return staff.role
-
-
-async def require_staff_in_partner(
-    role: "PartnerStaffRole" = Depends(get_current_partner_role),
-) -> "PartnerStaffRole":
-    """Dependency: user phải là staff hoặc owner của đối tác."""
-    return role
-
-
-async def require_owner_in_partner(
-    role: "PartnerStaffRole" = Depends(get_current_partner_role),
-) -> "PartnerStaffRole":
-    """Dependency: user phải là owner của đối tác."""
-    from app.models.partner_staff import PartnerStaffRole
-
-    if role != PartnerStaffRole.OWNER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Owner access required",
-        )
-    return role
+    return partner
 
 
 async def require_customer_in_partner(

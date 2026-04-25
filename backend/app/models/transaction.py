@@ -15,7 +15,6 @@ from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.membership import Membership
-    from app.models.user import User
 
 
 class TransactionMethod(str, enum.Enum):
@@ -51,9 +50,6 @@ class Transaction(Base, TimestampMixin):
     membership_id: Mapped[int] = mapped_column(
         ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=False
     )
-    staff_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
-    )
     gross_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     net_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     points_earned: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -65,7 +61,4 @@ class Transaction(Base, TimestampMixin):
 
     membership: Mapped["Membership"] = relationship(
         "Membership", foreign_keys=[membership_id], lazy="noload"
-    )
-    staff: Mapped["User | None"] = relationship(
-        "User", foreign_keys=[staff_id], lazy="noload"
     )

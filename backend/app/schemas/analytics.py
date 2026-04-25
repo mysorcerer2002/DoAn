@@ -68,7 +68,6 @@ class PartnerDetailResponse(BaseModel):
     owner_phone: str | None = None
     member_count: int
     active_member_count: int
-    staff_count: int
     transaction_count: int
     total_revenue: int
     redemption_count: int
@@ -98,7 +97,6 @@ class AdminPartnerListRow(BaseModel):
     owner_email: str | None = None
     active_member_count: int
     active_member_count_30d: int
-    staff_count: int
 
 
 class AdminPartnerStaffRow(BaseModel):

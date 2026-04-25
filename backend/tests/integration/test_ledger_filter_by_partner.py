@@ -6,7 +6,6 @@ from httpx import AsyncClient
 from app.core.security import create_access_token
 from app.models.membership import Membership
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.user import User
 
@@ -32,9 +31,6 @@ async def _make_partner_with_membership(
     )
     db_session.add(partner)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=owner.id, role=PartnerStaffRole.OWNER)
-    )
     membership = Membership(
         partner_id=partner.id,
         user_id=customer.id,

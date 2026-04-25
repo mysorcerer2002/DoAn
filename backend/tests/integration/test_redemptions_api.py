@@ -8,7 +8,6 @@ from app.core.security import create_access_token
 from app.models.membership import Membership
 from app.models.point_rule import PointRule
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 from app.schemas.reward import RewardCreateRequest
 from app.services.reward_service import RewardService
@@ -37,16 +36,6 @@ async def _setup_redeem_env(db_session, *, balance=500, stock=10):
     await db_session.flush()
 
     db_session.add_all([
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=owner.id,
-            role=PartnerStaffRole.OWNER,
-        ),
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=member_user.id,
-            role=PartnerStaffRole.STAFF,
-        ),
     ])
 
     membership = Membership(

@@ -47,7 +47,6 @@ class TransactionService:
         self,
         *,
         partner_id: int,
-        staff_id: int,
         request: CreateManualTransactionRequest,
     ) -> TransactionWithMemberResponse:
         """Tạo giao dịch tích điểm method=manual."""
@@ -107,7 +106,6 @@ class TransactionService:
         txn = Transaction(
             partner_id=partner_id,
             membership_id=membership.id,
-            staff_id=staff_id,
             gross_amount=request.gross_amount,
             net_amount=net_amount,
             points_earned=points_earned,
@@ -194,10 +192,9 @@ class TransactionService:
         self,
         *,
         partner_id: int,
-        staff_id: int,
         request: CreateQrCustomerTransactionRequest,
     ) -> TransactionWithMemberResponse:
-        """Tạo giao dịch từ QR scan — staff quét QR khách."""
+        """Tạo giao dịch từ QR scan — owner quét QR khách."""
         from app.core.qr import InvalidQRError
         from app.services.qr_service import QrService
 
@@ -228,7 +225,6 @@ class TransactionService:
 
         return await self._create_transaction_for_membership(
             partner_id=partner_id,
-            staff_id=staff_id,
             membership=membership,
             gross_amount=request.gross_amount,
             note=request.note,
@@ -239,7 +235,6 @@ class TransactionService:
         self,
         *,
         partner_id: int,
-        staff_id: int,
         membership: Membership,
         gross_amount: int,
         note: str | None,
@@ -273,7 +268,6 @@ class TransactionService:
         txn = Transaction(
             partner_id=partner_id,
             membership_id=membership.id,
-            staff_id=staff_id,
             gross_amount=gross_amount,
             net_amount=net_amount,
             points_earned=points_earned,

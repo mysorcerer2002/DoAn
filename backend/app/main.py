@@ -16,7 +16,6 @@ from app.api.qr import router as qr_router
 from app.api.redemptions import router as redemptions_router
 from app.api.rewards import router as rewards_router
 from app.api.settings import router as settings_router
-from app.api.partner_staff import router as partner_staff_router
 from app.api.partners import partner_router, partners_router, users_router
 from app.api.tiers import router as tiers_router
 from app.api.transactions import router as transactions_router
@@ -66,7 +65,6 @@ app.include_router(partner_router)
 app.include_router(partners_router)
 app.include_router(users_router)
 app.include_router(admin_router)
-app.include_router(partner_staff_router)
 app.include_router(tiers_router)
 app.include_router(point_rules_router)
 app.include_router(settings_router)
@@ -98,8 +96,6 @@ async def _global_exception_handler(request, exc: Exception):
             detail = "Slug đã tồn tại"
         elif "receipt_code" in msg_low and ("unique" in msg_low or "duplicate" in msg_low):
             detail = "Mã hoá đơn đã tồn tại cho đối tác này"
-        elif "partner_user" in msg_low or "partner_staff" in msg_low:
-            detail = "User đã thuộc đối tác này"
         elif "duplicate key" in msg_low:
             detail = "Dữ liệu trùng lặp"
         else:

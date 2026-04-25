@@ -5,7 +5,6 @@ from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType
 from app.models.point_rule import PointRule
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 from app.schemas.transaction import CreateManualTransactionRequest
 from app.services.ledger_service import LedgerService
@@ -87,14 +86,6 @@ async def test_invariant_e2e_via_transaction_service(db_session):
     )
     db_session.add(partner)
     await db_session.flush()
-
-    db_session.add(
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=owner.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
     rule = PointRule(
         partner_id=partner.id,
         points_per_unit=2,
@@ -111,7 +102,6 @@ async def test_invariant_e2e_via_transaction_service(db_session):
     for amount in [10_000, 25_000, 50_000]:
         result = await tx_service.create_manual(
             partner_id=partner.id,
-            staff_id=owner.id,
             request=CreateManualTransactionRequest(
                 phone="0901234567", gross_amount=amount
             ),

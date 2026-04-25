@@ -6,13 +6,12 @@ from app.models.redemption import Redemption, RedemptionStatus
 from app.models.reward import Reward
 from app.models.partner import Partner, PartnerStatus, PartnerCategory
 from app.models.partner_settings_audit import PartnerSettingsAudit
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
 
 __all__ = [
-    "User", "Partner", "PartnerStatus", "PartnerCategory", "PartnerStaff", "PartnerStaffRole",
+    "User", "Partner", "PartnerStatus", "PartnerCategory",
     "Tier", "PointRule", "PartnerSettingsAudit",
     "Membership", "Transaction", "TransactionMethod",
     "PointLedger", "LedgerReason", "LedgerRefType",

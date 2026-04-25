@@ -31,7 +31,6 @@ class PartnerTransactionService:
             .where(Transaction.partner_id == partner_id)
             .options(
                 joinedload(Transaction.membership).joinedload(Membership.user),
-                joinedload(Transaction.staff),
             )
         )
 
@@ -43,20 +42,16 @@ class PartnerTransactionService:
         page_size: int = 20,
         date_from: date | None = None,
         date_to: date | None = None,
-        staff_id: int | None = None,
         q: str | None = None,
     ) -> TransactionListResponse:
         page = max(1, page)
         page_size = max(1, min(page_size, 100))
 
-        # Extra filter conditions (partner_id handled by _base_select)
         extra: list = []
         if date_from:
             extra.append(Transaction.created_at >= datetime.combine(date_from, time.min))
         if date_to:
             extra.append(Transaction.created_at < datetime.combine(date_to, time.max))
-        if staff_id:
-            extra.append(Transaction.staff_id == staff_id)
         if q:
             extra.append(Transaction.receipt_code == q)
 
@@ -124,7 +119,6 @@ class PartnerTransactionService:
     @staticmethod
     def _to_list_item(t: Transaction) -> TransactionListItem:
         member_user = t.membership.user if t.membership else None
-        staff_user = t.staff
         return TransactionListItem(
             id=t.id,
             created_at=t.created_at,
@@ -133,9 +127,6 @@ class PartnerTransactionService:
                 member_user.full_name or member_user.phone
                 if member_user
                 else "(đã xoá)"
-            ),
-            staff_display_name=(
-                staff_user.full_name or staff_user.phone if staff_user else None
             ),
             gross_amount=t.gross_amount,
             net_amount=t.net_amount,

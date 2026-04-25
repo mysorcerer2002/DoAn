@@ -27,7 +27,6 @@ from app.models.point_rule import PointRule
 from app.models.redemption import Redemption, RedemptionStatus
 from app.models.reward import Reward
 from app.models.partner import Partner, PartnerCategory, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
@@ -103,8 +102,6 @@ async def _seed_tenant(
             activated_at=datetime.now(UTC),
         )
         db.add(partner)
-        await db.flush()
-        db.add(PartnerStaff(partner_id=partner.id, user_id=owner.id, role=PartnerStaffRole.OWNER))
         await db.flush()
         print(f"✓ Partner: {name} (id={partner.id})")
     else:
@@ -221,42 +218,6 @@ async def _seed_tenant(
         )
     ).all()
 
-    # Staff accounts (ngoài owner) — seed 2 staff/đối tác để test staff-only flows
-    staff_seeds_by_tenant = {
-        "cafe-cong": [
-            ("staff1@cafe.vn", "Nguyễn Thu Hằng", "0901111101"),
-            ("staff2@cafe.vn", "Trần Quốc Đạt", "0901111102"),
-        ],
-        "tra-sua-lala": [
-            ("staff1@lala.vn", "Phạm Mai Linh", "0902222201"),
-            ("staff2@lala.vn", "Hoàng Văn Nam", "0902222202"),
-        ],
-    }
-    for staff_email, staff_name, staff_phone in staff_seeds_by_tenant.get(slug, []):
-        staff_user = await _get_or_create_user(
-            db,
-            email=staff_email,
-            password="staff1234",
-            full_name=staff_name,
-            phone=staff_phone,
-        )
-        existing_staff = await db.scalar(
-            select(PartnerStaff).where(
-                PartnerStaff.partner_id == partner.id,
-                PartnerStaff.user_id == staff_user.id,
-            )
-        )
-        if existing_staff is None:
-            db.add(
-                PartnerStaff(
-                    partner_id=partner.id,
-                    user_id=staff_user.id,
-                    role=PartnerStaffRole.STAFF,
-                )
-            )
-            await db.flush()
-            print(f"  ✓ Staff {staff_email} → {name}")
-
     # Customers + memberships
     memberships: list[Membership] = []
     for email, c_name, phone, points, tier_name in customers:
@@ -320,7 +281,6 @@ async def _seed_transactions_and_ledger(
         txn = Transaction(
             partner_id=partner.id,
             membership_id=membership.id,
-            staff_id=owner.id,
             gross_amount=gross,
             net_amount=gross,
             points_earned=points_earned,
@@ -517,9 +477,6 @@ async def main() -> None:
         print("\n  Merchant Owners:")
         print("   - owner@cafe.vn    (Cafe Cộng)            / owner1234")
         print("   - owner@lala.vn    (Trà Sữa Lala)         / owner1234")
-        print("\n  Staff (đối tác):")
-        print("   - staff1@cafe.vn, staff2@cafe.vn          / staff1234")
-        print("   - staff1@lala.vn, staff2@lala.vn          / staff1234")
         print("\n  Customers Cafe Cộng (đối tác 1):")
         print("   - khach1@gmail.com  → Hạng Đồng  (120 điểm)")
         print("   - khach2@gmail.com  → Hạng Bạc   (780 điểm)")

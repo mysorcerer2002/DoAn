@@ -15,7 +15,6 @@ export function usePartnerTransactions(params: {
   page_size: number;
   date_from?: string;
   date_to?: string;
-  staff_id?: number;
   q?: string;
 }) {
   return useQuery({

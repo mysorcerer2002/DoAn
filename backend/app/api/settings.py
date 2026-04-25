@@ -6,9 +6,7 @@ from app.core.deps import (
     get_current_user,
     get_partner_id,
     require_owner_in_partner,
-    require_staff_in_partner,
 )
-from app.models.partner_staff import PartnerStaffRole
 from app.models.user import User
 from app.schemas.settings import (
     PartnerSettings,
@@ -23,10 +21,10 @@ router = APIRouter(prefix="/partners/me/settings", tags=["partners-settings"])
 @router.get("", response_model=PartnerSettings)
 async def get_settings(
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> PartnerSettings:
-    """Đọc shop settings — bất kỳ staff nào của partner đều có quyền."""
+    """Đọc shop settings — owner only (MVP final 1 owner / shop)."""
     service = SettingsService(db)
     return await service.get_settings(partner_id=partner_id)
 
@@ -36,7 +34,7 @@ async def update_settings(
     request: SettingsUpdateRequest,
     partner_id: int = Depends(get_partner_id),
     user: User = Depends(get_current_user),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> PartnerSettings:
     service = SettingsService(db)
@@ -48,7 +46,7 @@ async def update_settings(
 @router.get("/audit", response_model=list[SettingsAuditEntry])
 async def list_audit(
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> list[SettingsAuditEntry]:
     service = SettingsService(db)

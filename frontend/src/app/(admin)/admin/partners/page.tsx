@@ -178,7 +178,6 @@ export default function AdminTenantsPage() {
                   <th className="px-4 py-3">Đối tác</th>
                   <th className="px-4 py-3">Chủ sở hữu</th>
                   <th className="px-4 py-3 text-right">Khách</th>
-                  <th className="px-4 py-3 text-right">NV</th>
                   <th className="px-4 py-3 text-right">Hoạt động 30 ngày</th>
                   <th className="px-4 py-3 text-center">Trạng thái</th>
                   <th className="px-4 py-3 text-right">Hành động</th>
@@ -232,9 +231,6 @@ export default function AdminTenantsPage() {
                     </td>
                     <td className="px-4 py-3 text-right text-[13px] font-semibold text-slate-700 tabular-nums">
                       {formatNumber(t.active_member_count)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[13px] font-semibold text-slate-700 tabular-nums">
-                      {formatNumber(t.staff_count)}
                     </td>
                     <td className="px-4 py-3 text-right text-[13px] font-semibold text-emerald-600 tabular-nums">
                       {formatNumber(t.active_member_count_30d)}
@@ -408,7 +404,7 @@ function TenantDetailModal({
             Khách hàng {detail ? `(${detail.member_count})` : ""}
           </TabButton>
           <TabButton active={tab === "staff"} onClick={() => setTab("staff")}>
-            Nhân viên {detail ? `(${detail.staff_count})` : ""}
+            Nhân viên
           </TabButton>
         </div>
 
@@ -467,11 +463,6 @@ function OverviewTab({ detail }: { detail: PartnerDetailResponse }) {
             label="Khách hàng"
             value={`${formatNumber(detail.active_member_count)} / ${formatNumber(detail.member_count)}`}
             hint="đang hoạt động / tổng"
-          />
-          <MetricTile
-            icon={UserSquare2}
-            label="Nhân viên"
-            value={formatNumber(detail.staff_count)}
           />
           <MetricTile
             icon={Receipt}

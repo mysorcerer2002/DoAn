@@ -6,7 +6,6 @@ from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 
@@ -28,14 +27,6 @@ async def _setup_with_member(db_session):
     )
     db_session.add(partner)
     await db_session.flush()
-
-    db_session.add(
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=owner.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
 
     membership = Membership(
         partner_id=partner.id,
@@ -148,13 +139,6 @@ async def test_member_cross_tenant_isolation(client, db_session):
     )
     db_session.add(tenant_b)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(
-            partner_id=tenant_b.id,
-            user_id=owner_b.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
     await db_session.flush()
     token_b = create_access_token(user_id=owner_b.id)
     headers_b = {

@@ -2,7 +2,6 @@ import pytest
 
 from app.core.security import create_access_token
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 
@@ -16,9 +15,6 @@ async def _setup_owner(db_session):
     )
     db_session.add(partner)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=owner.id, role=PartnerStaffRole.OWNER)
-    )
     await db_session.flush()
     return partner, owner, create_access_token(user_id=owner.id)
 
@@ -83,9 +79,6 @@ async def test_settings_cross_tenant_isolation(client, db_session):
     )
     db_session.add(tenant_b)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=tenant_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER)
-    )
     await db_session.flush()
 
     response = await client.patch(

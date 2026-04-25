@@ -6,15 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import (
-    get_current_user,
     get_partner_id,
     require_owner_in_partner,
-    require_staff_in_partner,
 )
 from app.core.limiter import limiter
 from app.core.phone import InvalidPhoneError
-from app.models.partner_staff import PartnerStaffRole
-from app.models.user import User
 from app.schemas.transaction import (
     CreateManualTransactionRequest,
     CreateQrCustomerTransactionRequest,
@@ -43,15 +39,12 @@ async def create_manual_transaction(
     request: Request,
     body: CreateManualTransactionRequest,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
-    user: User = Depends(get_current_user),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> TransactionWithMemberResponse:
     service = TransactionService(db)
     try:
-        return await service.create_manual(
-            partner_id=partner_id, staff_id=user.id, request=body
-        )
+        return await service.create_manual(partner_id=partner_id, request=body)
     except InvalidPhoneError as e:
         raise HTTPException(status_code=422, detail=f"Invalid phone: {e}") from e
     except NoActivePointRuleError as e:
@@ -73,22 +66,18 @@ async def create_qr_transaction(
     request: Request,
     body: CreateQrCustomerTransactionRequest,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
-    user: User = Depends(get_current_user),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> TransactionWithMemberResponse:
-    """Staff quét QR khách (JWT hoặc fallback code) → tích điểm.
+    """Owner quét QR khách (JWT hoặc fallback code) → tích điểm.
 
     Khác `/` (manual theo phone): payload là JWT/fallback code — backend
-    decode ra user_id, bắt buộc user đã là member của tenant.
+    decode ra user_id, bắt buộc user đã là member của partner.
     """
     service = TransactionService(db)
     try:
-        return await service.create_qr_customer(
-            partner_id=partner_id, staff_id=user.id, request=body
-        )
+        return await service.create_qr_customer(partner_id=partner_id, request=body)
     except ValueError as e:
-        # QR invalid / expired / không decode được
         raise HTTPException(status_code=400, detail=str(e)) from e
     except NoMembershipError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -111,11 +100,10 @@ async def list_transactions(
     page_size: int = Query(20, ge=1, le=100),
     date_from: date | None = None,
     date_to: date | None = None,
-    staff_id: int | None = None,
     q: str | None = None,
     db: AsyncSession = Depends(get_db),
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
+    _=Depends(require_owner_in_partner),
 ) -> TransactionListResponse:
     svc = PartnerTransactionService(db)
     return await svc.list(
@@ -124,7 +112,6 @@ async def list_transactions(
         page_size=page_size,
         date_from=date_from,
         date_to=date_to,
-        staff_id=staff_id,
         q=q,
     )
 
@@ -134,7 +121,7 @@ async def get_transaction(
     transaction_id: int,
     db: AsyncSession = Depends(get_db),
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
+    _=Depends(require_owner_in_partner),
 ) -> TransactionDetailResponse:
     svc = PartnerTransactionService(db)
     try:
@@ -149,7 +136,7 @@ async def update_transaction(
     payload: TransactionUpdateRequest,
     db: AsyncSession = Depends(get_db),
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
 ) -> TransactionDetailResponse:
     svc = PartnerTransactionService(db)
     try:

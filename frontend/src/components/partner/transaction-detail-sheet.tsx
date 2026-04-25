@@ -114,10 +114,6 @@ export function TransactionDetailSheet({
             <div className="space-y-3">
               <InfoRow label="Thời gian" value={fmtDateTime(t.created_at)} />
               <InfoRow
-                label="Nhân viên"
-                value={t.staff_display_name ?? "—"}
-              />
-              <InfoRow
                 label="Khách hàng"
                 value={t.membership_display_name}
               />

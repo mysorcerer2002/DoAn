@@ -16,7 +16,6 @@ from app.models.membership import Membership
 from app.models.redemption import Redemption
 from app.models.reward import Reward
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff
 from app.models.tier import Tier
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -55,14 +54,6 @@ async def list_all_partners(
         .group_by(Membership.partner_id)
         .subquery()
     )
-    staff_count_sq = (
-        select(
-            PartnerStaff.partner_id.label("partner_id"),
-            func.count().label("cnt"),
-        )
-        .group_by(PartnerStaff.partner_id)
-        .subquery()
-    )
     # Khách hoạt động 30 ngày: số membership distinct có giao dịch trong 30 ngày gần nhất
     since_30d = datetime.now(UTC) - timedelta(days=30)
     active_30d_sq = (
@@ -81,12 +72,10 @@ async def list_all_partners(
             User.full_name.label("owner_name"),
             User.email.label("owner_email"),
             func.coalesce(active_member_count_sq.c.cnt, 0).label("active_member_count"),
-            func.coalesce(staff_count_sq.c.cnt, 0).label("staff_count"),
             func.coalesce(active_30d_sq.c.cnt, 0).label("active_30d_count"),
         )
         .join(User, User.id == Partner.owner_user_id)
         .outerjoin(active_member_count_sq, active_member_count_sq.c.partner_id == Partner.id)
-        .outerjoin(staff_count_sq, staff_count_sq.c.partner_id == Partner.id)
         .outerjoin(active_30d_sq, active_30d_sq.c.partner_id == Partner.id)
         .order_by(Partner.created_at.desc())
     )
@@ -113,9 +102,8 @@ async def list_all_partners(
             owner_email=owner_email,
             active_member_count=int(mc),
             active_member_count_30d=int(a30),
-            staff_count=int(sc),
         )
-        for p, owner_name, owner_email, mc, sc, a30 in rows
+        for p, owner_name, owner_email, mc, a30 in rows
     ]
 
 
@@ -199,14 +187,6 @@ async def get_partner_detail(
         )
         or 0
     )
-    staff_count = int(
-        await db.scalar(
-            select(func.count()).select_from(PartnerStaff).where(
-                PartnerStaff.partner_id == partner_id
-            )
-        )
-        or 0
-    )
     txn_row = (
         await db.execute(
             select(
@@ -266,7 +246,6 @@ async def get_partner_detail(
         owner_phone=owner.phone if owner else None,
         member_count=total_member_count,
         active_member_count=active_member_count,
-        staff_count=staff_count,
         transaction_count=int(txn_count),
         total_revenue=int(total_revenue),
         redemption_count=redemption_count,
@@ -282,30 +261,24 @@ async def list_partner_staff(
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ) -> list[AdminPartnerStaffRow]:
-    """Super Admin xem danh sách nhân viên (gồm owner) của partner."""
+    """Super Admin xem owner của partner. MVP final: 1 owner / shop, không có staff."""
     partner = await db.get(Partner, partner_id)
     if partner is None:
         raise HTTPException(status_code=404, detail="Partner không tồn tại")
 
-    rows = (
-        await db.execute(
-            select(PartnerStaff, User)
-            .join(User, User.id == PartnerStaff.user_id)
-            .where(PartnerStaff.partner_id == partner_id)
-            .order_by(PartnerStaff.added_at)
-        )
-    ).all()
+    owner = await db.get(User, partner.owner_user_id)
+    if owner is None:
+        return []
     return [
         AdminPartnerStaffRow(
-            user_id=u.id,
-            full_name=u.full_name,
-            email=u.email,
-            phone=u.phone,
-            role=str(ps.role.value if hasattr(ps.role, "value") else ps.role),
-            added_at=ps.added_at,
-            is_active=u.is_active,
+            user_id=owner.id,
+            full_name=owner.full_name,
+            email=owner.email,
+            phone=owner.phone,
+            role="owner",
+            added_at=partner.created_at,
+            is_active=owner.is_active,
         )
-        for ps, u in rows
     ]
 
 

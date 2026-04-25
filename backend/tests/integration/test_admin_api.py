@@ -7,7 +7,6 @@ from app.core.security import create_access_token
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 pytestmark = pytest.mark.asyncio
@@ -38,9 +37,6 @@ async def _make_partner_with_member(db_session) -> tuple[Partner, Membership]:
     )
     db_session.add(partner)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=owner.id, role=PartnerStaffRole.OWNER)
-    )
     member = Membership(
         partner_id=partner.id,
         user_id=owner.id,

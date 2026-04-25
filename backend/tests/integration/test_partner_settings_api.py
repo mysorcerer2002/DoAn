@@ -6,7 +6,6 @@ import pytest
 
 from app.core.security import create_access_token
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.point_rule import PointRule
 from app.models.tier import Tier
 from app.models.user import User
@@ -26,9 +25,6 @@ async def _setup_owner(db_session):
     )
     db_session.add(partner)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=owner.id, role=PartnerStaffRole.OWNER)
-    )
     await db_session.flush()
     token = create_access_token(user_id=owner.id)
     return partner, token
@@ -93,9 +89,6 @@ async def test_patch_point_rule_as_staff_forbidden(client, db_session):
     staff_user = User(email="staff@test.com", password_hash="x", is_active=True)
     db_session.add(staff_user)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=staff_user.id, role=PartnerStaffRole.STAFF)
-    )
     await db_session.flush()
     staff_token = create_access_token(user_id=staff_user.id)
 

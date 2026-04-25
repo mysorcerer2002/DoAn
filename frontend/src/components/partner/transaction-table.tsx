@@ -37,7 +37,6 @@ export function TransactionTable({
               <th className="px-4 py-3">Ngày</th>
               <th className="px-4 py-3">Mã HĐ</th>
               <th className="px-4 py-3">Khách</th>
-              <th className="px-4 py-3">NV</th>
               <th className="px-4 py-3 text-right">Thực thu</th>
               <th className="px-4 py-3 text-right">Điểm</th>
             </tr>
@@ -46,7 +45,7 @@ export function TransactionTable({
             {items.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={5}
                   className="px-4 py-8 text-center text-slate-400"
                 >
                   Chưa có giao dịch.
@@ -67,9 +66,6 @@ export function TransactionTable({
                 </td>
                 <td className="px-4 py-3 text-slate-700">
                   {t.membership_display_name}
-                </td>
-                <td className="px-4 py-3 text-slate-500">
-                  {t.staff_display_name ?? "—"}
                 </td>
                 <td className="px-4 py-3 text-right font-semibold text-slate-800">
                   {fmtMoney(t.net_amount)}

@@ -10,13 +10,11 @@ from app.core.deps import (
     get_current_user,
     get_partner_id,
     require_owner_in_partner,
-    require_staff_in_partner,
 )
 from app.core.limiter import limiter
 from app.models.membership import Membership
 from app.models.point_ledger import PointLedger
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaffRole
 from app.models.reward import Reward
 from app.models.user import User
 from app.schemas.ledger import LedgerEntryResponse
@@ -357,39 +355,29 @@ async def list_my_rewards(
 
 @partners_router.get("/me", response_model=PartnerResponse)
 async def get_my_partner(
-    partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
-    db: AsyncSession = Depends(get_db),
+    partner: Partner = Depends(require_owner_in_partner),
 ) -> PartnerResponse:
-    """Lấy thông tin partner theo header X-Partner-Id. Yêu cầu là staff của partner."""
-    service = PartnerService(db)
-    try:
-        partner = await service.get_partner_by_id(partner_id)
-    except PartnerNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-
+    """Lấy thông tin partner theo header X-Partner-Id. Yêu cầu là owner của partner."""
     if partner.status != PartnerStatus.ACTIVE:
         raise HTTPException(
             status_code=403,
             detail=f"Partner is {partner.status}, not active",
         )
-
     return PartnerResponse.model_validate(partner)
 
 
 @partners_router.patch("/me", response_model=PartnerResponse)
 async def update_my_partner(
     body: PartnerUpdateRequest,
-    partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    partner: Partner = Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> PartnerResponse:
     """Owner update thông tin shop (tên, mô tả, logo)."""
     service = PartnerService(db)
     try:
-        partner = await service.update_partner(partner_id=partner_id, request=body)
+        updated = await service.update_partner(partner_id=partner.id, request=body)
     except PartnerNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    return PartnerResponse.model_validate(partner)
+    return PartnerResponse.model_validate(updated)
 
 

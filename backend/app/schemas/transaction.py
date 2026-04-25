@@ -27,7 +27,6 @@ class TransactionResponse(BaseModel):
     id: int
     partner_id: int
     membership_id: int
-    staff_id: int
     gross_amount: int
     net_amount: int
     points_earned: int
@@ -73,7 +72,6 @@ class TransactionListItem(BaseModel):
     created_at: datetime
     receipt_code: str | None
     membership_display_name: str
-    staff_display_name: str | None
     gross_amount: int
     net_amount: int
     points_earned: int

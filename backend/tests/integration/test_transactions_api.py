@@ -3,7 +3,6 @@ import pytest
 from app.core.security import create_access_token
 from app.models.point_rule import PointRule
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 
@@ -22,14 +21,6 @@ async def _setup_shop_with_rule(db_session):
     )
     db_session.add(partner)
     await db_session.flush()
-
-    db_session.add(
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=owner.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
     rule = PointRule(
         partner_id=partner.id,
         points_per_unit=1,
@@ -121,14 +112,6 @@ async def test_create_transaction_no_rule_returns_409(client, db_session):
     )
     db_session.add(partner)
     await db_session.flush()
-
-    db_session.add(
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=owner.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
     await db_session.flush()
 
     token = create_access_token(user_id=owner.id)
@@ -163,13 +146,6 @@ async def test_transaction_cross_tenant_isolation(client, db_session):
     )
     db_session.add(tenant_b)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(
-            partner_id=tenant_b.id,
-            user_id=owner_b.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
     db_session.add(
         PointRule(
             partner_id=tenant_b.id,
@@ -288,9 +264,6 @@ async def test_create_transaction_same_receipt_code_different_partners_ok(
     )
     db_session.add(partner_b)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER)
-    )
     db_session.add(
         PointRule(
             partner_id=partner_b.id,
@@ -428,9 +401,6 @@ async def test_list_filter_by_staff(client, db_session):
     staff_b = User(email="staffb@example.com", password_hash="x", is_active=True)
     db_session.add(staff_b)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=staff_b.id, role=PartnerStaffRole.STAFF)
-    )
     await db_session.flush()
 
     from app.core.security import create_access_token
@@ -470,9 +440,6 @@ async def test_list_cross_partner_isolation(client, db_session):
     )
     db_session.add(partner_b)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER)
-    )
     from app.models.point_rule import PointRule
     db_session.add(
         PointRule(
@@ -538,9 +505,6 @@ async def test_get_detail_404_other_partner(client, db_session):
     )
     db_session.add(partner_b)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER)
-    )
     await db_session.flush()
 
     from app.core.security import create_access_token
@@ -582,9 +546,6 @@ async def test_patch_as_staff_forbidden(client, db_session):
     staff_user = User(email="staff403@example.com", password_hash="x", is_active=True)
     db_session.add(staff_user)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=staff_user.id, role=PartnerStaffRole.STAFF)
-    )
     await db_session.flush()
 
     from app.core.security import create_access_token

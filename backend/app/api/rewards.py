@@ -4,8 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_partner_id, require_owner_in_partner, require_staff_in_partner
-from app.models.partner_staff import PartnerStaffRole
+from app.core.deps import get_partner_id, require_owner_in_partner
 from app.schemas.reward import RewardCreateRequest, RewardResponse, RewardUpdateRequest
 from app.services.reward_service import RewardNotFoundError, RewardService
 
@@ -15,7 +14,7 @@ router = APIRouter(prefix="/partner/rewards", tags=["partner-rewards"])
 @router.get("", response_model=list[RewardResponse])
 async def list_rewards(
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     active_only: bool = False,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -32,7 +31,7 @@ async def list_rewards(
 async def create_reward(
     body: RewardCreateRequest,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> RewardResponse:
     service = RewardService(db)
@@ -44,7 +43,7 @@ async def create_reward(
 async def get_reward(
     reward_id: int,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> RewardResponse:
     service = RewardService(db)
@@ -60,7 +59,7 @@ async def update_reward(
     reward_id: int,
     body: RewardUpdateRequest,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> RewardResponse:
     service = RewardService(db)
@@ -77,7 +76,7 @@ async def update_reward(
 async def delete_reward(
     reward_id: int,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> RewardResponse:
     service = RewardService(db)

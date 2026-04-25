@@ -2,7 +2,6 @@ import pytest
 
 from app.core.security import create_access_token
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 
@@ -16,9 +15,6 @@ async def _setup_owner(db_session):
     )
     db_session.add(partner)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=owner.id, role=PartnerStaffRole.OWNER)
-    )
     await db_session.flush()
     return partner, owner, create_access_token(user_id=owner.id)
 
@@ -88,9 +84,6 @@ async def test_create_tier_non_owner_returns_403(client, db_session):
     staff_user = User(email="s@example.com", password_hash="x", is_active=True)
     db_session.add(staff_user)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=staff_user.id, role=PartnerStaffRole.STAFF)
-    )
     await db_session.flush()
     staff_token = create_access_token(user_id=staff_user.id)
 
@@ -116,9 +109,6 @@ async def test_owner_cannot_access_other_tenant_tiers(client, db_session):
     )
     db_session.add(tenant_b)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=tenant_b.id, user_id=owner_b.id, role=PartnerStaffRole.OWNER)
-    )
     await db_session.flush()
     token_b = create_access_token(user_id=owner_b.id)
 

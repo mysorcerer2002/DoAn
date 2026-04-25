@@ -6,7 +6,6 @@ from httpx import AsyncClient
 from app.core.security import create_access_token
 from app.models.membership import Membership
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 
 pytestmark = pytest.mark.asyncio
@@ -31,9 +30,6 @@ async def _make_active_partner(db_session, name: str, slug: str) -> Partner:
     )
     db_session.add(partner)
     await db_session.flush()
-    db_session.add(
-        PartnerStaff(partner_id=partner.id, user_id=owner.id, role=PartnerStaffRole.OWNER)
-    )
     await db_session.flush()
     return partner
 

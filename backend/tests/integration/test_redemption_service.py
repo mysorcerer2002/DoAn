@@ -9,7 +9,6 @@ from app.models.point_ledger import LedgerReason, PointLedger
 from app.models.point_rule import PointRule
 from app.models.reward import Reward
 from app.models.partner import Partner, PartnerStatus
-from app.models.partner_staff import PartnerStaff, PartnerStaffRole
 from app.models.user import User
 from app.schemas.reward import RewardCreateRequest
 from app.services.redemption_service import (
@@ -39,14 +38,6 @@ async def _setup_for_redemption(db_session, *, balance=500, stock=10):
     )
     db_session.add(partner)
     await db_session.flush()
-
-    db_session.add(
-        PartnerStaff(
-            partner_id=partner.id,
-            user_id=owner.id,
-            role=PartnerStaffRole.OWNER,
-        )
-    )
 
     membership = Membership(
         partner_id=partner.id,

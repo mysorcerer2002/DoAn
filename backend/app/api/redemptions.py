@@ -8,11 +8,9 @@ from app.core.deps import (
     get_current_user,
     get_partner_id,
     require_owner_in_partner,
-    require_staff_in_partner,
 )
 from app.core.limiter import limiter
 from app.models.membership import Membership
-from app.models.partner_staff import PartnerStaffRole
 from app.models.user import User
 from app.schemas.redemption import RedeemRequest, RedemptionResponse, UseRedemptionRequest
 from app.services.redemption_service import (
@@ -31,11 +29,11 @@ async def redeem_reward(
     request: Request,
     body: RedeemRequest,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
+    _=Depends(require_owner_in_partner),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RedemptionResponse:
-    """Đổi quà cho membership. Staff phải chỉ định membership_id qua query."""
+    """Customer tự đổi quà bằng membership của chính họ trong partner hiện tại."""
     from sqlalchemy import select
 
     # Tìm membership của user hiện tại trong tenant
@@ -71,10 +69,10 @@ async def redeem_reward_for_member(
     membership_id: int,
     body: RedeemRequest,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
+    _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> RedemptionResponse:
-    """Staff đổi quà thay cho member."""
+    """Owner đổi quà thay cho member."""
     service = RedemptionService(db)
     try:
         redemption = await service.redeem(
@@ -95,11 +93,11 @@ async def redeem_reward_for_member(
 async def use_redemption(
     body: UseRedemptionRequest,
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_staff_in_partner),
+    _=Depends(require_owner_in_partner),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RedemptionResponse:
-    """Nhân viên xác nhận sử dụng mã đổi quà."""
+    """Owner xác nhận sử dụng mã đổi quà."""
     service = RedemptionService(db)
     try:
         redemption = await service.use_redemption(
@@ -113,7 +111,7 @@ async def use_redemption(
 @router.get("", response_model=list[RedemptionResponse])
 async def list_redemptions(
     partner_id: int = Depends(get_partner_id),
-    _role: PartnerStaffRole = Depends(require_owner_in_partner),
+    _=Depends(require_owner_in_partner),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),

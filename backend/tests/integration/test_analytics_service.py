@@ -81,7 +81,6 @@ async def _seed_analytics(db_session):
         txn = Transaction(
             partner_id=partner.id,
             membership_id=membership.id,
-            staff_id=owner.id,
             gross_amount=100000,
             net_amount=90000,
             points_earned=10,

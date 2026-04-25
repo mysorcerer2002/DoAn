@@ -76,11 +76,7 @@ async def client(db_session) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture(autouse=True)
 async def clear_partner_cache():
-    from app.core.partner_cache import partner_role_cache
-
-    partner_role_cache.clear()
     yield
-    partner_role_cache.clear()
 
 
 @pytest_asyncio.fixture(autouse=True)

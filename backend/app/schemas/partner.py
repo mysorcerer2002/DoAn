@@ -90,14 +90,17 @@ class PartnerApprovalRequest(BaseModel):
 
 
 class PartnerStaffSummary(BaseModel):
-    """Partner snapshot mà current user là staff. Frontend dùng để pick shop."""
+    """Partner snapshot mà current user là owner. Frontend dùng để pick shop.
+
+    Tên giữ nguyên vì FE/route đang xài; MVP final chỉ còn role="owner".
+    """
 
     id: int
     name: str
     slug: str
     logo_url: str | None = None
     status: PartnerStatus
-    role: str  # owner | staff (PartnerStaffRole.value)
+    role: str
 
 
 class MyPartnerSummary(BaseModel):
