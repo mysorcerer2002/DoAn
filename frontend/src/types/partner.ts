@@ -17,6 +17,7 @@ export interface PartnerResponse {
   status: string;
   category: string;
   logo_url: string | null;
+  banner_url: string | null;
   description: string | null;
   contact_phone: string | null;
   contact_email: string | null;
@@ -33,6 +34,7 @@ export interface PartnerUpdateRequest {
   name?: string;
   description?: string | null;
   logo_url?: string | null;
+  banner_url?: string | null;
   category?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
@@ -160,7 +162,6 @@ export interface StaffAddRequest {
 
 export interface StaffAddResponse {
   staff: StaffResponse;
-  verification_code: string | null;
 }
 
 // Transactions
@@ -441,7 +442,6 @@ export interface AdminUserRow {
   full_name: string | null;
   system_role: "regular" | "admin" | "super_admin";
   is_active: boolean;
-  is_shadow: boolean;
   created_at: string;
   last_login_at: string | null;
 }
@@ -463,7 +463,6 @@ export interface AdminMembershipInfo {
 }
 
 export interface AdminUserDetailResponse extends AdminUserRow {
-  password_changed_at: string | null;
   memberships: AdminMembershipInfo[];
 }
 

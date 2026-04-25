@@ -15,6 +15,7 @@ type PartnerDetail = {
   category: string;
   description: string | null;
   logo_url: string | null;
+  banner_url: string | null;
   contact_phone: string | null;
   contact_email: string | null;
   address: string | null;
@@ -98,22 +99,54 @@ export default function PartnerDetailPage({
 
   return (
     <div className="pb-24">
-      {/* Header */}
-      <header className="sticky top-0 z-40 flex h-16 items-center gap-2 bg-slate-50/95 px-4 backdrop-blur border-b border-slate-100">
+      {/* Banner + back button overlay */}
+      <div className="relative">
+        {data.banner_url ? (
+          <img
+            src={data.banner_url}
+            alt={`Ảnh bìa ${data.name}`}
+            className="h-56 w-full object-cover"
+          />
+        ) : (
+          <div className="h-56 w-full bg-gradient-to-br from-brand-indigo via-brand-violet to-brand-orange" />
+        )}
         <Link
           href="/member/partners"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
+          className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm backdrop-blur hover:bg-white"
           aria-label="Quay lại"
         >
-          <ArrowLeft className="h-6 w-6" />
+          <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="flex-1 truncate font-headline text-[17px] font-bold text-slate-800">
-          {data.name}
-        </h1>
-        <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-          {CATEGORY_LABEL[data.category] ?? data.category}
-        </span>
-      </header>
+      </div>
+
+      {/* Card name overlap banner */}
+      <section className="relative -mt-8 px-4">
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+          <div className="flex items-start gap-3">
+            <div className="-mt-12 h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-white p-1 shadow-md ring-1 ring-slate-100">
+              {data.logo_url ? (
+                <img
+                  src={data.logo_url}
+                  alt={data.name}
+                  className="h-full w-full rounded-xl object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center rounded-xl bg-slate-100 text-2xl">
+                  🏪
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="font-headline text-[18px] font-bold leading-tight text-slate-800">
+                {data.name}
+              </h1>
+              <span className="mt-1 inline-block rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                {CATEGORY_LABEL[data.category] ?? data.category}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Hero: Điểm + Tier (chỉ hiện khi đã member) */}
       {hasMembership && (
@@ -263,61 +296,82 @@ function RewardsTab({ slug }: { slug: string }) {
 }
 
 function InfoTab({ data }: { data: PartnerDetail }) {
+  const hasContact =
+    data.address ||
+    data.contact_phone ||
+    data.contact_email ||
+    data.business_hours ||
+    data.website;
+
   return (
-    <section className="space-y-3 p-4">
-      {data.logo_url && (
-        <img
-          src={data.logo_url}
-          alt={data.name}
-          className="h-24 w-24 rounded-2xl object-cover shadow-sm"
-        />
-      )}
+    <section className="space-y-5 p-4">
       {data.description && (
-        <p className="text-[13px] text-slate-500">{data.description}</p>
+        <div>
+          <h3 className="font-headline text-[15px] font-bold text-slate-800">
+            Giới thiệu
+          </h3>
+          <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-slate-600">
+            {data.description}
+          </p>
+        </div>
       )}
-      <div className="space-y-2 text-[13px]">
-        {data.address && (
-          <div className="flex items-start gap-2 text-slate-600">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-indigo" />
-            <span>{data.address}</span>
+
+      {hasContact && (
+        <div>
+          <h3 className="font-headline text-[15px] font-bold text-slate-800">
+            Liên hệ
+          </h3>
+          <div className="mt-2 space-y-2 text-[13px]">
+            {data.address && (
+              <div className="flex items-start gap-2 text-slate-600">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-indigo" />
+                <span>{data.address}</span>
+              </div>
+            )}
+            {data.contact_phone && (
+              <div className="flex items-center gap-2 text-slate-600">
+                <Phone className="h-4 w-4 shrink-0 text-brand-indigo" />
+                <a href={`tel:${data.contact_phone}`} className="hover:underline">
+                  {data.contact_phone}
+                </a>
+              </div>
+            )}
+            {data.contact_email && (
+              <div className="flex items-center gap-2 text-slate-600">
+                <Mail className="h-4 w-4 shrink-0 text-brand-indigo" />
+                <a href={`mailto:${data.contact_email}`} className="hover:underline">
+                  {data.contact_email}
+                </a>
+              </div>
+            )}
+            {data.business_hours && (
+              <div className="flex items-start gap-2 text-slate-600">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-brand-indigo" />
+                <span>{data.business_hours}</span>
+              </div>
+            )}
+            {data.website && (
+              <div className="flex items-center gap-2 text-slate-600">
+                <Globe className="h-4 w-4 shrink-0 text-brand-indigo" />
+                <a
+                  href={data.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  {data.website}
+                </a>
+              </div>
+            )}
           </div>
-        )}
-        {data.contact_phone && (
-          <div className="flex items-center gap-2 text-slate-600">
-            <Phone className="h-4 w-4 shrink-0 text-brand-indigo" />
-            <a href={`tel:${data.contact_phone}`} className="hover:underline">
-              {data.contact_phone}
-            </a>
-          </div>
-        )}
-        {data.contact_email && (
-          <div className="flex items-center gap-2 text-slate-600">
-            <Mail className="h-4 w-4 shrink-0 text-brand-indigo" />
-            <a href={`mailto:${data.contact_email}`} className="hover:underline">
-              {data.contact_email}
-            </a>
-          </div>
-        )}
-        {data.business_hours && (
-          <div className="flex items-start gap-2 text-slate-600">
-            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-brand-indigo" />
-            <span>{data.business_hours}</span>
-          </div>
-        )}
-        {data.website && (
-          <div className="flex items-center gap-2 text-slate-600">
-            <Globe className="h-4 w-4 shrink-0 text-brand-indigo" />
-            <a
-              href={data.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline"
-            >
-              {data.website}
-            </a>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {!data.description && !hasContact && (
+        <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-[13px] text-slate-500">
+          Đối tác chưa cập nhật thông tin chi tiết.
+        </p>
+      )}
     </section>
   );
 }

@@ -12,6 +12,7 @@ class PartnerCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     logo_url: str | None = Field(default=None, max_length=500)
+    banner_url: str | None = Field(default=None, max_length=500)
     category: PartnerCategory = Field(default=PartnerCategory.OTHER)
     contact_phone: str | None = Field(default=None, max_length=20)
     contact_email: str | None = Field(default=None, max_length=255)
@@ -27,6 +28,7 @@ class PartnerUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     logo_url: str | None = Field(default=None, max_length=500)
+    banner_url: str | None = Field(default=None, max_length=500)
     category: PartnerCategory | None = None
     contact_phone: str | None = Field(default=None, max_length=20)
     contact_email: str | None = Field(default=None, max_length=255)
@@ -46,6 +48,7 @@ class PartnerResponse(BaseModel):
     status: PartnerStatus
     category: PartnerCategory
     logo_url: str | None
+    banner_url: str | None
     description: str | None
     contact_phone: str | None
     contact_email: str | None
@@ -68,6 +71,7 @@ class PartnerPublicResponse(BaseModel):
     slug: str
     category: PartnerCategory
     logo_url: str | None
+    banner_url: str | None
     description: str | None
     contact_phone: str | None
     contact_email: str | None
@@ -123,6 +127,7 @@ class PartnerDetailForMember(BaseModel):
     category: str
     description: str | None = None
     logo_url: str | None = None
+    banner_url: str | None = None
     contact_phone: str | None = None
     contact_email: str | None = None
     address: str | None = None

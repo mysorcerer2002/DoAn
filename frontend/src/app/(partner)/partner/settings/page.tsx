@@ -20,6 +20,7 @@ type TenantForm = {
   name: string;
   description: string;
   logo_url: string;
+  banner_url: string;
   contact_phone: string;
   contact_email: string;
   address: string;
@@ -48,6 +49,7 @@ export default function MerchantSettingsPage() {
     name: "",
     description: "",
     logo_url: "",
+    banner_url: "",
     contact_phone: "",
     contact_email: "",
     address: "",
@@ -69,6 +71,7 @@ export default function MerchantSettingsPage() {
         name: tenant.name,
         description: tenant.description ?? "",
         logo_url: tenant.logo_url ?? "",
+        banner_url: tenant.banner_url ?? "",
         contact_phone: tenant.contact_phone ?? "",
         contact_email: tenant.contact_email ?? "",
         address: tenant.address ?? "",
@@ -99,6 +102,7 @@ export default function MerchantSettingsPage() {
         name: tenantForm.name,
         description: tenantForm.description || null,
         logo_url: tenantForm.logo_url || null,
+        banner_url: tenantForm.banner_url || null,
         contact_phone: tenantForm.contact_phone || null,
         contact_email: tenantForm.contact_email || null,
         address: tenantForm.address || null,
@@ -206,6 +210,17 @@ export default function MerchantSettingsPage() {
                   setTenantForm({ ...tenantForm, logo_url: e.target.value })
                 }
                 placeholder="https://..."
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+              />
+            </Field>
+            <Field label="Ảnh bìa (banner) URL">
+              <input
+                type="url"
+                value={tenantForm.banner_url}
+                onChange={(e) =>
+                  setTenantForm({ ...tenantForm, banner_url: e.target.value })
+                }
+                placeholder="https://... (tỉ lệ 16:9, hiển thị ở đầu trang chi tiết)"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
               />
             </Field>

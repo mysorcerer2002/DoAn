@@ -295,6 +295,7 @@ async def get_partner_detail_for_member(
         category=str(partner.category.value if hasattr(partner.category, "value") else partner.category),
         description=partner.description,
         logo_url=partner.logo_url,
+        banner_url=partner.banner_url,
         contact_phone=partner.contact_phone,
         contact_email=partner.contact_email,
         address=partner.address,
