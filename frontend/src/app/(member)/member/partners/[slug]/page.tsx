@@ -112,7 +112,7 @@ export default function PartnerDetailPage({
         )}
         <Link
           href="/member/partners"
-          className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm backdrop-blur hover:bg-white"
+          className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm backdrop-blur hover:bg-white"
           aria-label="Quay lại"
         >
           <ArrowLeft className="h-5 w-5" />

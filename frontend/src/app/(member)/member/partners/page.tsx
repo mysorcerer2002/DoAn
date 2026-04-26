@@ -87,7 +87,7 @@ export default function MemberPartnersPage() {
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between bg-slate-50/95 px-4 backdrop-blur">
         <Link
           href="/member"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-brand-indigo hover:bg-indigo-50"
           aria-label="Quay lại"
         >
           <ArrowLeft className="h-6 w-6" />

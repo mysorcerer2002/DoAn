@@ -135,7 +135,7 @@ export default function LoginPage() {
         <header className="absolute top-0 left-0 z-50 flex h-16 w-full items-center justify-between bg-transparent px-4">
           <Link
             href="/"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
             aria-label="Quay lại"
           >
             <ArrowLeft className="h-6 w-6" />

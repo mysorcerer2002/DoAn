@@ -62,7 +62,7 @@ export default function RegisterPage() {
         <header className="absolute top-0 left-0 z-50 flex h-16 w-full items-center justify-between bg-transparent px-4">
           <Link
             href="/"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
             aria-label="Quay lại"
           >
             <ArrowLeft className="h-6 w-6" />
@@ -135,6 +135,7 @@ export default function RegisterPage() {
                   <Mail className="pointer-events-none absolute inset-y-0 left-3 my-auto h-5 w-5 text-slate-400" />
                   <input
                     type="email"
+                    inputMode="email"
                     placeholder="email@example.com"
                     autoComplete="email"
                     className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-3 outline-none transition-all placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"

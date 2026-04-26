@@ -40,14 +40,14 @@ export function BottomNavBar() {
         active={isRewardsActive}
       />
 
-      <Link href="/member/qr" className="flex flex-col items-center -mt-8">
+      <Link href="/member/qr" className="flex flex-1 flex-col items-center -mt-8 pb-2">
         <div className="rounded-full bg-gradient-to-tr from-brand-indigo to-brand-violet p-4 shadow-lg shadow-indigo-200 transition-transform active:scale-90">
           <QrCode className="h-7 w-7 text-white" strokeWidth={2.5} />
         </div>
         <span
           className={cn(
             "mt-1 text-[12px] font-medium",
-            isQrActive ? "text-brand-indigo" : "text-slate-400"
+            isQrActive ? "text-brand-indigo" : "text-slate-500"
           )}
         >
           QR
@@ -85,10 +85,10 @@ function NavTab({
     <Link
       href={href}
       className={cn(
-        "flex flex-col items-center gap-1 cursor-pointer transition-colors",
+        "flex flex-1 flex-col items-center justify-center gap-1 py-2 cursor-pointer transition-colors",
         active
           ? "font-semibold text-brand-indigo"
-          : "text-slate-400 hover:text-brand-indigo"
+          : "text-slate-500 hover:text-brand-indigo"
       )}
     >
       <Icon

@@ -150,7 +150,7 @@ export default function MerchantRegisterPage() {
               if (step === 1) router.push("/register");
               else if (step === 2) setStep(1);
             }}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
             aria-label="Quay lại"
           >
             <ArrowLeft className="h-6 w-6" />
@@ -563,12 +563,15 @@ function Field({
   register: ReturnType<ReturnType<typeof useForm>["register"]>;
   error?: string;
 }) {
+  const inputMode =
+    type === "email" ? "email" : type === "tel" ? "tel" : type === "number" ? "numeric" : undefined;
   return (
     <div className="space-y-1">
       <div className="relative">
         <Icon className="pointer-events-none absolute inset-y-0 left-3 my-auto h-5 w-5 text-slate-400" />
         <input
           type={type}
+          inputMode={inputMode}
           placeholder={placeholder}
           autoComplete={autoComplete}
           className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-3 outline-none transition-all placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/30"

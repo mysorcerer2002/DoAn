@@ -17,14 +17,14 @@ export default function RedemptionSuccessPage() {
       <header className="relative z-10 flex h-16 items-center justify-between px-4">
         <Link
           href="/member"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
           aria-label="Quay lại"
         >
           <ArrowLeft className="h-6 w-6" />
         </Link>
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
           aria-label="Chia sẻ"
         >
           <Share2 className="h-6 w-6" />

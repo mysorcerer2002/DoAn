@@ -24,7 +24,7 @@ export function MobileTopbar({
       <button
         type="button"
         onClick={toggle}
-        className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/10"
+        className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-white/10"
         aria-label="Mở menu"
       >
         <Menu className="h-6 w-6" />

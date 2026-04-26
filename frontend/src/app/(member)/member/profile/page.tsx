@@ -123,7 +123,7 @@ export default function ProfilePage() {
         <div className="relative z-10 flex items-center justify-between">
           <Link
             href="/member"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
             aria-label="Quay lại"
           >
             <ArrowLeft className="h-6 w-6" />
@@ -134,7 +134,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => setEditOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-transform hover:bg-white/10 active:scale-95"
             aria-label="Chỉnh sửa thông tin"
           >
             <Settings className="h-6 w-6" />
