@@ -30,6 +30,26 @@ def _normalize_email(value: str) -> str:
     return value.lower()
 
 
+# Tuổi tối thiểu để đăng ký — chuẩn COPPA, an toàn cho thị trường VN.
+MIN_AGE_YEARS = 13
+
+
+def validate_birthday(value: date | None) -> date | None:
+    """Reject ngày sinh tương lai và tuổi < MIN_AGE_YEARS."""
+    if value is None:
+        return value
+    today = date.today()
+    if value > today:
+        raise ValueError("Ngày sinh không được ở tương lai")
+    # Tính tuổi chính xác theo ngày tháng (không dùng days/365.25 — sai năm nhuận).
+    age = today.year - value.year - (
+        (today.month, today.day) < (value.month, value.day)
+    )
+    if age < MIN_AGE_YEARS:
+        raise ValueError(f"Phải đủ {MIN_AGE_YEARS} tuổi trở lên")
+    return value
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
@@ -45,6 +65,11 @@ class RegisterRequest(BaseModel):
     @classmethod
     def _password_bytes(cls, v: str) -> str:
         return _validate_password_bytes(v)
+
+    @field_validator("birthday")
+    @classmethod
+    def _check_birthday(cls, v: date | None) -> date | None:
+        return validate_birthday(v)
 
 
 class LoginRequest(BaseModel):

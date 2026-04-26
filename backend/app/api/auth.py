@@ -3,7 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import JWTError
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -17,6 +17,7 @@ from app.schemas.auth import (
     RegisterRequest,
     TokenResponse,
     UserResponse,
+    validate_birthday,
 )
 
 
@@ -24,6 +25,11 @@ class UpdateMeRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
     phone: str | None = Field(default=None, pattern=r"^\+?[0-9\s\-()]{8,20}$")
     birthday: date | None = None
+
+    @field_validator("birthday")
+    @classmethod
+    def _check_birthday(cls, v: date | None) -> date | None:
+        return validate_birthday(v)
 
 
 class ForgotPasswordRequest(BaseModel):

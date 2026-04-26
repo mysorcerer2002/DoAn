@@ -215,6 +215,11 @@ async def list_transactions(
     partner_id: int = Depends(get_partner_id),
     _=Depends(require_owner_in_partner),
 ) -> TransactionListResponse:
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail="date_from phải nhỏ hơn hoặc bằng date_to",
+        )
     svc = PartnerTransactionService(db)
     return await svc.list(
         partner_id=partner_id,

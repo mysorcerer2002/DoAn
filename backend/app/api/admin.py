@@ -764,6 +764,11 @@ async def list_login_logs(
     _admin: User = Depends(require_super_admin),
 ) -> LoginLogListResponse:
     """Super Admin xem nhật ký đăng nhập toàn platform."""
+    if from_date and to_date and from_date > to_date:
+        raise HTTPException(
+            status_code=422,
+            detail="from phải nhỏ hơn hoặc bằng to",
+        )
     base = select(LoginLog)
     if identifier:
         base = base.where(LoginLog.identifier.ilike(f"%{identifier}%"))
@@ -813,6 +818,11 @@ async def list_point_adjustments(
     _admin: User = Depends(require_super_admin),
 ) -> PointAdjustmentListResponse:
     """Super Admin xem danh sách điều chỉnh điểm thủ công (reason=adjust)."""
+    if from_date and to_date and from_date > to_date:
+        raise HTTPException(
+            status_code=422,
+            detail="from phải nhỏ hơn hoặc bằng to",
+        )
     SubjectUser = aliased(User, name="subject_user")
     ActorUser = aliased(User, name="actor_user")
 
