@@ -432,15 +432,15 @@ Mỗi phase commit độc lập + chạy `superpowers:code-reviewer` (theo CLAUD
 
 ### Stats
 
-- **PASS**: 16 items (items 1-3, 5-14, 17-20)
+- **PASS**: 18 items (items 1-3, 5-20 sau fix)
 - **SKIP (manual UI)**: 2 items (items 4, 7)
-- **FAIL (code bug Phase 7.7)**: 2 items (items 15, 16)
+- **FAIL ban đầu / PASS sau fix**: items 15-16 (commit fix sau smoke đầu tiên)
 
 ### Deviations & Notes
 
 1. **SMTP chưa config trong prod .env** — `email_sent=false` ở items 2, 12. Fail-silent đúng spec. Cần cấu hình SMTP_HOST/SMTP_USER/SMTP_PASSWORD trong prod `.env` khi deploy thật.
 
-2. **FAIL items 15-16: `add_staff` thiếu guard `system_role`** — File `backend/app/services/staff_service.py`, function `add_staff`, thiếu check `if existing_user.system_role != 'regular'` trước khi insert `partner_staff`. Spec yêu cầu raise `InvalidStaffError` (→ HTTP 409) khi user là `super_admin` hoặc là owner của partner khác. Hiện tại code tìm user hiện có nhưng không validate role, dẫn đến super_admin và owner shop khác được thêm vào staff list.
+2. **FAIL items 15-16: `add_staff` thiếu guard `system_role` (đã fix sau smoke đầu tiên)** — Phát hiện trong smoke run đầu tiên: nhánh `existing_user is not None` của `add_staff` không check role. Fix: thêm 2 guard sau khi tìm `existing_user` — (a) `if existing_user.system_role != 'regular'` raise InvalidStaffError, (b) query `Partner` xem user có là `owner_user_id` của partner nào không, nếu có raise InvalidStaffError. Re-run smoke 15-16 → cả 2 PASS với HTTP 409.
 
 3. **POST /admin/users/{id}/adjust-points không có trong MVP** — Theo plan decision 2026-04-26 (`LedgerReason.ADJUST` enum đã có nhưng chưa có route insert). Item 18 verified thông qua direct DB insert để xác nhận column `actor_user_id` hoạt động đúng.
 
@@ -448,4 +448,4 @@ Mỗi phase commit độc lập + chạy `superpowers:code-reviewer` (theo CLAUD
 
 ### Note
 
-Phase 7 (7.1 → 7.7) hoàn thành. Items 15-16 cần fix `add_staff` service guard trước khi xem là MVP hoàn chỉnh. Đề nghị dispatch code-reviewer để review Phase 7.7 staff service.
+Phase 7 (7.1 → 7.8) hoàn thành. Items 15-16 đã fix bằng commit guard `system_role` + owner check trong `staff_service.add_staff`. MVP cleanup hoàn tất; chỉ còn cấu hình SMTP prod khi deploy thật.

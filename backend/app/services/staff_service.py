@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import gen_temp_password, hash_password
+from app.models.partner import Partner
 from app.models.partner_staff import PartnerStaff
 from app.models.user import User
 from app.schemas.partner_staff import (
@@ -77,6 +78,19 @@ class StaffService:
             )
 
         if existing_user is not None:
+            # Guard system_role: super_admin / admin không được làm staff
+            if existing_user.system_role != "regular":
+                raise InvalidStaffError(
+                    "Tài khoản này không thể trở thành nhân viên (vai trò hệ thống đặc biệt)."
+                )
+            # Guard owner: user đang là chủ shop (bất kỳ partner nào) → reject
+            owns_partner = await db.scalar(
+                select(Partner.id).where(Partner.owner_user_id == existing_user.id)
+            )
+            if owns_partner is not None:
+                raise InvalidStaffError(
+                    "Tài khoản này đang là chủ cửa hàng, không thể làm nhân viên."
+                )
             user = existing_user
         else:
             user = User(
