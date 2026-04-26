@@ -197,34 +197,18 @@ class TransactionService:
         partner_id: int,
         request: CreateQrCustomerTransactionRequest,
     ) -> TransactionWithMemberResponse:
-        """Tạo giao dịch từ QR scan — owner quét QR khách."""
-        from app.core.qr import InvalidQRError
-        from app.services.qr_service import QrService
+        """Tạo giao dịch từ QR scan — owner quét QR khách (raw user_id)."""
+        from app.services.qr_service import (
+            QrPayloadInvalidError,
+            QrService,
+            QrUserNotFoundError,
+            QrUserNotMemberError,
+        )
 
         qr_svc = QrService(self.db)
-        try:
-            user_id = await qr_svc.decode_qr_payload(
-                payload=request.qr_payload, partner_id=partner_id
-            )
-        except InvalidQRError as e:
-            raise ValueError(f"Invalid QR: {e}") from e
-
-        membership = await self.db.scalar(
-            select(Membership)
-            .options(
-                joinedload(Membership.user, innerjoin=True),
-                selectinload(Membership.current_tier),
-            )
-            .where(
-                Membership.partner_id == partner_id,
-                Membership.user_id == user_id,
-            )
-            .with_for_update()
+        _user, membership = await qr_svc.decode_qr_payload(
+            payload=request.qr_payload, partner_id=partner_id
         )
-        if membership is None:
-            membership = await self._auto_enroll_membership(
-                partner_id=partner_id, user_id=user_id
-            )
 
         return await self._create_transaction_for_membership(
             partner_id=partner_id,

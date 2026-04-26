@@ -284,7 +284,7 @@ export function PosTransactionForm({
                 value={qrPayload}
                 onChange={(e) => setQrPayload(e.target.value)}
                 rows={3}
-                placeholder="Hoặc dán nội dung QR khách (JWT) / mã dự phòng 8 ký tự"
+                placeholder="Hoặc nhập thủ công ID khách hàng (số)"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-[12px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
               />
               {qrPayload.trim() && !scanning && (

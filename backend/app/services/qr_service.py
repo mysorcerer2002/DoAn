@@ -1,56 +1,70 @@
-"""QR Service — wrapper cho QR JWT core logic + DB lookup."""
+"""QR Service — decode raw user_id QR payload + DB lookup."""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload, selectinload
 
-from app.core.qr import (
-    InvalidQRError,
-    decode_qr_jwt,
-    sign_qr_jwt,
-    verify_fallback_code_with_candidates,
-)
 from app.models.membership import Membership
+from app.models.user import User
+
+
+class QrPayloadInvalidError(Exception):
+    pass
+
+
+class QrUserNotFoundError(Exception):
+    pass
+
+
+class QrUserNotMemberError(Exception):
+    pass
 
 
 class QrService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def issue_qr_for_user(self, user_id: int) -> dict:
-        """Issue QR token + fallback_code cho user."""
-        return sign_qr_jwt(user_id=user_id)
-
     async def decode_qr_payload(
-        self, *, payload: str, partner_id: int
-    ) -> int:
-        """Decode QR payload → user_id.
+        self, payload: str, partner_id: int
+    ) -> tuple[User, Membership]:
+        """Decode raw user_id QR payload → (User, Membership).
 
         Args:
-            payload: Có thể là JWT (chuỗi dài) hoặc fallback_code (8 ký tự)
-            partner_id: Partner context để lookup candidate user_ids cho fallback
+            payload: Raw string số (user_id) từ QR cá nhân khách.
+            partner_id: Partner context để lookup membership.
 
         Returns:
-            user_id
+            (user, membership) với membership đã lock FOR UPDATE.
 
         Raises:
-            InvalidQRError nếu payload không hợp lệ
+            QrPayloadInvalidError nếu payload không phải số nguyên dương.
+            QrUserNotFoundError nếu user không tồn tại hoặc bị khoá.
+            QrUserNotMemberError nếu user chưa là thành viên của partner này.
         """
-        # Heuristic: JWT có 3 phần ngăn cách bởi '.'; fallback_code 8 ký tự alnum
-        if "." in payload and len(payload) > 20:
-            return decode_qr_jwt(payload)
+        try:
+            user_id = int(payload.strip())
+            if user_id <= 0:
+                raise ValueError
+        except (ValueError, AttributeError):
+            raise QrPayloadInvalidError("QR payload không hợp lệ.")
 
-        # Fallback code path — lookup tất cả member của đối tác hiện tại
-        candidates = list(
-            (
-                await self.db.scalars(
-                    select(Membership.user_id).where(
-                        Membership.partner_id == partner_id
-                    )
-                )
-            ).all()
+        user = await self.db.get(User, user_id)
+        if user is None or not user.is_active:
+            raise QrUserNotFoundError("Không tìm thấy khách hàng từ QR.")
+
+        membership = await self.db.scalar(
+            select(Membership)
+            .options(
+                joinedload(Membership.user, innerjoin=True),
+                selectinload(Membership.current_tier),
+            )
+            .where(
+                Membership.partner_id == partner_id,
+                Membership.user_id == user_id,
+            )
+            .with_for_update()
         )
-        if not candidates:
-            raise InvalidQRError("No members in partner")
-        return verify_fallback_code_with_candidates(
-            payload, candidate_user_ids=candidates
-        )
+        if membership is None:
+            raise QrUserNotMemberError("Khách hàng chưa là thành viên shop này.")
+
+        return user, membership

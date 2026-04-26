@@ -69,16 +69,24 @@ async def create_qr_transaction(
     _=Depends(require_owner_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> TransactionWithMemberResponse:
-    """Owner quét QR khách (JWT hoặc fallback code) → tích điểm.
+    """Owner quét QR khách (raw user_id) → tích điểm.
 
-    Khác `/` (manual theo phone): payload là JWT/fallback code — backend
-    decode ra user_id, bắt buộc user đã là member của partner.
+    Khác `/` (manual theo phone): payload là raw user_id string — backend
+    verify user tồn tại và là member của partner.
     """
+    from app.services.qr_service import (
+        QrPayloadInvalidError,
+        QrUserNotFoundError,
+        QrUserNotMemberError,
+    )
+
     service = TransactionService(db)
     try:
         return await service.create_qr_customer(partner_id=partner_id, request=body)
-    except ValueError as e:
+    except QrPayloadInvalidError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except (QrUserNotFoundError, QrUserNotMemberError) as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except NoMembershipError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except NoActivePointRuleError as e:
