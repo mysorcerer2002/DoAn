@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -52,6 +52,26 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+
+  // Countdown khi tài khoản bị khoá (423).
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
+      if (remaining === 0) {
+        setLockedUntil(null);
+        setError(null);
+        return;
+      }
+      const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
+      const ss = String(remaining % 60).padStart(2, "0");
+      setError(`Tài khoản tạm khoá, thử lại sau ${mm}:${ss}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
 
   const {
     register,
@@ -95,8 +115,15 @@ export default function LoginPage() {
       }
       router.push("/member");
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } } };
-      setError(err.response?.data?.detail || "Đăng nhập thất bại");
+      const err = e as {
+        response?: { status?: number; data?: { detail?: string } };
+        lockedUntil?: number;
+      };
+      if (err.response?.status === 423 && err.lockedUntil) {
+        setLockedUntil(err.lockedUntil);
+      } else {
+        setError(err.response?.data?.detail || "Đăng nhập thất bại");
+      }
     } finally {
       setSubmitting(false);
     }

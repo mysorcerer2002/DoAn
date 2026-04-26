@@ -35,7 +35,10 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8)
 
 
+from sqlalchemy import or_, select
+
 from app.core.exceptions import EmailDeliveryError
+from app.core.limiter import _get_real_ip
 from app.services.auth_service import (
     AuthService,
     EmailAlreadyExistsError,
@@ -43,6 +46,7 @@ from app.services.auth_service import (
     _hash_email_for_log,
 )
 from app.services.email_service import EmailService
+from app.services.login_log_service import LoginLogService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -67,6 +71,10 @@ async def register(
     )
 
 
+LOCK_THRESHOLD = 5
+LOCK_WINDOW_MIN = 15
+
+
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("30/minute")
 async def login(
@@ -74,11 +82,49 @@ async def login(
     body: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
-    service = AuthService(db)
+    ip = _get_real_ip(request)
+    user_agent = request.headers.get("User-Agent")
+
+    log_svc = LoginLogService(db)
+    auth_svc = AuthService(db)
+
+    # Check sliding-window lock TRƯỚC khi xác thực (không ghi log row).
+    failures = await log_svc.count_recent_failures(body.identifier, minutes=LOCK_WINDOW_MIN)
+    if failures >= LOCK_THRESHOLD:
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail="Tài khoản tạm khoá do đăng nhập sai quá nhiều lần. Thử lại sau 15 phút.",
+            headers={"Retry-After": str(LOCK_WINDOW_MIN * 60)},
+        )
+
     try:
-        user = await service.authenticate(identifier=body.identifier, password=body.password)
+        user = await auth_svc.authenticate(identifier=body.identifier, password=body.password)
     except InvalidCredentialsError as e:
+        # Lookup user_id để gắn vào log nếu có (constant-time đã xong trong authenticate).
+        found_user = await db.scalar(
+            select(User).where(
+                or_(User.email == body.identifier, User.phone == body.identifier)
+            )
+        )
+        await log_svc.log_attempt(
+            identifier=body.identifier,
+            ip=ip,
+            success=False,
+            user_id=found_user.id if found_user else None,
+            user_agent=user_agent,
+            failure_reason="wrong_password",
+        )
+        await db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
+
+    await log_svc.log_attempt(
+        identifier=body.identifier,
+        ip=ip,
+        success=True,
+        user_id=user.id,
+        user_agent=user_agent,
+    )
+    await db.commit()
 
     return TokenResponse(
         access_token=create_access_token(user_id=user.id),

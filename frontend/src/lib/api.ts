@@ -80,6 +80,16 @@ api.interceptors.response.use(
     const url = original?.url ?? "";
     const skip = NO_REFRESH_PATHS.some((p) => url.includes(p));
 
+    // 423 Locked: attach lockedUntil so callers can show countdown.
+    if (error.response?.status === 423) {
+      const retryAfter = Number(
+        (error.response.headers as Record<string, string>)["retry-after"] ?? "900"
+      );
+      (error as AxiosError & { lockedUntil: number }).lockedUntil =
+        Date.now() + retryAfter * 1000;
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && original && !original._retry && !skip) {
       original._retry = true;
       try {
