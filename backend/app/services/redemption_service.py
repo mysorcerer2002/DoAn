@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.point_ledger import LedgerReason, LedgerRefType
 from app.models.redemption import Redemption, RedemptionStatus
-from app.models.reward import Reward
+from app.models.reward import Reward, RewardOfferType
 from app.models.user import User
 from app.services.ledger_service import LedgerService
 
@@ -23,6 +23,16 @@ class OutOfStockError(Exception):
 
 
 class RedemptionNotFoundError(Exception):
+    pass
+
+
+class InvalidAmountError(Exception):
+    """Voucher discount thiếu/sai số tiền hoá đơn."""
+    pass
+
+
+class CustomerMismatchError(Exception):
+    """expected_user_id không khớp với chủ voucher."""
     pass
 
 
@@ -148,10 +158,55 @@ class RedemptionService:
 
         return redemption
 
+    async def inspect_redemption(
+        self, *, partner_id: int, code: str
+    ) -> tuple[Redemption, Reward, User]:
+        """Preview voucher cho staff trước khi commit.
+
+        Trả về (redemption, reward, customer). 404 nếu code sai partner / không
+        tồn tại / không PENDING. Nếu PENDING nhưng đã quá hạn thì flip EXPIRED
+        rồi raise (đồng bộ với use_redemption để analytics không kẹt PENDING ma).
+        """
+        redemption = await self.db.scalar(
+            select(Redemption).where(
+                Redemption.partner_id == partner_id,
+                Redemption.redemption_code == code,
+                Redemption.status == RedemptionStatus.PENDING,
+            )
+        )
+        if redemption is None:
+            raise RedemptionNotFoundError(f"Code {code} not found or already used")
+        if redemption.expires_at < datetime.now(timezone.utc):
+            redemption.status = RedemptionStatus.EXPIRED
+            await self.db.flush()
+            raise RedemptionNotFoundError(f"Code {code} expired")
+
+        reward = await self.db.scalar(
+            select(Reward).where(Reward.id == redemption.reward_id)
+        )
+        customer = await self.db.scalar(
+            select(User).where(User.id == redemption.user_id)
+        )
+        if reward is None or customer is None:
+            raise RedemptionNotFoundError(f"Code {code} dữ liệu không nhất quán")
+        return redemption, reward, customer
+
     async def use_redemption(
-        self, *, partner_id: int, code: str, staff_id: int
+        self,
+        *,
+        partner_id: int,
+        code: str,
+        staff_id: int,
+        original_amount: int | None = None,
+        expected_user_id: int | None = None,
     ) -> Redemption:
-        """Nhân viên xác nhận sử dụng mã đổi quà."""
+        """Staff/Owner xác nhận sử dụng mã đổi quà.
+
+        Với voucher PERCENT/FIXED discount: yêu cầu `original_amount` (VND tổng bill),
+        tự tính `discount_amount` rồi lưu lại để thống kê.
+        Với ITEM_GIFT: bỏ qua amount.
+        Nếu `expected_user_id` được gửi, chủ voucher phải khớp — chống bypass UI gate.
+        """
         redemption = await self.db.scalar(
             select(Redemption).where(
                 Redemption.partner_id == partner_id,
@@ -167,11 +222,43 @@ class RedemptionService:
             await self.db.flush()
             raise RedemptionNotFoundError(f"Code {code} expired")
 
+        if expected_user_id is not None and redemption.user_id != expected_user_id:
+            raise CustomerMismatchError(
+                "Voucher không thuộc về khách này"
+            )
+
+        reward = await self.db.scalar(
+            select(Reward).where(Reward.id == redemption.reward_id)
+        )
+        if reward is None:
+            raise RedemptionNotFoundError(f"Reward {redemption.reward_id} not found")
+
+        discount_amount = self._compute_discount(reward, original_amount)
+        if discount_amount is not None:
+            redemption.original_amount = original_amount
+            redemption.discount_amount = discount_amount
+
         redemption.status = RedemptionStatus.USED
         redemption.used_at = datetime.now(timezone.utc)
         redemption.used_by_staff_id = staff_id
         await self.db.flush()
         return redemption
+
+    @staticmethod
+    def _compute_discount(reward: Reward, original_amount: int | None) -> int | None:
+        """Tính số tiền giảm theo offer_type. Trả None nếu ITEM_GIFT (không lưu)."""
+        if reward.offer_type == RewardOfferType.ITEM_GIFT:
+            return None
+        if original_amount is None:
+            raise InvalidAmountError(
+                "Voucher giảm giá yêu cầu nhập tổng tiền hoá đơn"
+            )
+        if reward.offer_type == RewardOfferType.PERCENT_DISCOUNT:
+            pct = reward.offer_value or 0
+            return min(original_amount, original_amount * pct // 100)
+        if reward.offer_type == RewardOfferType.FIXED_DISCOUNT:
+            return min(original_amount, reward.offer_value or 0)
+        return None
 
     async def list_my_redemptions(
         self, *, user_id: int, partner_id: int | None = None

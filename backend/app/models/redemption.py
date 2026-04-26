@@ -23,6 +23,11 @@ class Redemption(Base, TimestampMixin):
         # Suffix-only — convention prepend `ck_redemptions_` → final
         # `ck_redemptions_points_positive`.
         CheckConstraint("points_spent > 0", name="points_positive"),
+        CheckConstraint(
+            "(original_amount IS NULL AND discount_amount IS NULL) "
+            "OR (original_amount >= 0 AND discount_amount >= 0)",
+            name="amounts_nonneg_or_null",
+        ),
         UniqueConstraint(
             "partner_id", "redemption_code", name="uq_redemptions_partner_code"
         ),
@@ -57,3 +62,5 @@ class Redemption(Base, TimestampMixin):
         DateTime(timezone=True), nullable=False
     )
     snapshot_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    original_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    discount_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)

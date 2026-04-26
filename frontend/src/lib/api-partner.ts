@@ -151,6 +151,11 @@ export const transactionsApi = {
 };
 
 // ==================== Partner Redemptions ====================
+export type RewardOfferType =
+  | "PERCENT_DISCOUNT"
+  | "FIXED_DISCOUNT"
+  | "ITEM_GIFT";
+
 export interface RedemptionUseResponse {
   id: number;
   partner_id: number;
@@ -164,11 +169,46 @@ export interface RedemptionUseResponse {
   used_by_staff_id: number | null;
   expires_at: string;
   snapshot_image_url: string | null;
+  original_amount: number | null;
+  discount_amount: number | null;
+}
+
+export interface RedemptionInspectResponse {
+  redemption_code: string;
+  status: "pending" | "used" | "expired";
+  points_spent: number;
+  redeemed_at: string;
+  expires_at: string;
+  reward: {
+    id: number;
+    name: string;
+    image_url: string | null;
+    offer_type: RewardOfferType;
+    offer_value: number | null;
+    offer_label: string;
+  };
+  customer: {
+    user_id: number;
+    full_name: string | null;
+    phone: string | null;
+  };
 }
 
 export const redemptionsApi = {
-  use: (code: string) =>
-    api.post<RedemptionUseResponse>("/partner/redemptions/use", { code }),
+  inspect: (code: string) =>
+    api.get<RedemptionInspectResponse>(
+      `/partner/redemptions/inspect/${code}`
+    ),
+  use: (
+    code: string,
+    originalAmount?: number | null,
+    expectedUserId?: number | null
+  ) =>
+    api.post<RedemptionUseResponse>("/partner/redemptions/use", {
+      code,
+      original_amount: originalAmount ?? null,
+      expected_user_id: expectedUserId ?? null,
+    }),
 };
 
 // ==================== Partner Uploads ====================

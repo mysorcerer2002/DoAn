@@ -16,9 +16,18 @@ from app.core.deps import (
 from app.core.limiter import limiter
 from app.models.membership import Membership
 from app.models.user import User
-from app.schemas.redemption import RedeemRequest, RedemptionResponse, UseRedemptionRequest
+from app.schemas.redemption import (
+    RedeemRequest,
+    RedemptionInspectCustomerInfo,
+    RedemptionInspectResponse,
+    RedemptionInspectRewardInfo,
+    RedemptionResponse,
+    UseRedemptionRequest,
+)
 from app.services.redemption_service import (
+    CustomerMismatchError,
     InsufficientPointsError,
+    InvalidAmountError,
     OutOfStockError,
     RedemptionNotFoundError,
     RedemptionService,
@@ -37,7 +46,7 @@ async def redeem_reward_for_member(
     _=Depends(require_staff_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> RedemptionResponse:
-    """Owner đổi quà thay cho member."""
+    """Staff/Owner đổi quà thay cho member."""
     from sqlalchemy import select
 
     member_user_id = await db.scalar(
@@ -65,6 +74,45 @@ async def redeem_reward_for_member(
     return RedemptionResponse.model_validate(redemption)
 
 
+@router.get("/inspect/{code}", response_model=RedemptionInspectResponse)
+async def inspect_redemption(
+    code: str,
+    partner_id: int = Depends(get_partner_id),
+    _=Depends(require_staff_in_partner),
+    db: AsyncSession = Depends(get_db),
+) -> RedemptionInspectResponse:
+    """Preview voucher trước khi xác nhận. Quá hạn → flip EXPIRED + 404."""
+    if len(code.strip()) != 8:
+        raise HTTPException(status_code=400, detail="Mã phải đủ 8 ký tự")
+    service = RedemptionService(db)
+    try:
+        redemption, reward, customer = await service.inspect_redemption(
+            partner_id=partner_id, code=code.strip().upper()
+        )
+    except RedemptionNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return RedemptionInspectResponse(
+        redemption_code=redemption.redemption_code,
+        status=redemption.status,
+        points_spent=redemption.points_spent,
+        redeemed_at=redemption.redeemed_at,
+        expires_at=redemption.expires_at,
+        reward=RedemptionInspectRewardInfo(
+            id=reward.id,
+            name=reward.name,
+            image_url=reward.image_url,
+            offer_type=reward.offer_type,
+            offer_value=reward.offer_value,
+            offer_label=reward.offer_label,
+        ),
+        customer=RedemptionInspectCustomerInfo(
+            user_id=customer.id,
+            full_name=customer.full_name,
+            phone=customer.phone,
+        ),
+    )
+
+
 @router.post("/use", response_model=RedemptionResponse)
 async def use_redemption(
     body: UseRedemptionRequest,
@@ -73,14 +121,22 @@ async def use_redemption(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RedemptionResponse:
-    """Owner xác nhận sử dụng mã đổi quà."""
+    """Staff/Owner xác nhận sử dụng mã đổi quà."""
     service = RedemptionService(db)
     try:
         redemption = await service.use_redemption(
-            partner_id=partner_id, code=body.code, staff_id=user.id
+            partner_id=partner_id,
+            code=body.code,
+            staff_id=user.id,
+            original_amount=body.original_amount,
+            expected_user_id=body.expected_user_id,
         )
     except RedemptionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except InvalidAmountError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except CustomerMismatchError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return RedemptionResponse.model_validate(redemption)
 
 
