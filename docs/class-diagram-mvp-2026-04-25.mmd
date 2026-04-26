@@ -23,20 +23,10 @@ classDiagram
         +str password_hash
         +str full_name
         +date birthday
-        +int points_balance "vi global"
+        +int points_balance "vi global HYBRID"
         +str system_role "regular/admin/super_admin"
         +bool is_active
-        +bool is_shadow
         +datetime last_login_at
-        +datetime password_changed_at
-    }
-
-    class VerificationCode {
-        +int user_id FK
-        +str code "6-digit OTP"
-        +VerificationPurpose purpose "RESET_PASSWORD"
-        +datetime expires_at
-        +datetime used_at
     }
 
     %% ========================
@@ -45,12 +35,20 @@ classDiagram
     class Partner {
         +str slug UK
         +str name
-        +str address
         +str description
         +PartnerCategory category
         +PartnerStatus status "PENDING/ACTIVE/SUSPENDED"
         +int owner_user_id FK
-        +bigint points_wallet_balance "seed 1.000.000"
+        +str logo_url
+        +str banner_url
+        +str contact_phone
+        +str contact_email
+        +str address
+        +str tax_code
+        +str website
+        +str business_hours
+        +dict settings "JSONB"
+        +datetime activated_at
     }
 
     class Membership {
@@ -86,7 +84,6 @@ classDiagram
     class Transaction {
         +int partner_id FK
         +int membership_id FK
-        +int staff_id FK
         +int gross_amount
         +int net_amount
         +int points_earned
@@ -153,7 +150,6 @@ classDiagram
     %% Inheritance
     %% ========================
     Base <|-- User
-    Base <|-- VerificationCode
     Base <|-- Partner
     Base <|-- Membership
     Base <|-- Tier
@@ -165,7 +161,6 @@ classDiagram
     Base <|-- VoucherTemplate
 
     TimestampMixin <|.. User
-    TimestampMixin <|.. VerificationCode
     TimestampMixin <|.. Partner
     TimestampMixin <|.. Membership
     TimestampMixin <|.. Tier
@@ -182,7 +177,6 @@ classDiagram
     User "1" --> "*" PointLedger : owns_balance
     User "1" --> "*" Redemption : claims
     User "1" --> "*" Partner : owns_shop
-    User "1" --> "*" VerificationCode : requests
 
     Partner "1" --> "*" Membership : has_members
     Partner "1" --> "*" Tier : configures

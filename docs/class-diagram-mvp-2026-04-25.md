@@ -1,13 +1,13 @@
 # Sơ đồ class — MVP "Cân bằng" 2026-04-25
 
-> Sơ đồ class SQLAlchemy theo **state target sau pivot** (xem spec canonical: `docs/spec-mvp-2026-04-25.md`).
-> KHÔNG phản ánh state code hiện tại — code sẽ migrate qua revision `d4e5f6a7b8c9_pivot_to_mvp_balanced`.
+> Sơ đồ class SQLAlchemy phản ánh state **sau khi áp dụng cleanup-mvp-2026-04-25**.
+> Spec canonical: `docs/superpowers/specs/cleanup-mvp-2026-04-25.md`. Migration cuối: revision `d4e5f6a7b8c9_pivot_to_mvp_balanced`.
 
 ## Tổng quan 4 cụm domain
 
 | Cụm | Class | Vai trò |
 |---|---|---|
-| Identity | `User`, `VerificationCode` | Tài khoản + OTP forgot-password |
+| Identity | `User` | Tài khoản (ví điểm global) |
 | Partner | `Partner`, `Membership`, `Tier`, `PointRule` | Shop + cấu hình tier per-partner + rule earn |
 | Loyalty Ops | `Transaction`, `PointLedger`, `Redemption` | POS earn / append-only ledger / đổi quà |
 | Reward | `Reward`, `VoucherTemplate` | Quà + design template (Hybrid C+i) |
@@ -40,20 +40,10 @@ classDiagram
         +str password_hash
         +str full_name
         +date birthday
-        +int points_balance "ví global"
+        +int points_balance "ví global HYBRID"
         +str system_role "regular/admin/super_admin"
         +bool is_active
-        +bool is_shadow
         +datetime last_login_at
-        +datetime password_changed_at
-    }
-
-    class VerificationCode {
-        +int user_id FK
-        +str code "6-digit OTP"
-        +VerificationPurpose purpose "RESET_PASSWORD"
-        +datetime expires_at
-        +datetime used_at
     }
 
     %% ========================
@@ -62,12 +52,20 @@ classDiagram
     class Partner {
         +str slug UK
         +str name
-        +str address
         +str description
         +PartnerCategory category
         +PartnerStatus status "PENDING/ACTIVE/SUSPENDED"
         +int owner_user_id FK
-        +bigint points_wallet_balance "seed 1.000.000"
+        +str logo_url
+        +str banner_url
+        +str contact_phone
+        +str contact_email
+        +str address
+        +str tax_code
+        +str website
+        +str business_hours
+        +dict settings "JSONB"
+        +datetime activated_at
     }
 
     class Membership {
@@ -103,7 +101,6 @@ classDiagram
     class Transaction {
         +int partner_id FK
         +int membership_id FK
-        +int staff_id FK
         +int gross_amount
         +int net_amount
         +int points_earned
@@ -170,7 +167,6 @@ classDiagram
     %% Inheritance
     %% ========================
     Base <|-- User
-    Base <|-- VerificationCode
     Base <|-- Partner
     Base <|-- Membership
     Base <|-- Tier
@@ -182,7 +178,6 @@ classDiagram
     Base <|-- VoucherTemplate
 
     TimestampMixin <|.. User
-    TimestampMixin <|.. VerificationCode
     TimestampMixin <|.. Partner
     TimestampMixin <|.. Membership
     TimestampMixin <|.. Tier
@@ -199,7 +194,6 @@ classDiagram
     User "1" --> "*" PointLedger : owns_balance
     User "1" --> "*" Redemption : claims
     User "1" --> "*" Partner : owns_shop
-    User "1" --> "*" VerificationCode : requests
 
     Partner "1" --> "*" Membership : has_members
     Partner "1" --> "*" Tier : configures
@@ -223,8 +217,7 @@ classDiagram
 - `UNIQUE (partner_id, name)` + `UNIQUE (partner_id, sort_order)` trên `tiers`
 - Partial unique 1 active rule/shop trên `point_rules` (`WHERE is_active=true`)
 - `lifetime_earned` chỉ tăng (monotonic), không giảm khi redeem
-- `SUM(point_ledger.delta WHERE user_id=u) == users.points_balance`
-- `partners.points_wallet_balance + SUM(EARN ledger WHERE partner_id=p) == 1.000.000` (wallet seed invariant)
+- `SUM(point_ledger.delta WHERE user_id=u) == users.points_balance` (HYBRID global wallet invariant)
 
 ## Cách render & export
 
