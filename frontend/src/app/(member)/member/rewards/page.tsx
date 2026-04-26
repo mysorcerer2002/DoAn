@@ -1,18 +1,19 @@
 "use client";
 
-import { ArrowLeft, Crown, Gift, Loader2, Search } from "lucide-react";
+import { ArrowLeft, Crown, Gift, Loader2, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
-import { useMe, useMyMemberships } from "@/lib/hooks/use-me";
+import { useMyMemberships } from "@/lib/hooks/use-me";
 
 interface MeRewardItem {
   id: number;
-  tenant_id: number;
-  tenant_name: string;
-  tenant_slug: string;
+  partner_id: number;
+  partner_name: string;
+  partner_slug: string;
   name: string;
   description: string | null;
   points_cost: number;
@@ -26,6 +27,29 @@ function useMyRewards() {
   return useQuery<MeRewardItem[]>({
     queryKey: ["member", "rewards"],
     queryFn: async () => (await api.get<MeRewardItem[]>("/users/me/rewards")).data,
+  });
+}
+
+interface RedeemResponse {
+  id: number;
+  redemption_code: string;
+}
+
+function useRedeemReward() {
+  const qc = useQueryClient();
+  return useMutation<RedeemResponse, unknown, number>({
+    mutationFn: async (reward_id: number) => {
+      const res = await api.post<RedeemResponse>("/users/me/redemptions", {
+        reward_id,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["member", "rewards"] });
+      qc.invalidateQueries({ queryKey: ["member", "memberships"] });
+      qc.invalidateQueries({ queryKey: ["auth", "me"] });
+      qc.invalidateQueries({ queryKey: ["customer", "ledger"] });
+    },
   });
 }
 
@@ -50,38 +74,63 @@ function pickEmoji(name: string): string {
   return "🎁";
 }
 
+function getErrorMessage(err: unknown): string {
+  if (err && typeof err === "object" && "response" in err) {
+    const resp = (err as { response?: { data?: { detail?: string } } }).response;
+    if (resp?.data?.detail) return resp.data.detail;
+  }
+  return "Đổi quà thất bại. Vui lòng thử lại.";
+}
+
 export default function RewardsPage() {
-  const { data: user } = useMe();
+  const router = useRouter();
   const { data: memberships } = useMyMemberships();
   const { data: rewards, isLoading, isError } = useMyRewards();
+  const redeem = useRedeemReward();
   const [search, setSearch] = useState("");
-  const [tenantFilter, setTenantFilter] = useState<number | null>(null);
+  const [partnerFilter, setPartnerFilter] = useState<number | null>(null);
+  const [confirmReward, setConfirmReward] = useState<MeRewardItem | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const tenants = useMemo(() => {
+  const partners = useMemo(() => {
     const map = new Map<number, string>();
-    (rewards ?? []).forEach((r) => map.set(r.tenant_id, r.tenant_name));
+    (rewards ?? []).forEach((r) => map.set(r.partner_id, r.partner_name));
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [rewards]);
 
   const filtered = useMemo(() => {
     return (rewards ?? []).filter((r) => {
-      if (tenantFilter != null && r.tenant_id !== tenantFilter) return false;
+      if (partnerFilter != null && r.partner_id !== partnerFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         return (
           r.name.toLowerCase().includes(q) ||
-          r.tenant_name.toLowerCase().includes(q)
+          r.partner_name.toLowerCase().includes(q)
         );
       }
       return true;
     });
-  }, [rewards, tenantFilter, search]);
+  }, [rewards, partnerFilter, search]);
 
-  const totalPoints =
-    memberships?.reduce((sum, m) => sum + m.points_balance, 0) ?? 0;
+  // Ví toàn cục: mọi membership share cùng `points_balance` (global wallet)
+  const totalPoints = (memberships ?? [])[0]?.points_balance ?? 0;
   const topTier = (memberships ?? [])
     .slice()
-    .sort((a, b) => b.points_balance - a.points_balance)[0];
+    .sort((a, b) => b.lifetime_earned - a.lifetime_earned)[0];
+
+  function handleConfirmRedeem() {
+    if (!confirmReward) return;
+    setErrorMsg(null);
+    redeem.mutate(confirmReward.id, {
+      onSuccess: (data) => {
+        setConfirmReward(null);
+        router.push(`/member/vouchers/${data.id}`);
+      },
+      onError: (err) => {
+        setErrorMsg(getErrorMessage(err));
+      },
+    });
+  }
 
   return (
     <>
@@ -100,7 +149,6 @@ export default function RewardsPage() {
       </header>
 
       <main className="space-y-4 px-4 pt-2 pb-8">
-        {/* Hero điểm hiện có */}
         <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-indigo to-brand-violet p-4 shadow-xl shadow-indigo-200">
           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
           <div className="relative z-10 flex items-center justify-between">
@@ -115,7 +163,7 @@ export default function RewardsPage() {
                 <span className="text-[12px] text-indigo-100">điểm</span>
               </div>
               <p className="mt-1 text-[10px] text-indigo-100/80">
-                Tổng từ {memberships?.length ?? 0} đối tác
+                Ví toàn cục — dùng được tại mọi đối tác
               </p>
             </div>
             {topTier?.current_tier_name && (
@@ -129,7 +177,6 @@ export default function RewardsPage() {
           </div>
         </section>
 
-        {/* Search */}
         <section className="relative">
           <Search className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-slate-400" />
           <input
@@ -141,31 +188,30 @@ export default function RewardsPage() {
           />
         </section>
 
-        {/* Partner filter pills */}
-        {tenants.length > 0 && (
+        {partners.length > 0 && (
           <section className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
             <button
               type="button"
-              onClick={() => setTenantFilter(null)}
+              onClick={() => setPartnerFilter(null)}
               className={
-                tenantFilter === null
+                partnerFilter === null
                   ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
                   : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
               }
             >
               Tất cả ({rewards?.length ?? 0})
             </button>
-            {tenants.map((t) => {
+            {partners.map((t) => {
               const count = (rewards ?? []).filter(
-                (r) => r.tenant_id === t.id
+                (r) => r.partner_id === t.id
               ).length;
               return (
                 <button
                   key={t.id}
                   type="button"
-                  onClick={() => setTenantFilter(t.id)}
+                  onClick={() => setPartnerFilter(t.id)}
                   className={
-                    tenantFilter === t.id
+                    partnerFilter === t.id
                       ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
                       : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
                   }
@@ -177,7 +223,6 @@ export default function RewardsPage() {
           </section>
         )}
 
-        {/* Rewards grid */}
         {isLoading ? (
           <div className="flex min-h-[30vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-brand-indigo" />
@@ -231,7 +276,7 @@ export default function RewardsPage() {
                     {r.name}
                   </h4>
                   <p className="truncate text-[11px] text-slate-400">
-                    {r.tenant_name}
+                    {r.partner_name}
                   </p>
                   <div className="flex items-center justify-between pt-1">
                     <span className="font-headline text-[14px] font-bold text-brand-orange">
@@ -240,6 +285,10 @@ export default function RewardsPage() {
                     {r.can_redeem ? (
                       <button
                         type="button"
+                        onClick={() => {
+                          setErrorMsg(null);
+                          setConfirmReward(r);
+                        }}
                         className="rounded-full bg-brand-indigo px-3 py-1 text-[11px] font-bold text-white shadow-sm active:scale-95"
                       >
                         Đổi
@@ -256,6 +305,91 @@ export default function RewardsPage() {
           </section>
         )}
       </main>
+
+      {confirmReward && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 px-4 pb-4 pt-24"
+          onClick={() => {
+            if (!redeem.isPending) setConfirmReward(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <h3 className="font-headline text-[18px] font-bold text-slate-800">
+                Xác nhận đổi quà
+              </h3>
+              <button
+                type="button"
+                onClick={() => setConfirmReward(null)}
+                disabled={redeem.isPending}
+                className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                aria-label="Đóng"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3 rounded-xl bg-slate-50 p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-slate-500">Quà</span>
+                <span className="text-right text-[13px] font-bold text-slate-800">
+                  {confirmReward.name}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-slate-500">Đối tác</span>
+                <span className="text-[13px] text-slate-700">
+                  {confirmReward.partner_name}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                <span className="text-[12px] text-slate-500">Số điểm trừ</span>
+                <span className="font-headline text-[16px] font-bold text-brand-orange">
+                  -{confirmReward.points_cost.toLocaleString("vi-VN")}đ
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-slate-500">Số dư còn lại</span>
+                <span className="text-[13px] font-bold text-slate-800">
+                  {(totalPoints - confirmReward.points_cost).toLocaleString("vi-VN")}đ
+                </span>
+              </div>
+            </div>
+            {errorMsg && (
+              <p className="mt-3 rounded-lg bg-red-50 p-3 text-[12px] text-red-600">
+                {errorMsg}
+              </p>
+            )}
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmReward(null)}
+                disabled={redeem.isPending}
+                className="flex-1 rounded-full border border-slate-200 bg-white py-3 text-[14px] font-bold text-slate-700 disabled:opacity-50"
+              >
+                Huỷ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRedeem}
+                disabled={redeem.isPending}
+                className="flex-1 rounded-full bg-brand-indigo py-3 text-[14px] font-bold text-white shadow-md active:scale-[0.98] disabled:opacity-60"
+              >
+                {redeem.isPending ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang đổi…
+                  </span>
+                ) : (
+                  "Xác nhận đổi"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

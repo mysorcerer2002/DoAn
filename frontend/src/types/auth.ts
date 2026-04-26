@@ -10,13 +10,15 @@ export interface User {
 
 export interface Membership {
   membership_id: number;
-  tenant_id: number;
+  partner_id: number;
+  partner_name: string | null;
+  partner_slug: string | null;
   user_id: number;
   user_phone: string | null;
   user_full_name: string | null;
   user_email: string | null;
   points_balance: number;
-  total_points_earned: number;
+  lifetime_earned: number;
   current_tier_id: number | null;
   current_tier_name: string | null;
   joined_at: string;

@@ -193,32 +193,46 @@ export default function MemberDashboardPage() {
             </div>
           ) : (
             <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-4">
-              {memberships!.map((m) => (
-                <div
-                  key={m.membership_id}
-                  className="min-w-[180px] shrink-0 space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-2xl shadow-inner">
-                    {TIER_EMOJI[m.current_tier_name ?? ""] ?? "🏪"}
+              {memberships!.map((m) => {
+                const card = (
+                  <>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-2xl shadow-inner">
+                      {TIER_EMOJI[m.current_tier_name ?? ""] ?? "🏪"}
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="truncate text-[14px] font-bold text-slate-800">
+                        {m.partner_name ?? `Đối tác #${m.partner_id}`}
+                      </h4>
+                      <p className="truncate text-[12px] text-slate-400">
+                        {m.current_tier_name ?? "Chưa phân hạng"}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-slate-50 pt-2">
+                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase text-indigo-500">
+                        Thành viên
+                      </span>
+                      <span className="text-[14px] font-bold text-brand-orange">
+                        {formatVnPoints(m.points_balance)} đ
+                      </span>
+                    </div>
+                  </>
+                );
+                const className =
+                  "min-w-[180px] shrink-0 space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-transform active:scale-[0.98]";
+                return m.partner_slug ? (
+                  <Link
+                    key={m.membership_id}
+                    href={`/member/partners/${m.partner_slug}`}
+                    className={className}
+                  >
+                    {card}
+                  </Link>
+                ) : (
+                  <div key={m.membership_id} className={className}>
+                    {card}
                   </div>
-                  <div className="space-y-1">
-                    <h4 className="truncate text-[14px] font-bold text-slate-800">
-                      Đối tác #{m.tenant_id}
-                    </h4>
-                    <p className="truncate text-[12px] text-slate-400">
-                      {m.current_tier_name ?? "Chưa phân hạng"}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-slate-50 pt-2">
-                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase text-indigo-500">
-                      Thành viên
-                    </span>
-                    <span className="text-[14px] font-bold text-brand-orange">
-                      {formatVnPoints(m.points_balance)} đ
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

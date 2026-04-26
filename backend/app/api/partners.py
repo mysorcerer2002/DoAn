@@ -135,6 +135,8 @@ async def list_my_memberships(
         MemberResponse(
             membership_id=m.id,
             partner_id=m.partner_id,
+            partner_name=m.partner.name if m.partner else None,
+            partner_slug=m.partner.slug if m.partner else None,
             user_id=m.user_id,
             user_phone=m.user.phone,
             user_full_name=m.user.full_name,
@@ -154,6 +156,8 @@ async def list_my_memberships(
 @users_router.get("/me/partners", response_model=list[MyPartnerSummary])
 async def list_my_partners(
     user: User = Depends(get_current_user),
+    category: str | None = Query(default=None, pattern="^(cafe|food|retail|beauty|other)$"),
+    search: str | None = Query(default=None, max_length=100),
     db: AsyncSession = Depends(get_db),
 ) -> list[MyPartnerSummary]:
     """Tất cả partner ACTIVE trên platform.
@@ -162,14 +166,16 @@ async def list_my_partners(
     (ví toàn cục), `current_tier_name` (theo shop). Dùng cho trang
     `/member/partners` để customer vừa khám phá shop vừa thấy hạng + điểm
     hiện tại trên card.
+
+    Hỗ trợ filter `category` (cafe/food/retail/beauty/other) và `search`
+    (ILIKE theo `name`).
     """
-    partners = (
-        await db.scalars(
-            select(Partner)
-            .where(Partner.status == PartnerStatus.ACTIVE)
-            .order_by(Partner.name.asc())
-        )
-    ).all()
+    stmt = select(Partner).where(Partner.status == PartnerStatus.ACTIVE)
+    if category is not None:
+        stmt = stmt.where(Partner.category == category)
+    if search:
+        stmt = stmt.where(Partner.name.ilike(f"%{search.strip()}%"))
+    partners = (await db.scalars(stmt.order_by(Partner.name.asc()))).all()
 
     memberships = (
         await db.scalars(

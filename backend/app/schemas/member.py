@@ -10,6 +10,8 @@ class MemberLookupRequest(BaseModel):
 class MemberResponse(BaseModel):
     membership_id: int
     partner_id: int
+    partner_name: str | None = None
+    partner_slug: str | None = None
     user_id: int
     user_phone: str | None
     user_full_name: str | None
