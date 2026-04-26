@@ -115,22 +115,57 @@ class PartnerService:
         return partner
 
     async def list_partners_for_user(self, *, user_id: int) -> list[dict]:
-        """List đối tác user sở hữu. MVP final: chỉ owner. Output match PartnerStaffSummary."""
-        partners = (
+        """List đối tác mà user là owner hoặc active staff. Output match PartnerStaffSummary."""
+        from app.models.partner_staff import PartnerStaff
+
+        owner_partners = (
             await self.db.scalars(
                 select(Partner)
                 .where(Partner.owner_user_id == user_id)
                 .order_by(Partner.created_at)
             )
         ).all()
-        return [
-            {
-                "id": p.id,
-                "name": p.name,
-                "slug": p.slug,
-                "logo_url": p.logo_url,
-                "status": p.status,
-                "role": "owner",
-            }
-            for p in partners
-        ]
+
+        staff_partners = (
+            await self.db.scalars(
+                select(Partner)
+                .join(PartnerStaff, PartnerStaff.partner_id == Partner.id)
+                .where(
+                    PartnerStaff.user_id == user_id,
+                    PartnerStaff.is_active.is_(True),
+                )
+                .order_by(Partner.created_at)
+            )
+        ).all()
+
+        result: list[dict] = []
+        seen: set[int] = set()
+        for p in owner_partners:
+            if p.id in seen:
+                continue
+            seen.add(p.id)
+            result.append(
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "slug": p.slug,
+                    "logo_url": p.logo_url,
+                    "status": p.status,
+                    "role": "owner",
+                }
+            )
+        for p in staff_partners:
+            if p.id in seen:
+                continue
+            seen.add(p.id)
+            result.append(
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "slug": p.slug,
+                    "logo_url": p.logo_url,
+                    "status": p.status,
+                    "role": "staff",
+                }
+            )
+        return result

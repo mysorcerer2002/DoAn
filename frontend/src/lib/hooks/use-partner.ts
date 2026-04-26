@@ -11,6 +11,7 @@ import {
   staffApi,
   tenantApi,
   transactionsApi,
+  uploadsApi,
 } from "@/lib/api-partner";
 import { usePartnerStore } from "@/lib/partner-store";
 import type {
@@ -68,6 +69,14 @@ export function useUpdateSettings() {
   return useMutation({
     mutationFn: (data: Partial<PartnerSettings>) => tenantApi.updateSettings(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "settings"] }),
+  });
+}
+
+// ==================== Uploads ====================
+export function useUploadPartnerImage() {
+  return useMutation({
+    mutationFn: ({ kind, file }: { kind: "logo" | "banner"; file: File }) =>
+      uploadsApi.uploadImage(kind, file),
   });
 }
 
@@ -199,6 +208,28 @@ export function useCreateQrTransaction() {
       qc.invalidateQueries({ queryKey: ["partner", "dashboard"] });
       qc.invalidateQueries({ queryKey: ["partner", "members"] });
     },
+  });
+}
+
+export function useLookupCustomerByPhone(phone: string, enabled: boolean) {
+  const partnerId = usePartnerId();
+  return useQuery({
+    queryKey: ["partner", "lookup", "phone", partnerId, phone],
+    queryFn: async () => (await transactionsApi.lookupByPhone(phone)).data,
+    enabled: enabled && partnerId != null,
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+
+export function useLookupCustomerByQr(qr: string, enabled: boolean) {
+  const partnerId = usePartnerId();
+  return useQuery({
+    queryKey: ["partner", "lookup", "qr", partnerId, qr],
+    queryFn: async () => (await transactionsApi.lookupByQr(qr)).data,
+    enabled: enabled && partnerId != null,
+    retry: false,
+    staleTime: 30_000,
   });
 }
 

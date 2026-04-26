@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
@@ -18,6 +20,7 @@ from app.api.settings import router as settings_router
 from app.api.partners import partner_router, partners_router, users_router
 from app.api.tiers import router as tiers_router
 from app.api.transactions import router as transactions_router
+from app.api.uploads import router as uploads_router
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.jobs.scheduler import init_scheduler, shutdown_scheduler
@@ -73,6 +76,13 @@ app.include_router(qr_router)
 app.include_router(rewards_router)
 app.include_router(redemptions_router)
 app.include_router(analytics_router)
+app.include_router(uploads_router)
+
+# Mount static files cho ảnh user upload (logo, banner). Tạo dir nếu chưa có
+# để StaticFiles không lỗi ở first boot.
+_uploads_dir = Path("uploads")
+_uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
 
 @app.exception_handler(Exception)

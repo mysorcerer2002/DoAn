@@ -15,6 +15,7 @@ from app.core.phone import InvalidPhoneError
 from app.schemas.transaction import (
     CreateManualTransactionRequest,
     CreateQrCustomerTransactionRequest,
+    CustomerLookupResponse,
     TransactionDetailResponse,
     TransactionListResponse,
     TransactionUpdateRequest,
@@ -101,6 +102,106 @@ async def create_qr_transaction(
         raise HTTPException(
             status_code=409, detail="Vi phạm ràng buộc dữ liệu"
         ) from e
+
+
+@router.get("/customer-by-phone", response_model=CustomerLookupResponse)
+async def lookup_customer_by_phone(
+    phone: str = Query(min_length=8, max_length=20),
+    partner_id: int = Depends(get_partner_id),
+    _=Depends(require_staff_in_partner),
+    db: AsyncSession = Depends(get_db),
+) -> CustomerLookupResponse:
+    """Staff lookup khách theo SĐT trước khi tích điểm. found=False khi chưa có user — sẽ auto-create lúc submit."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    from app.core.phone import normalize_phone
+    from app.models.membership import Membership
+    from app.models.user import User
+
+    try:
+        normalized = normalize_phone(phone)
+    except InvalidPhoneError as e:
+        raise HTTPException(status_code=422, detail=f"SĐT không hợp lệ: {e}") from e
+
+    user = await db.scalar(
+        select(User).where(User.phone == normalized, User.is_active.is_(True))
+    )
+    if user is None:
+        return CustomerLookupResponse(found=False)
+
+    membership = await db.scalar(
+        select(Membership)
+        .options(selectinload(Membership.current_tier))
+        .where(Membership.user_id == user.id, Membership.partner_id == partner_id)
+    )
+    return CustomerLookupResponse(
+        found=True,
+        user_id=user.id,
+        phone=user.phone,
+        full_name=user.full_name,
+        email=user.email,
+        points_balance=user.points_balance,
+        is_member=membership is not None,
+        lifetime_earned=membership.lifetime_earned if membership else None,
+        current_tier_name=(
+            membership.current_tier.name
+            if membership and membership.current_tier
+            else None
+        ),
+    )
+
+
+@router.get("/customer-by-qr", response_model=CustomerLookupResponse)
+async def lookup_customer_by_qr(
+    qr: str = Query(min_length=1, max_length=500),
+    partner_id: int = Depends(get_partner_id),
+    _=Depends(require_staff_in_partner),
+    db: AsyncSession = Depends(get_db),
+) -> CustomerLookupResponse:
+    """Staff lookup khách từ QR scan. 400 nếu QR invalid, 404 nếu user không tồn tại hoặc chưa là member shop."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    from app.models.membership import Membership
+    from app.models.user import User
+
+    try:
+        user_id = int(qr.strip())
+        if user_id <= 0:
+            raise ValueError
+    except (ValueError, AttributeError) as e:
+        raise HTTPException(status_code=400, detail="QR không hợp lệ.") from e
+
+    user = await db.get(User, user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy khách hàng từ QR."
+        )
+
+    membership = await db.scalar(
+        select(Membership)
+        .options(selectinload(Membership.current_tier))
+        .where(Membership.user_id == user.id, Membership.partner_id == partner_id)
+    )
+    if membership is None:
+        raise HTTPException(
+            status_code=404, detail="Khách chưa là thành viên shop này."
+        )
+
+    return CustomerLookupResponse(
+        found=True,
+        user_id=user.id,
+        phone=user.phone,
+        full_name=user.full_name,
+        email=user.email,
+        points_balance=user.points_balance,
+        is_member=True,
+        lifetime_earned=membership.lifetime_earned,
+        current_tier_name=(
+            membership.current_tier.name if membership.current_tier else None
+        ),
+    )
 
 
 @router.get("", response_model=TransactionListResponse)

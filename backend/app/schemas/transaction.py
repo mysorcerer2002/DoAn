@@ -64,6 +64,19 @@ class NoMembershipResponse(BaseModel):
     is_member: bool = False
 
 
+class CustomerLookupResponse(BaseModel):
+    """Lookup khách trước khi tích điểm. Phone: found=False nếu chưa có user (sẽ auto-create). QR: 4xx nếu invalid."""
+    found: bool
+    user_id: int | None = None
+    phone: str | None = None
+    full_name: str | None = None
+    email: str | None = None
+    points_balance: int | None = None
+    is_member: bool = False
+    lifetime_earned: int | None = None
+    current_tier_name: str | None = None
+
+
 # ── C2: GET list/detail + PATCH ───────────────────────────────────────────────
 
 

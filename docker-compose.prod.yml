@@ -37,6 +37,8 @@ services:
       DEBUG: "false"
       ENABLE_SCHEDULER: "true"
       FRONTEND_ORIGINS: https://member.ecom-bill.com,https://merchant.ecom-bill.com,https://admin.ecom-bill.com,https://pos.ecom-bill.com
+    volumes:
+      - loyalty_uploads:/app/uploads
     networks:
       - loyalty-net
 
@@ -67,3 +69,5 @@ networks:
 volumes:
   postgres_prod_data:
     name: loyalty-prod-postgres-data
+  loyalty_uploads:
+    name: loyalty-prod-uploads

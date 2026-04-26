@@ -47,13 +47,13 @@ export interface PartnerUpdateRequest {
 // Members
 export interface MemberResponse {
   membership_id: number;
-  tenant_id: number;
+  partner_id: number;
   user_id: number;
   user_phone: string | null;
   user_full_name: string | null;
   user_email: string | null;
   points_balance: number;
-  total_points_earned: number;
+  lifetime_earned: number;
   current_tier_id: number | null;
   current_tier_name: string | null;
   joined_at: string;
@@ -152,6 +152,18 @@ export interface CreateManualTransactionRequest {
   gross_amount: number;
   note?: string | null;
   receipt_code?: string | null;
+}
+
+export interface CustomerLookupResponse {
+  found: boolean;
+  user_id: number | null;
+  phone: string | null;
+  full_name: string | null;
+  email: string | null;
+  points_balance: number | null;
+  is_member: boolean;
+  lifetime_earned: number | null;
+  current_tier_name: string | null;
 }
 
 // C4: List/detail/update cho /partner/transactions

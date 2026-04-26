@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, QrCode, Gift, User } from "lucide-react";
+import { Home, QrCode, Gift, Ticket, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const HOME_SUB_ROUTES = ["/member/history", "/member/partners"];
@@ -26,12 +26,19 @@ export function BottomNavBar() {
     pathname === "/member" ||
     HOME_SUB_ROUTES.some((route) => pathname.startsWith(route));
   const isRewardsActive = pathname.startsWith("/member/rewards");
+  const isVouchersActive = pathname.startsWith("/member/vouchers");
   const isProfileActive = pathname.startsWith("/member/profile");
   const isQrActive = pathname === "/member/qr";
 
   return (
     <nav className="fixed bottom-0 left-0 z-50 flex w-full items-end justify-around rounded-t-2xl border-t border-slate-100 bg-white/80 px-4 pt-3 pb-6 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] backdrop-blur-md">
       <NavTab href="/member" icon={Home} label="Trang chủ" active={isHomeActive} />
+      <NavTab
+        href="/member/rewards"
+        icon={Gift}
+        label="Quà"
+        active={isRewardsActive}
+      />
 
       <Link href="/member/qr" className="flex flex-col items-center -mt-8">
         <div className="rounded-full bg-gradient-to-tr from-brand-indigo to-brand-violet p-4 shadow-lg shadow-indigo-200 transition-transform active:scale-90">
@@ -48,10 +55,10 @@ export function BottomNavBar() {
       </Link>
 
       <NavTab
-        href="/member/rewards"
-        icon={Gift}
-        label="Quà"
-        active={isRewardsActive}
+        href="/member/vouchers"
+        icon={Ticket}
+        label="Voucher"
+        active={isVouchersActive}
       />
       <NavTab
         href="/member/profile"

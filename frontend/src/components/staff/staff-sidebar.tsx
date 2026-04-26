@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, LayoutDashboard, LogOut, X } from "lucide-react";
+import { CreditCard, LogOut, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect } from "react";
 
@@ -18,7 +18,6 @@ type MenuItem = {
 };
 
 const menu: readonly MenuItem[] = [
-  { href: "/staff", icon: LayoutDashboard, label: "Tổng quan" },
   {
     href: "/staff/pos/transactions/new",
     icon: CreditCard,

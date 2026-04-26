@@ -10,6 +10,7 @@ import type {
   AdminUserUpdateRequest,
   AuditFeedItem,
   CreateManualTransactionRequest,
+  CustomerLookupResponse,
   DashboardResponse,
   LedgerEntryResponse,
   LoginLogListResponse,
@@ -138,6 +139,29 @@ export const transactionsApi = {
       `/partner/transactions/${id}`,
       payload
     ),
+  lookupByPhone: (phone: string) =>
+    api.get<CustomerLookupResponse>(
+      "/partner/transactions/customer-by-phone",
+      { params: { phone } }
+    ),
+  lookupByQr: (qr: string) =>
+    api.get<CustomerLookupResponse>("/partner/transactions/customer-by-qr", {
+      params: { qr },
+    }),
+};
+
+// ==================== Partner Uploads ====================
+export const uploadsApi = {
+  uploadImage: async (kind: "logo" | "banner", file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await api.post<{ url: string }>(
+      "/partner/uploads/image",
+      form,
+      { params: { kind }, headers: { "Content-Type": "multipart/form-data" } }
+    );
+    return res.data;
+  },
 };
 
 // ==================== Partner Tiers ====================

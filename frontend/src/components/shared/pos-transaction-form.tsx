@@ -10,15 +10,22 @@ import {
   Phone,
   QrCode,
   Receipt,
+  RefreshCcw,
   Sparkles,
+  User,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
   useCreateQrTransaction,
   useCreateTransaction,
+  useLookupCustomerByPhone,
+  useLookupCustomerByQr,
 } from "@/lib/hooks/use-partner";
-import type { TransactionWithMemberResponse } from "@/types/partner";
+import type {
+  CustomerLookupResponse,
+  TransactionWithMemberResponse,
+} from "@/types/partner";
 
 type PadKey =
   | "0" | "1" | "2" | "3" | "4"
@@ -62,6 +69,16 @@ export function PosTransactionForm({
   const createTxn = useCreateTransaction();
   const createQrTxn = useCreateQrTransaction();
   const submitting = createTxn.isPending || createQrTxn.isPending;
+
+  // Lookup khách — auto-fire khi đủ điều kiện
+  const phoneDigits = phone.replace(/\D/g, "");
+  const phoneLookupReady = mode === "phone" && phoneDigits.length >= 10;
+  const phoneLookup = useLookupCustomerByPhone(phone.trim(), phoneLookupReady);
+
+  const qrLookupReady = mode === "qr" && qrPayload.trim().length > 0;
+  const qrLookup = useLookupCustomerByQr(qrPayload.trim(), qrLookupReady);
+
+  const phoneLocked = phoneLookupReady && phoneLookup.data?.found === true;
 
   // BarcodeDetector — chrome/edge/android. Feature detect an toàn cho SSR.
   const hasBarcodeDetector =
@@ -141,7 +158,11 @@ export function PosTransactionForm({
     try {
       if (mode === "qr") {
         if (!qrPayload.trim()) {
-          setError("Vui lòng quét hoặc dán nội dung QR khách");
+          setError("Vui lòng quét QR khách trước khi tích điểm");
+          return;
+        }
+        if (qrLookup.isError || qrLookup.data?.found !== true) {
+          setError("QR không hợp lệ hoặc khách chưa là thành viên shop");
           return;
         }
         const res = await createQrTxn.mutateAsync({
@@ -174,15 +195,28 @@ export function PosTransactionForm({
     }
   };
 
-  const handleReset = () => {
+  const handleResetCustomer = () => {
     setPhone("");
     setQrPayload("");
     setScanning(false);
     setScanError(null);
+    setError(null);
+  };
+
+  const handleReset = () => {
+    handleResetCustomer();
     setAmount("");
     setReceiptCode("");
     setResult(null);
+  };
+
+  const handleRescan = () => {
+    setQrPayload("");
+    setScanError(null);
     setError(null);
+    if (hasBarcodeDetector) {
+      setScanning(true);
+    }
   };
 
   const accentBg = accentColor === "emerald" ? "bg-emerald-700" : "bg-brand-indigo";
@@ -192,6 +226,8 @@ export function PosTransactionForm({
       : "from-brand-indigo to-brand-violet shadow-indigo-200";
   const accentLight =
     accentColor === "emerald" ? "bg-emerald-50 text-emerald-700" : "bg-indigo-50 text-brand-indigo";
+
+  const qrErrorDetail = (qrLookup.error as { response?: { data?: { detail?: string } } } | null)?.response?.data?.detail;
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -205,7 +241,12 @@ export function PosTransactionForm({
           <div className="mt-3 flex w-fit items-center gap-1 rounded-full bg-slate-100 p-1">
             <button
               type="button"
-              onClick={() => setMode("phone")}
+              onClick={() => {
+                setMode("phone");
+                setQrPayload("");
+                setScanning(false);
+                setScanError(null);
+              }}
               className={
                 mode === "phone"
                   ? `flex items-center gap-1.5 rounded-full ${accentBg} px-4 py-2 text-[12px] font-bold text-white shadow`
@@ -217,7 +258,10 @@ export function PosTransactionForm({
             </button>
             <button
               type="button"
-              onClick={() => setMode("qr")}
+              onClick={() => {
+                setMode("qr");
+                setPhone("");
+              }}
               className={
                 mode === "qr"
                   ? `flex items-center gap-1.5 rounded-full ${accentBg} px-4 py-2 text-[12px] font-bold text-white shadow`
@@ -230,79 +274,127 @@ export function PosTransactionForm({
           </div>
 
           {mode === "phone" ? (
-            <div className="relative mt-3">
-              <Phone className="pointer-events-none absolute inset-y-0 left-4 my-auto h-5 w-5 text-slate-400" />
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Nhập số điện thoại khách hàng (vd: 0901234501)"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-4 pl-12 pr-3 text-[16px] font-medium outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-              />
+            <div className="mt-3 space-y-3">
+              <div className="relative">
+                <Phone className="pointer-events-none absolute inset-y-0 left-4 my-auto h-5 w-5 text-slate-400" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={phoneLocked}
+                  placeholder="Nhập số điện thoại khách hàng (vd: 0901234501)"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-4 pl-12 pr-3 text-[16px] font-medium outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20 disabled:bg-slate-100 disabled:text-slate-500"
+                />
+              </div>
+
+              {phoneLookupReady && phoneLookup.isFetching && (
+                <p className="flex items-center gap-1.5 text-[12px] text-slate-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Đang tra cứu khách hàng...
+                </p>
+              )}
+
+              {phoneLookup.data && phoneLookup.data.found && (
+                <CustomerInfoCard
+                  data={phoneLookup.data}
+                  onChange={handleResetCustomer}
+                />
+              )}
+
+              {phoneLookupReady &&
+                !phoneLookup.isFetching &&
+                phoneLookup.data?.found === false && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800">
+                    <p className="flex items-center gap-1.5 font-medium">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Khách chưa có tài khoản
+                    </p>
+                    <p className="mt-0.5 text-amber-700">
+                      Hệ thống sẽ tự tạo tài khoản mới khi tích điểm.
+                    </p>
+                  </div>
+                )}
             </div>
           ) : (
             <div className="mt-3 space-y-3">
-              {scanning ? (
-                <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-black">
-                  <video
-                    ref={videoRef}
-                    className="h-56 w-full object-cover"
-                    playsInline
-                    muted
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setScanning(false)}
-                    className="absolute right-2 top-2 rounded-lg bg-white/90 px-3 py-1 text-[11px] font-bold text-slate-700"
-                  >
-                    Dừng
-                  </button>
-                  <div className="pointer-events-none absolute inset-6 rounded-xl border-2 border-white/70" />
+              {qrPayload.trim() === "" ? (
+                <>
+                  {scanning ? (
+                    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-black">
+                      <video
+                        ref={videoRef}
+                        className="h-56 w-full object-cover"
+                        playsInline
+                        muted
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setScanning(false)}
+                        className="absolute right-2 top-2 rounded-lg bg-white/90 px-3 py-1 text-[11px] font-bold text-slate-700"
+                      >
+                        Dừng
+                      </button>
+                      <div className="pointer-events-none absolute inset-6 rounded-xl border-2 border-white/70" />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScanError(null);
+                        if (!hasBarcodeDetector) {
+                          setScanError(
+                            "Trình duyệt không hỗ trợ quét camera — vui lòng dùng trình duyệt Chrome/Edge trên Android hoặc desktop"
+                          );
+                          return;
+                        }
+                        setScanning(true);
+                      }}
+                      className={`flex w-full items-center justify-center gap-2 rounded-xl ${accentBg} py-4 text-[14px] font-bold text-white`}
+                    >
+                      <Camera className="h-5 w-5" />
+                      Quét bằng camera
+                    </button>
+                  )}
+                  {scanError && (
+                    <p className="text-[12px] text-amber-700">{scanError}</p>
+                  )}
+                </>
+              ) : qrLookup.isFetching ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="flex items-center gap-1.5 text-[13px] text-slate-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang xác thực QR...
+                  </p>
                 </div>
+              ) : qrLookup.data?.found ? (
+                <>
+                  <CustomerInfoCard
+                    data={qrLookup.data}
+                    onChange={handleRescan}
+                    changeLabel="Quét QR khác"
+                  />
+                </>
               ) : (
-                <div className="flex gap-2">
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                  <p className="flex items-center gap-1.5 text-[13px] font-bold text-red-700">
+                    <RefreshCcw className="h-4 w-4" />
+                    QR không hợp lệ
+                  </p>
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {qrErrorDetail ?? "Không thể xác thực QR này. Vui lòng thử quét QR khác."}
+                  </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      setScanError(null);
-                      if (!hasBarcodeDetector) {
-                        setScanError(
-                          "Trình duyệt không hỗ trợ quét camera — hãy dán nội dung QR vào ô bên dưới"
-                        );
-                        return;
-                      }
-                      setScanning(true);
-                    }}
-                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl ${accentBg} py-3 text-[13px] font-bold text-white`}
+                    onClick={handleRescan}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 py-2 text-[13px] font-bold text-white hover:bg-red-700"
                   >
                     <Camera className="h-4 w-4" />
-                    Quét bằng camera
+                    Quét QR khác
                   </button>
                 </div>
-              )}
-              <textarea
-                value={qrPayload}
-                onChange={(e) => setQrPayload(e.target.value)}
-                rows={3}
-                placeholder="Hoặc nhập thủ công ID khách hàng (số)"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-[12px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-              />
-              {qrPayload.trim() && !scanning && (
-                <p className="flex items-center gap-1.5 text-[12px] text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Đã có nội dung QR ({qrPayload.trim().length} ký tự) — bấm
-                  "Xác nhận tích điểm"
-                </p>
-              )}
-              {scanError && (
-                <p className="text-[12px] text-amber-700">{scanError}</p>
               )}
             </div>
           )}
-          <p className="mt-2 flex items-center gap-1 text-[11px] text-slate-400">
-            <Sparkles className="h-3 w-3 text-brand-orange" />
-            Khách chưa có tài khoản? Hệ thống tự động tạo mới
-          </p>
         </div>
 
         {/* Số tiền */}
@@ -373,11 +465,15 @@ export function PosTransactionForm({
             <li className="flex items-center justify-between">
               <span className="text-slate-500">Khách</span>
               <span className="font-medium text-slate-800">
-                {mode === "qr"
-                  ? qrPayload.trim()
-                    ? `QR (${qrPayload.trim().length} ký tự)`
-                    : "—"
-                  : phone || "—"}
+                {(() => {
+                  const lookup =
+                    mode === "phone" ? phoneLookup.data : qrLookup.data;
+                  if (lookup?.found) {
+                    return lookup.full_name ?? lookup.phone ?? `User #${lookup.user_id}`;
+                  }
+                  if (mode === "phone") return phone || "—";
+                  return qrPayload ? `QR (${qrPayload.slice(0, 20)}...)` : "—";
+                })()}
               </span>
             </li>
           </ul>
@@ -445,6 +541,61 @@ export function PosTransactionForm({
           </button>
         </div>
       </aside>
+    </div>
+  );
+}
+
+function CustomerInfoCard({
+  data,
+  onChange,
+  changeLabel = "Đổi khách",
+}: {
+  data: CustomerLookupResponse;
+  onChange: () => void;
+  changeLabel?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-emerald-800">
+            <User className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[13px] font-bold text-emerald-900">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {data.full_name || "Khách hàng"}
+            </p>
+            <p className="text-[12px] text-emerald-800">
+              {data.phone ?? "—"}
+            </p>
+            {data.is_member ? (
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                <span className="rounded-full bg-white/70 px-2 py-0.5 font-medium text-emerald-900">
+                  Điểm: {(data.points_balance ?? 0).toLocaleString("vi-VN")}
+                </span>
+                {data.current_tier_name && (
+                  <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-bold text-amber-800">
+                    <Crown className="h-3 w-3" fill="currentColor" />
+                    {data.current_tier_name}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="mt-1 text-[11px] text-amber-700">
+                Khách có tài khoản nhưng chưa là thành viên shop — sẽ tự thêm khi tích điểm.
+              </p>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onChange}
+          className="shrink-0 rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100"
+        >
+          {changeLabel}
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,13 +1,14 @@
 "use client";
 
-import { CheckCircle2, Loader2, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { CheckCircle2, ImagePlus, Loader2, Save, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   useMyPartner,
   useMyPartnerSettings,
   useUpdateSettings,
   useUpdateTenant,
+  useUploadPartnerImage,
 } from "@/lib/hooks/use-partner";
 import {
   useActivePointRule,
@@ -196,28 +197,26 @@ export default function MerchantSettingsPage() {
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
               />
             </Field>
-            <Field label="Logo URL">
-              <input
-                type="url"
-                value={tenantForm.logo_url}
-                onChange={(e) =>
-                  setTenantForm({ ...tenantForm, logo_url: e.target.value })
-                }
-                placeholder="https://..."
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-              />
-            </Field>
-            <Field label="Ảnh bìa (banner) URL">
-              <input
-                type="url"
-                value={tenantForm.banner_url}
-                onChange={(e) =>
-                  setTenantForm({ ...tenantForm, banner_url: e.target.value })
-                }
-                placeholder="https://... (tỉ lệ 16:9, hiển thị ở đầu trang chi tiết)"
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-              />
-            </Field>
+            <ImageUploadField
+              label="Logo"
+              hint="Khuyến nghị: hình vuông 256×256px, ≤2MB (.jpg .png .webp)"
+              kind="logo"
+              previewClass="h-20 w-20 rounded-xl object-cover"
+              value={tenantForm.logo_url}
+              onChange={(url) =>
+                setTenantForm({ ...tenantForm, logo_url: url })
+              }
+            />
+            <ImageUploadField
+              label="Ảnh bìa (banner)"
+              hint="Khuyến nghị: tỉ lệ 3:1, 1200×400px, ≤5MB (.jpg .png .webp)"
+              kind="banner"
+              previewClass="h-24 w-full rounded-xl object-cover"
+              value={tenantForm.banner_url}
+              onChange={(url) =>
+                setTenantForm({ ...tenantForm, banner_url: url })
+              }
+            />
 
             <div className="!mt-5 border-t border-dashed border-slate-200 pt-4">
               <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">
@@ -444,6 +443,96 @@ function Field({
     <div>
       <label className="text-[12px] font-medium text-slate-500">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function ImageUploadField({
+  label,
+  hint,
+  kind,
+  value,
+  onChange,
+  previewClass,
+}: {
+  label: string;
+  hint: string;
+  kind: "logo" | "banner";
+  value: string;
+  onChange: (url: string) => void;
+  previewClass: string;
+}) {
+  const upload = useUploadPartnerImage();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handlePick = async (file: File | null) => {
+    if (!file) return;
+    setError(null);
+    try {
+      const res = await upload.mutateAsync({ kind, file });
+      onChange(res.url);
+    } catch (e) {
+      const msg =
+        (e as { response?: { data?: { detail?: string } } }).response?.data
+          ?.detail ?? "Tải ảnh thất bại";
+      setError(msg);
+    } finally {
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div>
+      <label className="text-[12px] font-medium text-slate-500">{label}</label>
+      <div className="mt-1 flex items-start gap-3">
+        {value ? (
+          <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={value} alt={label} className={previewClass} />
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              aria-label="Xoá ảnh"
+              className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <div
+            className={`flex items-center justify-center bg-slate-100 text-slate-400 ${previewClass}`}
+          >
+            <ImagePlus className="h-6 w-6" />
+          </div>
+        )}
+        <div className="flex-1">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            onChange={(e) => handlePick(e.target.files?.[0] ?? null)}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={upload.isPending}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {upload.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ImagePlus className="h-3.5 w-3.5" />
+            )}
+            {value ? "Đổi ảnh" : "Tải ảnh lên"}
+          </button>
+          <p className="mt-1.5 text-[11px] text-slate-500">{hint}</p>
+          {error && (
+            <p className="mt-1 text-[11px] text-red-600">{error}</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

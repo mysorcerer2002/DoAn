@@ -244,7 +244,7 @@ export default function MerchantMembersPage() {
                     {m.points_balance.toLocaleString("vi-VN")}
                   </td>
                   <td className="px-4 py-3 text-right text-[12px] text-slate-600">
-                    {m.total_points_earned.toLocaleString("vi-VN")}
+                    {m.lifetime_earned.toLocaleString("vi-VN")}
                   </td>
                   <td className="px-4 py-3 text-right text-[12px] text-slate-500">
                     {formatRelative(m.last_activity_at)}
