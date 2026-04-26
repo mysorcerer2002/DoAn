@@ -140,6 +140,41 @@ async def require_owner_in_partner(
     return partner
 
 
+async def require_staff_in_partner(
+    user: User = Depends(get_current_user),
+    partner_id: int = Depends(get_partner_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Dependency: user phải là owner HOẶC active staff của partner.
+
+    Dùng cho POS actions (tích điểm, đổi quà) — staff được phép thực hiện,
+    không cần là owner. Trả về Partner để route reuse nếu cần.
+    """
+    from sqlalchemy import select as sa_select
+
+    from app.models.partner import Partner
+    from app.models.partner_staff import PartnerStaff
+
+    partner = await db.get(Partner, partner_id)
+    if partner is None:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    if partner.owner_user_id == user.id:
+        return partner
+    staff_row = await db.scalar(
+        sa_select(PartnerStaff).where(
+            PartnerStaff.partner_id == partner_id,
+            PartnerStaff.user_id == user.id,
+            PartnerStaff.is_active.is_(True),
+        )
+    )
+    if staff_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền truy cập shop này.",
+        )
+    return partner
+
+
 async def require_customer_in_partner(
     user: User = Depends(get_current_user),
     partner_id: int = Depends(get_partner_id),

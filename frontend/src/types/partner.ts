@@ -96,22 +96,30 @@ export interface RewardUpdateRequest {
 // Staff
 export interface StaffResponse {
   id: number;
-  tenant_id: number;
   user_id: number;
-  role: "owner" | "staff";
-  user_email: string | null;
-  user_full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  full_name: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
-export interface StaffAddRequest {
-  email: string;
-  full_name?: string | null;
-  role: "owner" | "staff";
+export interface StaffListResponse {
+  items: StaffResponse[];
+  total: number;
 }
 
-export interface StaffAddResponse {
-  staff: StaffResponse;
+export interface StaffAddRequest {
+  email?: string;
+  phone?: string;
+  full_name: string;
+  password: string;
+}
+
+export interface StaffResetResponse {
+  email_sent: boolean;
+  temp_password: string;
+  message: string;
 }
 
 // Transactions

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +13,8 @@ from app.core.deps import (
     get_partner_id,
     require_owner_in_partner,
 )
+
+logger = logging.getLogger(__name__)
 from app.core.limiter import limiter
 from app.models.membership import Membership
 from app.models.redemption import Redemption
@@ -35,6 +39,7 @@ from app.schemas.partner import (
     PartnerStaffSummary,
     PartnerUpdateRequest,
 )
+from app.schemas.partner_staff import StaffCreateRequest, StaffPatchRequest
 from app.services.partner_service import PartnerNotFoundError, PartnerService
 from app.services.redemption_service import (
     InsufficientPointsError,
@@ -506,3 +511,92 @@ async def update_my_partner(
     return PartnerResponse.model_validate(updated)
 
 
+# ==================== Staff management ====================
+
+@partner_router.get("/staff")
+async def list_partner_staff(
+    is_active: str = Query(default="all", pattern="^(true|false|all)$"),
+    partner: Partner = Depends(require_owner_in_partner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Owner xem danh sách nhân viên của shop."""
+    from app.services.staff_service import StaffService
+
+    svc = StaffService(db)
+    result = await svc.list_staff(partner_id=partner.id, is_active=is_active)
+    return result
+
+
+@partner_router.post("/staff", status_code=201)
+async def add_partner_staff(
+    body: StaffCreateRequest,
+    partner: Partner = Depends(require_owner_in_partner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Owner thêm nhân viên mới (tạo tài khoản + link vào shop)."""
+    from app.services.staff_service import InvalidStaffError, StaffService
+
+    svc = StaffService(db)
+    try:
+        return await svc.add_staff(partner_id=partner.id, req=body)
+    except InvalidStaffError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+
+
+@partner_router.patch("/staff/{user_id}")
+async def toggle_partner_staff_active(
+    user_id: int,
+    body: StaffPatchRequest,
+    partner: Partner = Depends(require_owner_in_partner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Owner bật/tắt is_active cho nhân viên."""
+    from app.services.staff_service import InvalidStaffError, StaffService
+
+    svc = StaffService(db)
+    try:
+        return await svc.toggle_active(partner_id=partner.id, user_id=user_id, req=body)
+    except InvalidStaffError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@partner_router.post("/staff/{user_id}/reset-password")
+async def reset_partner_staff_password(
+    user_id: int,
+    partner: Partner = Depends(require_owner_in_partner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Owner reset mật khẩu nhân viên. Trả về mật khẩu tạm + gửi email nếu có."""
+    from app.services.email_service import EmailDeliveryError, EmailService
+    from app.services.staff_service import InvalidStaffError, StaffService
+
+    svc = StaffService(db)
+    try:
+        temp_password, user = await svc.reset_staff_password(
+            partner_id=partner.id, user_id=user_id
+        )
+    except InvalidStaffError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    email_sent = False
+    if user.email:
+        try:
+            email_svc = EmailService()
+            await email_svc.send_email(
+                to=user.email,
+                subject="[Loyalty] Mật khẩu mới của bạn",
+                body=(
+                    f"Xin chào {user.full_name or 'bạn'},\n\n"
+                    f"Mật khẩu tạm thời của bạn là: {temp_password}\n\n"
+                    "Vui lòng đăng nhập và đổi mật khẩu ngay."
+                ),
+            )
+            email_sent = True
+        except EmailDeliveryError:
+            logger.warning("Gửi email reset mật khẩu thất bại cho user %d", user_id)
+
+    return {
+        "email_sent": email_sent,
+        "temp_password": temp_password,
+        "message": "Đặt lại mật khẩu thành công." + (" Email đã được gửi." if email_sent else ""),
+    }

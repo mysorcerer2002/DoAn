@@ -20,7 +20,6 @@ import type {
   PartnerUpdateRequest,
   RewardCreateRequest,
   RewardUpdateRequest,
-  StaffAddRequest,
 } from "@/types/partner";
 
 function usePartnerId(): number | null {
@@ -131,11 +130,11 @@ export function useDeleteReward() {
 }
 
 // ==================== Staff ====================
-export function useStaff() {
+export function useStaff(filter?: { is_active?: "true" | "false" | "all" }) {
   const partnerId = usePartnerId();
   return useQuery({
-    queryKey: ["partner", "staff", partnerId],
-    queryFn: async () => (await staffApi.list()).data,
+    queryKey: ["partner", "staff", partnerId, filter?.is_active],
+    queryFn: () => staffApi.list(filter),
     enabled: partnerId != null,
   });
 }
@@ -143,16 +142,33 @@ export function useStaff() {
 export function useAddStaff() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: StaffAddRequest) => staffApi.add(data),
+    mutationFn: (data: {
+      email?: string;
+      phone?: string;
+      full_name: string;
+      password: string;
+    }) => staffApi.add(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "staff"] }),
   });
 }
 
-export function useRemoveStaff() {
+export function useToggleStaffActive() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => staffApi.remove(id),
+    mutationFn: ({
+      user_id,
+      is_active,
+    }: {
+      user_id: number;
+      is_active: boolean;
+    }) => staffApi.toggleActive(user_id, is_active),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "staff"] }),
+  });
+}
+
+export function useResetStaffPassword() {
+  return useMutation({
+    mutationFn: (user_id: number) => staffApi.resetPassword(user_id),
   });
 }
 

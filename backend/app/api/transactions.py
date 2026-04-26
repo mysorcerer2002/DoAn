@@ -8,6 +8,7 @@ from app.core.db import get_db
 from app.core.deps import (
     get_partner_id,
     require_owner_in_partner,
+    require_staff_in_partner,
 )
 from app.core.limiter import limiter
 from app.core.phone import InvalidPhoneError
@@ -39,7 +40,7 @@ async def create_manual_transaction(
     request: Request,
     body: CreateManualTransactionRequest,
     partner_id: int = Depends(get_partner_id),
-    _=Depends(require_owner_in_partner),
+    _=Depends(require_staff_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> TransactionWithMemberResponse:
     service = TransactionService(db)
@@ -66,7 +67,7 @@ async def create_qr_transaction(
     request: Request,
     body: CreateQrCustomerTransactionRequest,
     partner_id: int = Depends(get_partner_id),
-    _=Depends(require_owner_in_partner),
+    _=Depends(require_staff_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> TransactionWithMemberResponse:
     """Owner quét QR khách (raw user_id) → tích điểm.

@@ -11,6 +11,7 @@ from app.core.deps import (
     get_current_user,
     get_partner_id,
     require_owner_in_partner,
+    require_staff_in_partner,
 )
 from app.core.limiter import limiter
 from app.models.membership import Membership
@@ -33,7 +34,7 @@ async def redeem_reward_for_member(
     membership_id: int,
     body: RedeemRequest,
     partner_id: int = Depends(get_partner_id),
-    _=Depends(require_owner_in_partner),
+    _=Depends(require_staff_in_partner),
     db: AsyncSession = Depends(get_db),
 ) -> RedemptionResponse:
     """Owner đổi quà thay cho member."""
@@ -68,7 +69,7 @@ async def redeem_reward_for_member(
 async def use_redemption(
     body: UseRedemptionRequest,
     partner_id: int = Depends(get_partner_id),
-    _=Depends(require_owner_in_partner),
+    _=Depends(require_staff_in_partner),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RedemptionResponse:

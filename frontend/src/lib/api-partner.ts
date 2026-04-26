@@ -26,8 +26,8 @@ import type {
   RewardCreateRequest,
   RewardResponse,
   RewardUpdateRequest,
-  StaffAddRequest,
-  StaffAddResponse,
+  StaffListResponse,
+  StaffResetResponse,
   StaffResponse,
   TierResponse,
   TierUpdateRequest,
@@ -83,13 +83,31 @@ export const rewardsApi = {
 
 // ==================== Partner Staff ====================
 export const staffApi = {
-  list: (params?: { limit?: number; offset?: number }) =>
-    api.get<StaffResponse[]>("/partner/staff", { params }),
-  add: (data: StaffAddRequest) =>
-    api.post<StaffAddResponse>("/partner/staff", data),
-  updateRole: (id: number, role: "owner" | "staff") =>
-    api.patch<StaffResponse>(`/partner/staff/${id}`, { role }),
-  remove: (id: number) => api.delete(`/partner/staff/${id}`),
+  list: async (params?: { is_active?: "true" | "false" | "all" }) => {
+    const res = await api.get<StaffListResponse>("/partner/staff", { params });
+    return res.data;
+  },
+  add: async (body: {
+    email?: string;
+    phone?: string;
+    full_name: string;
+    password: string;
+  }) => {
+    const res = await api.post<StaffResponse>("/partner/staff", body);
+    return res.data;
+  },
+  toggleActive: async (user_id: number, is_active: boolean) => {
+    const res = await api.patch<StaffResponse>(`/partner/staff/${user_id}`, {
+      is_active,
+    });
+    return res.data;
+  },
+  resetPassword: async (user_id: number) => {
+    const res = await api.post<StaffResetResponse>(
+      `/partner/staff/${user_id}/reset-password`
+    );
+    return res.data;
+  },
 };
 
 // ==================== Partner Transactions ====================

@@ -1,3 +1,5 @@
+import secrets
+import string
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
@@ -16,6 +18,12 @@ class TokenPayload:
     type: str
     exp: int
     iat: int
+
+
+def gen_temp_password(length: int = 12) -> str:
+    """Sinh mật khẩu ngẫu nhiên dễ đọc (chữ + số, không ký tự đặc biệt)."""
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def hash_password(password: str) -> str:
