@@ -1,3 +1,5 @@
+from .login_log import LoginLog
+from .partner_staff import PartnerStaff
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, LedgerRefType, PointLedger
 from app.models.point_rule import PointRule
@@ -17,4 +19,5 @@ __all__ = [
     "Reward", "RewardOfferType",
     "Redemption", "RedemptionStatus",
     "VoucherTemplate", "VoucherTemplateCategory",
+    "LoginLog", "PartnerStaff",
 ]

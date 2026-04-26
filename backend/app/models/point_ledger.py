@@ -34,6 +34,12 @@ class PointLedger(Base, TimestampMixin):
         CheckConstraint("balance_after >= 0", name="balance_nonneg"),
         Index("ix_point_ledger_user_created", "user_id", "created_at"),
         Index("ix_point_ledger_partner_created", "partner_id", "created_at"),
+        Index(
+            "ix_point_ledger_actor_created",
+            "actor_user_id",
+            "created_at",
+            postgresql_where="actor_user_id IS NOT NULL",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -53,3 +59,6 @@ class PointLedger(Base, TimestampMixin):
     ref_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
