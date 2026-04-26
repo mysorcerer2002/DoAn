@@ -2,7 +2,6 @@
 
 import { ArrowLeft, Loader2, Store } from "lucide-react";
 import Link from "next/link";
-import { use } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
 import { useMyRedemption } from "@/lib/hooks/useRedemptions";
@@ -34,10 +33,9 @@ function formatDate(iso: string) {
 export default function VoucherDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = use(params);
-  const redemptionId = Number(id);
+  const redemptionId = Number(params.id);
   const { data, isLoading, isError } = useMyRedemption(redemptionId);
 
   return (
