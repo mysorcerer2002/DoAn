@@ -12,14 +12,17 @@ import type {
   CreateManualTransactionRequest,
   DashboardResponse,
   LedgerEntryResponse,
+  LoginLogListResponse,
   MemberResponse,
   PartnerDetailResponse,
   PartnerResponse,
   PartnerSettings,
   PartnerUpdateRequest,
   PlatformStatsResponse,
+  PointAdjustmentListResponse,
   PointRuleResponse,
   PointRuleUpdateRequest,
+  PointsSummaryResponse,
   RewardCreateRequest,
   RewardResponse,
   RewardUpdateRequest,
@@ -169,6 +172,28 @@ export const adminApi = {
   auditFeed: (params?: { limit?: number }) =>
     api.get<AuditFeedItem[]>("/admin/audit-feed", { params }),
   settings: () => api.get<AdminSettingsResponse>("/admin/settings"),
+  loginLogs: (params?: {
+    identifier?: string;
+    success?: boolean;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  }) => api.get<LoginLogListResponse>("/admin/login-logs", { params }),
+  pointAdjustments: (params?: {
+    user_id?: number;
+    partner_id?: number;
+    actor_user_id?: number;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  }) =>
+    api.get<PointAdjustmentListResponse>("/admin/point-adjustments", {
+      params,
+    }),
+  pointsSummary: () =>
+    api.get<PointsSummaryResponse>("/admin/points-summary"),
 };
 
 // ==================== Customer Extended ====================

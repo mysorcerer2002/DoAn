@@ -135,3 +135,4 @@ class PlatformStatsResponse(BaseModel):
     total_tenants: int
     total_users: int
     total_transactions: int
+    total_points_circulating: int = 0

@@ -266,6 +266,61 @@ export interface PlatformStatsResponse {
   total_tenants: number;
   total_users: number;
   total_transactions: number;
+  total_points_circulating: number;
+}
+
+export interface LoginLogItem {
+  id: number;
+  user_id: number | null;
+  identifier: string;
+  ip: string;
+  user_agent: string | null;
+  success: boolean;
+  failure_reason: string | null;
+  created_at: string;
+  user_email: string | null;
+}
+
+export interface LoginLogListResponse {
+  items: LoginLogItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface PointAdjustmentItem {
+  id: number;
+  user_id: number;
+  user_email: string | null;
+  partner_id: number;
+  partner_name: string | null;
+  actor_user_id: number | null;
+  actor_email: string | null;
+  delta: number;
+  balance_after: number;
+  description: string | null;
+  created_at: string;
+}
+
+export interface PointAdjustmentListResponse {
+  items: PointAdjustmentItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface PartnerEarnedItem {
+  partner_id: number;
+  name: string;
+  total_earned: number;
+}
+
+export interface PointsSummaryResponse {
+  total_circulating: number;
+  total_earned: number;
+  total_redeemed: number;
+  total_adjusted: number;
+  by_partner: PartnerEarnedItem[];
 }
 
 export interface PartnerDetailResponse {

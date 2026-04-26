@@ -6,20 +6,29 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import require_super_admin
 from app.core.security import hash_password
+from app.models.login_log import LoginLog
 from app.models.membership import Membership
+from app.models.point_ledger import LedgerReason, PointLedger
 from app.models.redemption import Redemption
 from app.models.reward import Reward
 from app.models.partner import Partner, PartnerStatus
 from app.models.tier import Tier
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.schemas.admin import (
+    PartnerEarnedItem,
+    PointAdjustmentListResponse,
+    PointAdjustmentResponse,
+    PointsSummaryResponse,
+)
 from app.schemas.analytics import (
     AdminPartnerListRow,
     AdminPartnerMemberRow,
@@ -28,6 +37,7 @@ from app.schemas.analytics import (
     PartnerDetailResponse,
 )
 from app.schemas.ledger import ReconcileResponse
+from app.schemas.login_log import LoginLogListResponse, LoginLogResponse
 from app.schemas.partner import PartnerApprovalRequest, PartnerResponse
 from app.core.exceptions import EmailDeliveryError
 from app.services.email_service import EmailService
@@ -729,8 +739,199 @@ async def get_platform_stats(
     txn_count = await db.scalar(
         select(func.count()).select_from(Transaction)
     )
+    total_points = await db.scalar(
+        select(func.coalesce(func.sum(User.points_balance), 0)).where(
+            User.is_active.is_(True)
+        )
+    )
     return PlatformStatsResponse(
         total_tenants=int(tenants_count or 0),
         total_users=int(users_count or 0),
         total_transactions=int(txn_count or 0),
+        total_points_circulating=int(total_points or 0),
+    )
+
+
+@router.get("/login-logs", response_model=LoginLogListResponse)
+async def list_login_logs(
+    identifier: str | None = None,
+    success: bool | None = None,
+    from_date: datetime | None = Query(default=None, alias="from"),
+    to_date: datetime | None = Query(default=None, alias="to"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+) -> LoginLogListResponse:
+    """Super Admin xem nhật ký đăng nhập toàn platform."""
+    base = select(LoginLog)
+    if identifier:
+        base = base.where(LoginLog.identifier.ilike(f"%{identifier}%"))
+    if success is not None:
+        base = base.where(LoginLog.success == success)
+    if from_date:
+        base = base.where(LoginLog.created_at >= from_date)
+    if to_date:
+        base = base.where(LoginLog.created_at <= to_date)
+
+    total = int(
+        await db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    )
+    stmt = base.order_by(LoginLog.created_at.desc()).limit(limit).offset(offset)
+    logs = (await db.scalars(stmt)).all()
+
+    # Batch-load user emails để tránh N+1
+    user_ids = {log.user_id for log in logs if log.user_id is not None}
+    email_map: dict[int, str | None] = {}
+    if user_ids:
+        rows = (
+            await db.execute(
+                select(User.id, User.email).where(User.id.in_(user_ids))
+            )
+        ).all()
+        email_map = {r.id: r.email for r in rows}
+
+    items = []
+    for log in logs:
+        item = LoginLogResponse.model_validate(log)
+        item.user_email = email_map.get(log.user_id) if log.user_id else None
+        items.append(item)
+
+    return LoginLogListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.get("/point-adjustments", response_model=PointAdjustmentListResponse)
+async def list_point_adjustments(
+    user_id: int | None = None,
+    partner_id: int | None = None,
+    actor_user_id: int | None = None,
+    from_date: datetime | None = Query(default=None, alias="from"),
+    to_date: datetime | None = Query(default=None, alias="to"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+) -> PointAdjustmentListResponse:
+    """Super Admin xem danh sách điều chỉnh điểm thủ công (reason=adjust)."""
+    SubjectUser = aliased(User, name="subject_user")
+    ActorUser = aliased(User, name="actor_user")
+
+    base = (
+        select(PointLedger, SubjectUser.email, ActorUser.email, Partner.name)
+        .join(SubjectUser, SubjectUser.id == PointLedger.user_id)
+        .join(Partner, Partner.id == PointLedger.partner_id)
+        .outerjoin(ActorUser, ActorUser.id == PointLedger.actor_user_id)
+        .where(PointLedger.reason == LedgerReason.ADJUST)
+    )
+    if user_id is not None:
+        base = base.where(PointLedger.user_id == user_id)
+    if partner_id is not None:
+        base = base.where(PointLedger.partner_id == partner_id)
+    if actor_user_id is not None:
+        base = base.where(PointLedger.actor_user_id == actor_user_id)
+    if from_date:
+        base = base.where(PointLedger.created_at >= from_date)
+    if to_date:
+        base = base.where(PointLedger.created_at <= to_date)
+
+    total = int(
+        await db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    )
+    stmt = (
+        base.order_by(PointLedger.created_at.desc()).limit(limit).offset(offset)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    items = [
+        PointAdjustmentResponse(
+            id=ledger.id,
+            user_id=ledger.user_id,
+            user_email=subject_email,
+            partner_id=ledger.partner_id,
+            partner_name=partner_name,
+            actor_user_id=ledger.actor_user_id,
+            actor_email=actor_email,
+            delta=ledger.delta,
+            balance_after=ledger.balance_after,
+            description=ledger.description,
+            created_at=ledger.created_at,
+        )
+        for ledger, subject_email, actor_email, partner_name in rows
+    ]
+    return PointAdjustmentListResponse(
+        items=items, total=total, limit=limit, offset=offset
+    )
+
+
+@router.get("/points-summary", response_model=PointsSummaryResponse)
+async def get_points_summary(
+    _admin: User = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> PointsSummaryResponse:
+    """Super Admin xem tổng quan điểm toàn hệ thống."""
+    # Tổng điểm đang lưu hành (ví active users)
+    total_circulating = int(
+        await db.scalar(
+            select(func.coalesce(func.sum(User.points_balance), 0)).where(
+                User.is_active.is_(True)
+            )
+        )
+        or 0
+    )
+
+    # Tổng earn / redeem / adjust từ ledger
+    ledger_stats = (
+        await db.execute(
+            select(
+                PointLedger.reason,
+                func.coalesce(func.sum(PointLedger.delta), 0).label("total"),
+            ).group_by(PointLedger.reason)
+        )
+    ).all()
+
+    reason_totals: dict[str, int] = {}
+    for reason, total in ledger_stats:
+        reason_str = reason.value if hasattr(reason, "value") else str(reason)
+        reason_totals[reason_str] = int(total)
+
+    total_earned = reason_totals.get("earn", 0)
+    # redeem deltas are negative — report as positive
+    total_redeemed = abs(reason_totals.get("redeem", 0))
+    total_adjusted = reason_totals.get("adjust", 0)
+
+    # By partner: tổng điểm earn từng partner (LEFT JOIN so partner không có earn cũng xuất hiện)
+    by_partner_rows = (
+        await db.execute(
+            select(
+                Partner.id,
+                Partner.name,
+                func.coalesce(func.sum(PointLedger.delta), 0).label("total_earned"),
+            )
+            .outerjoin(
+                PointLedger,
+                and_(
+                    PointLedger.partner_id == Partner.id,
+                    PointLedger.reason == LedgerReason.EARN,
+                ),
+            )
+            .group_by(Partner.id, Partner.name)
+            .order_by(func.coalesce(func.sum(PointLedger.delta), 0).desc())
+        )
+    ).all()
+
+    by_partner = [
+        PartnerEarnedItem(
+            partner_id=pid,
+            name=name,
+            total_earned=int(total_e),
+        )
+        for pid, name, total_e in by_partner_rows
+    ]
+
+    return PointsSummaryResponse(
+        total_circulating=total_circulating,
+        total_earned=total_earned,
+        total_redeemed=total_redeemed,
+        total_adjusted=total_adjusted,
+        by_partner=by_partner,
     )

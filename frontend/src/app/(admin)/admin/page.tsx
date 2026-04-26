@@ -3,6 +3,7 @@
 import {
   Activity,
   ArrowRight,
+  Coins,
   CreditCard,
   Loader2,
   Shield,
@@ -80,7 +81,7 @@ export default function AdminDashboardPage() {
       </section>
 
       {/* Secondary metrics + growth bars */}
-      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SecondaryStat
           icon={Store}
           label="Đối tác đang hoạt động"
@@ -101,6 +102,13 @@ export default function AdminDashboardPage() {
           value={data.total_transactions}
           tone="orange"
           sub="Lifetime count"
+        />
+        <SecondaryStat
+          icon={Coins}
+          label="Tổng điểm lưu hành"
+          value={data.total_points_circulating}
+          tone="green"
+          sub="Điểm trong ví active users"
         />
       </section>
 
@@ -133,6 +141,20 @@ export default function AdminDashboardPage() {
           iconBg="bg-green-50 text-green-600"
           title="Nhật ký hoạt động"
           desc="Timeline sự kiện gần đây trên platform"
+        />
+        <ActionCard
+          href="/admin/logs"
+          icon={CreditCard}
+          iconBg="bg-slate-50 text-slate-600"
+          title="Nhật ký đăng nhập"
+          desc="Xem log đăng nhập và điều chỉnh điểm"
+        />
+        <ActionCard
+          href="/admin/system-points"
+          icon={Coins}
+          iconBg="bg-indigo-50 text-brand-indigo"
+          title="Quản lý điểm hệ thống"
+          desc="Tổng quan điểm lưu hành toàn nền tảng"
         />
       </section>
     </main>
@@ -171,18 +193,20 @@ function SecondaryStat({
   icon: typeof Store;
   label: string;
   value: number;
-  tone: "indigo" | "violet" | "orange";
+  tone: "indigo" | "violet" | "orange" | "green";
   sub: string;
 }) {
   const toneClass: Record<string, string> = {
     indigo: "bg-indigo-50 text-brand-indigo",
     violet: "bg-violet-50 text-brand-violet",
     orange: "bg-orange-50 text-brand-orange",
+    green: "bg-green-50 text-green-600",
   };
   const barClass: Record<string, string> = {
     indigo: "bg-brand-indigo",
     violet: "bg-brand-violet",
     orange: "bg-brand-orange",
+    green: "bg-green-500",
   };
   // Visual only — width based on value (log scale)
   const width = Math.min(100, Math.max(5, Math.log10(value + 1) * 30));
