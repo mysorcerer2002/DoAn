@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -37,7 +37,7 @@ class PointLedger(Base, TimestampMixin):
         Index(
             "ix_point_ledger_actor_created",
             "actor_user_id",
-            "created_at",
+            text("created_at DESC"),
             postgresql_where="actor_user_id IS NOT NULL",
         ),
     )

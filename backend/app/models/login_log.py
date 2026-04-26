@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -14,10 +14,10 @@ class LoginLog(Base):
         Index(
             "ix_login_log_failed_recent",
             "identifier",
-            "created_at",
+            text("created_at DESC"),
             postgresql_where="success = false",
         ),
-        Index("ix_login_log_user_created", "user_id", "created_at"),
+        Index("ix_login_log_user_created", "user_id", text("created_at DESC")),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

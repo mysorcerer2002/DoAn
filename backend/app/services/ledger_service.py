@@ -21,6 +21,7 @@ class LedgerService:
         ref_id: int | None,
         new_balance: int,
         description: str | None = None,
+        actor_user_id: int | None = None,
     ) -> PointLedger:
         entry = PointLedger(
             partner_id=partner_id,
@@ -31,6 +32,7 @@ class LedgerService:
             ref_id=ref_id,
             balance_after=new_balance,
             description=description,
+            actor_user_id=actor_user_id,
         )
         self.db.add(entry)
         await self.db.flush()

@@ -131,6 +131,11 @@ class StaffService:
             await db.flush()
         except IntegrityError as e:
             await db.rollback()
+            msg = str(e.orig) if hasattr(e, "orig") else str(e)
+            if "uq_partner_staff_user" in msg:
+                raise InvalidStaffError(
+                    "Tài khoản này đã là nhân viên của cửa hàng khác."
+                ) from e
             raise InvalidStaffError(
                 "Vi phạm ràng buộc dữ liệu khi thêm nhân viên."
             ) from e

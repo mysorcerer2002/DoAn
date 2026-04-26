@@ -4,9 +4,14 @@ Các test này cần DB thật (integration-style) nên đánh dấu
 pytest.mark.integration. Trên Windows không có docker.sock,
 testcontainers sẽ fail — skip gracefully.
 """
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from app.core.security import gen_temp_password
+from app.models.user import User
+from app.schemas.partner_staff import StaffCreateRequest
+from app.services.staff_service import InvalidStaffError, StaffService
 
 
 # ─── gen_temp_password (pure function, không cần DB) ────────────────────────
@@ -33,6 +38,40 @@ def test_gen_temp_password_randomness():
     """Hai lần gọi không được ra cùng kết quả (xác suất va chạm ~0)."""
     pwds = {gen_temp_password() for _ in range(20)}
     assert len(pwds) > 1
+
+
+# ─── add_staff guards (mocked — không cần DB thật) ─────────────────────────
+
+
+async def test_add_staff_rejects_super_admin_existing_user():
+    """Guard system_role: existing user là super_admin → InvalidStaffError."""
+    db = MagicMock()
+    super_admin = User(
+        id=99, email="x@y.com", full_name="Xx", system_role="super_admin"
+    )
+    db.scalar = AsyncMock(side_effect=[super_admin])
+    svc = StaffService(db)
+    req = StaffCreateRequest(
+        email="x@y.com", full_name="Xx", password="abc12345"
+    )
+    with pytest.raises(InvalidStaffError, match="vai trò hệ thống đặc biệt"):
+        await svc.add_staff(partner_id=1, req=req)
+
+
+async def test_add_staff_rejects_owner_of_other_partner():
+    """Guard owner: user đang là owner partner khác → InvalidStaffError."""
+    db = MagicMock()
+    regular = User(
+        id=42, email="o@y.com", full_name="Oo", system_role="regular"
+    )
+    # Lần scalar 1 → tìm user; lần 2 → check Partner.owner_user_id (trả về id partner)
+    db.scalar = AsyncMock(side_effect=[regular, 7])
+    svc = StaffService(db)
+    req = StaffCreateRequest(
+        email="o@y.com", full_name="Oo", password="abc12345"
+    )
+    with pytest.raises(InvalidStaffError, match="chủ cửa hàng"):
+        await svc.add_staff(partner_id=1, req=req)
 
 
 # ─── StaffService (integration — bỏ qua nếu DB không khả dụng) ─────────────
