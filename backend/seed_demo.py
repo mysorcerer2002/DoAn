@@ -27,6 +27,7 @@ from app.models.point_rule import PointRule
 from app.models.redemption import Redemption, RedemptionStatus
 from app.models.reward import Reward, RewardOfferType
 from app.models.partner import Partner, PartnerCategory, PartnerStatus
+from app.models.partner_staff import PartnerStaff
 from app.models.tier import Tier
 from app.models.transaction import Transaction, TransactionMethod
 from app.models.user import User
@@ -269,6 +270,27 @@ async def _seed_tenant(
     }
 
 
+async def _seed_staff(
+    db, *, partner: Partner, staff_defs: list[tuple[str, str, str]]
+) -> None:
+    """Tạo staff cho partner. staff_defs = [(email, full_name, phone)]."""
+    for email, full_name, phone in staff_defs:
+        user = await _get_or_create_user(
+            db, email=email, password="staff1234", full_name=full_name, phone=phone,
+        )
+        existing = await db.scalar(
+            select(PartnerStaff).where(PartnerStaff.user_id == user.id)
+        )
+        if existing is None:
+            db.add(PartnerStaff(partner_id=partner.id, user_id=user.id, is_active=True))
+            print(f"  ✓ Staff {email} → {partner.name}")
+        elif not existing.is_active or existing.partner_id != partner.id:
+            existing.partner_id = partner.id
+            existing.is_active = True
+            print(f"  ↻ Reactivate staff {email} → {partner.name}")
+    await db.flush()
+
+
 async def _seed_transactions_and_ledger(
     db, *, partner: Partner, owner: User, memberships: list[Membership], count: int = 30
 ) -> None:
@@ -437,6 +459,16 @@ async def main() -> None:
             ],
         )
 
+        print("\n  -- Staff --")
+        await _seed_staff(
+            db,
+            partner=ctx1["partner"],
+            staff_defs=[
+                ("staff1@cafe.vn", "Nguyễn Văn An", "0913000001"),
+                ("staff2@cafe.vn", "Trần Thị Bình", "0913000002"),
+            ],
+        )
+
         print("\n  -- Transactions, ledger, redemptions --")
         await _seed_transactions_and_ledger(
             db, partner=ctx1["partner"], owner=owner1, memberships=ctx1["memberships"], count=30
@@ -482,6 +514,16 @@ async def main() -> None:
             ],
         )
 
+        print("\n  -- Staff --")
+        await _seed_staff(
+            db,
+            partner=ctx2["partner"],
+            staff_defs=[
+                ("staff1@lala.vn", "Phạm Quốc Cường", "0914000001"),
+                ("staff2@lala.vn", "Lê Thị Dung", "0914000002"),
+            ],
+        )
+
         print("\n  -- Transactions, ledger, redemptions --")
         await _seed_transactions_and_ledger(
             db, partner=ctx2["partner"], owner=owner2, memberships=ctx2["memberships"], count=35
@@ -499,6 +541,9 @@ async def main() -> None:
         print("\n  Merchant Owners:")
         print("   - owner@cafe.vn    (Cafe Cộng)            / owner1234")
         print("   - owner@lala.vn    (Trà Sữa Lala)         / owner1234")
+        print("\n  Staff (mật khẩu: staff1234):")
+        print("   - staff1@cafe.vn / staff2@cafe.vn   → Cafe Cộng")
+        print("   - staff1@lala.vn / staff2@lala.vn   → Trà Sữa Lala")
         print("\n  Customers Cafe Cộng (đối tác 1):")
         print("   - khach1@gmail.com  → Hạng Đồng  (120 điểm)")
         print("   - khach2@gmail.com  → Hạng Bạc   (780 điểm)")
