@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -13,13 +13,20 @@ from app.core.deps import (
 )
 from app.core.limiter import limiter
 from app.models.membership import Membership
+from app.models.redemption import Redemption
 from app.models.point_ledger import PointLedger
 from app.models.partner import Partner, PartnerStatus
 from app.models.reward import Reward
 from app.models.user import User
 from app.schemas.ledger import LedgerEntryResponse
 from app.schemas.member import MemberResponse
-from app.schemas.redemption import RedeemRequest, RedemptionResponse
+from app.schemas.redemption import (
+    MyRedemptionDetailResponse,
+    MyRedemptionListItem,
+    MyRedemptionListResponse,
+    RedeemRequest,
+    RedemptionResponse,
+)
 from app.schemas.partner import (
     MyPartnerSummary,
     PartnerCreateRequest,
@@ -284,6 +291,87 @@ async def list_partner_rewards_for_member(
         }
         for r in rewards
     ]
+
+
+@users_router.get("/me/redemptions", response_model=MyRedemptionListResponse)
+async def list_my_redemptions(
+    status: str | None = Query(default=None, pattern="^(pending|used|expired)$"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> MyRedemptionListResponse:
+    """List quà đã đổi của current user (toàn bộ shop)."""
+    stmt = (
+        select(Redemption, Partner.name.label("partner_name"), Reward.name.label("reward_name"), Reward.image_url.label("reward_image_url"))
+        .join(Partner, Partner.id == Redemption.partner_id)
+        .join(Reward, Reward.id == Redemption.reward_id)
+        .where(Redemption.user_id == user.id)
+    )
+    if status:
+        stmt = stmt.where(Redemption.status == status)
+
+    total_stmt = select(func.count()).select_from(Redemption).where(Redemption.user_id == user.id)
+    if status:
+        total_stmt = total_stmt.where(Redemption.status == status)
+    total = await db.scalar(total_stmt) or 0
+
+    stmt = stmt.order_by(Redemption.redeemed_at.desc()).limit(limit).offset(offset)
+    rows = (await db.execute(stmt)).all()
+    items = [
+        MyRedemptionListItem(
+            id=r.Redemption.id,
+            redemption_code=r.Redemption.redemption_code,
+            points_spent=r.Redemption.points_spent,
+            status=r.Redemption.status,
+            redeemed_at=r.Redemption.redeemed_at,
+            expires_at=r.Redemption.expires_at,
+            used_at=r.Redemption.used_at,
+            partner_id=r.Redemption.partner_id,
+            partner_name=r.partner_name,
+            reward_id=r.Redemption.reward_id,
+            reward_name=r.reward_name,
+            reward_image_url=r.reward_image_url,
+        )
+        for r in rows
+    ]
+    return MyRedemptionListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@users_router.get("/me/redemptions/{redemption_id}", response_model=MyRedemptionDetailResponse)
+async def get_my_redemption(
+    redemption_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> MyRedemptionDetailResponse:
+    """Chi tiết 1 quà đã đổi (kèm QR code)."""
+    stmt = (
+        select(Redemption, Partner, Reward)
+        .join(Partner, Partner.id == Redemption.partner_id)
+        .join(Reward, Reward.id == Redemption.reward_id)
+        .where(Redemption.id == redemption_id, Redemption.user_id == user.id)
+    )
+    row = (await db.execute(stmt)).one_or_none()
+    if row is None:
+        raise HTTPException(404, "Không tìm thấy quà đã đổi.")
+    r, p, w = row
+    return MyRedemptionDetailResponse(
+        id=r.id,
+        redemption_code=r.redemption_code,
+        points_spent=r.points_spent,
+        status=r.status,
+        redeemed_at=r.redeemed_at,
+        expires_at=r.expires_at,
+        used_at=r.used_at,
+        partner_id=p.id,
+        partner_name=p.name,
+        reward_id=w.id,
+        reward_name=w.name,
+        reward_image_url=w.image_url,
+        snapshot_image_url=r.snapshot_image_url,
+        reward_description=w.description,
+        reward_terms=w.terms,
+    )
 
 
 @users_router.post(

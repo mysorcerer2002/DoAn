@@ -18,6 +18,10 @@ export function BottomNavBar() {
     return null;
   }
 
+  if (/^\/member\/vouchers\/[^/]+/.test(pathname)) {
+    return null;
+  }
+
   const isHomeActive =
     pathname === "/member" ||
     HOME_SUB_ROUTES.some((route) => pathname.startsWith(route));
