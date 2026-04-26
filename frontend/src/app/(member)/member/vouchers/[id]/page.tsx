@@ -128,6 +128,31 @@ export default function VoucherDetailPage({
               )}
             </section>
 
+            {/* How to use */}
+            <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <h3 className="mb-3 text-[12px] font-bold uppercase tracking-wide text-slate-400">
+                Hướng dẫn sử dụng
+              </h3>
+              <ol className="space-y-2 text-[13px] leading-relaxed text-slate-600">
+                <li className="flex gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-bold text-brand-indigo">1</span>
+                  <span>Đến quầy của <b>{data.partner_name}</b> trước khi voucher hết hạn.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-bold text-brand-indigo">2</span>
+                  <span>Mở trang này và đưa mã QR cho nhân viên quét.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-bold text-brand-indigo">3</span>
+                  <span>Nếu không quét được, đọc mã <b className="font-mono">{data.redemption_code}</b> để nhân viên nhập tay.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-bold text-brand-indigo">4</span>
+                  <span>Mỗi mã chỉ dùng được một lần. Voucher hết hạn sẽ không hoàn lại điểm.</span>
+                </li>
+              </ol>
+            </section>
+
             {/* Terms */}
             {data.reward_terms && (
               <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
