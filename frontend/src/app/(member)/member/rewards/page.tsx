@@ -195,8 +195,8 @@ export default function RewardsPage() {
               onClick={() => setPartnerFilter(null)}
               className={
                 partnerFilter === null
-                  ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
-                  : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
+                  ? "inline-flex min-h-11 shrink-0 items-center rounded-full bg-brand-indigo px-4 text-[12px] font-bold text-white"
+                  : "inline-flex min-h-11 shrink-0 items-center rounded-full border border-brand-indigo/30 bg-white px-4 text-[12px] font-medium text-brand-indigo"
               }
             >
               Tất cả ({rewards?.length ?? 0})
@@ -212,8 +212,8 @@ export default function RewardsPage() {
                   onClick={() => setPartnerFilter(t.id)}
                   className={
                     partnerFilter === t.id
-                      ? "shrink-0 rounded-full bg-brand-indigo px-4 py-1.5 text-[12px] font-bold text-white"
-                      : "shrink-0 rounded-full border border-brand-indigo/30 bg-white px-4 py-1.5 text-[12px] font-medium text-brand-indigo"
+                      ? "inline-flex min-h-11 shrink-0 items-center rounded-full bg-brand-indigo px-4 text-[12px] font-bold text-white"
+                      : "inline-flex min-h-11 shrink-0 items-center rounded-full border border-brand-indigo/30 bg-white px-4 text-[12px] font-medium text-brand-indigo"
                   }
                 >
                   {t.name} ({count})

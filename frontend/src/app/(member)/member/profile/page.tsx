@@ -183,7 +183,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => setEditOpen(true)}
-              className="flex items-center gap-1 text-[12px] font-bold text-brand-indigo hover:underline"
+              className="-mr-2 flex min-h-[44px] items-center gap-1 px-2 text-[12px] font-bold text-brand-indigo hover:underline"
             >
               <Pencil className="h-3.5 w-3.5" />
               Chỉnh sửa

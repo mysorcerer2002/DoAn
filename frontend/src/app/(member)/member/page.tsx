@@ -109,7 +109,7 @@ export default function MemberDashboardPage() {
         </div>
         <button
           type="button"
-          className="group relative cursor-pointer transition-opacity hover:opacity-80"
+          className="-mr-2 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-indigo-50"
           aria-label="Thông báo"
         >
           <Bell className="h-6 w-6 text-brand-indigo" />
@@ -174,7 +174,7 @@ export default function MemberDashboardPage() {
             </h3>
             <Link
               href="/member/partners"
-              className="text-[14px] font-semibold text-brand-indigo hover:underline"
+              className="-mr-2 inline-flex min-h-11 items-center px-2 text-[14px] font-semibold text-brand-indigo hover:underline"
             >
               Khám phá
             </Link>

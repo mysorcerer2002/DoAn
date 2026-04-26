@@ -20,7 +20,7 @@ export default function MemberQRPage() {
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
         <Link
           href="/member"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100"
+          className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100"
           aria-label="Quay lại"
         >
           <ArrowLeft className="h-5 w-5" />
