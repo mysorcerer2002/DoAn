@@ -150,6 +150,27 @@ export const transactionsApi = {
     }),
 };
 
+// ==================== Partner Redemptions ====================
+export interface RedemptionUseResponse {
+  id: number;
+  partner_id: number;
+  user_id: number;
+  reward_id: number;
+  points_spent: number;
+  redemption_code: string;
+  status: "pending" | "used" | "expired";
+  redeemed_at: string;
+  used_at: string | null;
+  used_by_staff_id: number | null;
+  expires_at: string;
+  snapshot_image_url: string | null;
+}
+
+export const redemptionsApi = {
+  use: (code: string) =>
+    api.post<RedemptionUseResponse>("/partner/redemptions/use", { code }),
+};
+
 // ==================== Partner Uploads ====================
 export const uploadsApi = {
   uploadImage: async (kind: "logo" | "banner", file: File) => {

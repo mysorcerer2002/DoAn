@@ -106,7 +106,7 @@ export default function LoginPage() {
             slug: t.slug,
             role: t.role,
           });
-          // Phân route theo role: owner → /partner (full), staff → /staff (rút gọn)
+          // Phân route theo role: owner → /partner (full), staff → /staff (dashboard)
           router.push(t.role === "owner" ? "/partner" : "/staff");
           return;
         }

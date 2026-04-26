@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, LogOut, X } from "lucide-react";
+import { CreditCard, LogOut, Ticket, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect } from "react";
 
@@ -22,6 +22,11 @@ const menu: readonly MenuItem[] = [
     href: "/staff/pos/transactions/new",
     icon: CreditCard,
     label: "Tạo giao dịch",
+  },
+  {
+    href: "/staff/pos/redemptions/use",
+    icon: Ticket,
+    label: "Dùng voucher",
   },
 ];
 
