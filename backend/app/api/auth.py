@@ -35,12 +35,14 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8)
 
 
+from app.core.exceptions import EmailDeliveryError
 from app.services.auth_service import (
     AuthService,
     EmailAlreadyExistsError,
     InvalidCredentialsError,
     _hash_email_for_log,
 )
+from app.services.email_service import EmailService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -176,17 +178,26 @@ async def forgot_password(
 ) -> dict:
     """Cấp mật khẩu tạm gửi qua email. Idempotent: dù user có hay không vẫn trả 200."""
     service = AuthService(db)
-    temp_password = await service.reset_password_send_temp(email=body.email)
-    if temp_password is not None:
-        # MVP đồ án: dev-leak temp password ra log để demo.
-        # TODO Phase 6: gửi qua SMTP, KHÔNG log plaintext.
-        logger.warning(
-            "auth.forgot_password.DEV_LEAK",
-            extra={
-                "email_hash": _hash_email_for_log(body.email),
-                "temp_password": temp_password,
-            },
-        )
+    result = await service.reset_password_send_temp(email=body.email)
+    if result is not None:
+        temp_password, target_email = result
+        email_service = EmailService()
+        try:
+            await email_service.send_email(
+                to=target_email,
+                subject="[Loyalty] Mật khẩu mới của bạn",
+                body=(
+                    f"Chào bạn,\n\n"
+                    f"Bạn vừa yêu cầu đặt lại mật khẩu.\n"
+                    f"Mật khẩu tạm thời: {temp_password}\n\n"
+                    f"Vui lòng đăng nhập và đổi mật khẩu ngay sau khi nhận được."
+                ),
+            )
+        except EmailDeliveryError:
+            logger.warning(
+                "auth.forgot_password.SMTP_FAIL",
+                extra={"email": target_email, "temp_password_dev": temp_password},
+            )
     return {"message": "Nếu email hợp lệ, mật khẩu mới đã được gửi."}
 
 

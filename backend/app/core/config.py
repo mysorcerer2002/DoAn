@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     enable_scheduler: bool = False
     frontend_origins: str = "http://localhost:3000"
 
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Loyalty Platform"
+    smtp_timeout: int = 10
+
     @model_validator(mode="after")
     def _validate_secrets(self) -> "Settings":
         """Kiểm tra secrets đủ mạnh trong production."""

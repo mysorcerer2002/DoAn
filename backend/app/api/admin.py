@@ -1,3 +1,4 @@
+import logging
 import secrets
 import string
 from datetime import UTC, datetime, timedelta
@@ -28,6 +29,8 @@ from app.schemas.analytics import (
 )
 from app.schemas.ledger import ReconcileResponse
 from app.schemas.partner import PartnerApprovalRequest, PartnerResponse
+from app.core.exceptions import EmailDeliveryError
+from app.services.email_service import EmailService
 from app.services.ledger_service import LedgerService
 from app.services.partner_service import (
     InvalidStatusTransitionError,
@@ -36,6 +39,7 @@ from app.services.partner_service import (
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/partners", response_model=list[AdminPartnerListRow])
@@ -535,6 +539,8 @@ class AdminUserUpdateRequest(BaseModel):
 class AdminResetPasswordResponse(BaseModel):
     user_id: int
     temporary_password: str
+    email_sent: bool = False
+    user_email: str | None = None
 
 
 def _generate_temp_password(length: int = 12) -> str:
@@ -680,8 +686,31 @@ async def reset_user_password(
     target.password_hash = hash_password(temp_password)
     await db.commit()
 
+    email_sent = False
+    if target.email:
+        try:
+            await EmailService().send_email(
+                to=target.email,
+                subject="[Loyalty] Admin đã reset mật khẩu của bạn",
+                body=(
+                    f"Chào bạn,\n\n"
+                    f"Quản trị viên vừa reset mật khẩu của bạn.\n"
+                    f"Mật khẩu tạm thời: {temp_password}\n\n"
+                    f"Đăng nhập và đổi mật khẩu ngay."
+                ),
+            )
+            email_sent = True
+        except EmailDeliveryError:
+            logger.warning(
+                "admin.reset_password.SMTP_FAIL",
+                extra={"user_id": user_id, "temp_password_dev": temp_password},
+            )
+
     return AdminResetPasswordResponse(
-        user_id=target.id, temporary_password=temp_password
+        user_id=target.id,
+        temporary_password=temp_password,
+        email_sent=email_sent,
+        user_email=target.email,
     )
 
 

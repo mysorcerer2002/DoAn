@@ -95,10 +95,10 @@ class AuthService:
         logger.info("auth.login.success", extra={"user_id": user.id})
         return user
 
-    async def reset_password_send_temp(self, *, email: str) -> str | None:
+    async def reset_password_send_temp(self, *, email: str) -> tuple[str, str] | None:
         """Forgot-password: gen temp password, set bcrypt, log/email plain.
 
-        Trả temp password (caller log/email). Trả None nếu user không tồn tại
+        Trả (temp_password, user.email). Trả None nếu user không tồn tại
         — caller vẫn return generic 200 để tránh enumeration.
         """
         user = await self.db.scalar(select(User).where(User.email == email))
@@ -114,7 +114,7 @@ class AuthService:
             "auth.forgot_password.reset",
             extra={"user_id": user.id, "email_hash": _hash_email_for_log(email)},
         )
-        return temp_password
+        return temp_password, user.email
 
     async def change_password(
         self, *, user: User, current_password: str, new_password: str
