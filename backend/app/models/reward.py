@@ -35,6 +35,14 @@ class Reward(Base, TimestampMixin):
             "(offer_type = 'ITEM_GIFT'        AND offer_value IS NULL)",
             name="offer_value_matches_type",
         ),
+        CheckConstraint(
+            "min_purchase_amount IS NULL OR min_purchase_amount > 0",
+            name="min_purchase_nonneg_or_null",
+        ),
+        CheckConstraint(
+            "offer_type IN ('PERCENT_DISCOUNT','FIXED_DISCOUNT') OR min_purchase_amount IS NULL",
+            name="min_purchase_only_for_voucher",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -58,5 +66,6 @@ class Reward(Base, TimestampMixin):
     offer_label: Mapped[str] = mapped_column(String(120), nullable=False)
     valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     terms: Mapped[str | None] = mapped_column(Text, nullable=True)
+    min_purchase_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     template: Mapped["VoucherTemplate | None"] = relationship("VoucherTemplate")
