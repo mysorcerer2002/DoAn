@@ -428,8 +428,18 @@ function RewardFormModal({
   const isEdit = editingReward != null;
   const [form, setForm] = useState<FormState>(initialForm);
   const [error, setError] = useState<string | null>(null);
-  // Track whether user has manually edited offer_label (suppress auto-suggest)
-  const [userEditedLabel, setUserEditedLabel] = useState(false);
+  // Track whether user has manually edited offer_label (suppress auto-suggest).
+  // Edit mode: init true so existing label is never overwritten on mount.
+  const [userEditedLabel, setUserEditedLabel] = useState(isEdit);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   // Auto-suggest offer_label when offer_type or offer_value changes
   useEffect(() => {
