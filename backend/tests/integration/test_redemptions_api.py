@@ -9,6 +9,7 @@ from app.models.membership import Membership
 from app.models.point_rule import PointRule
 from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
+from app.models.reward import RewardOfferType
 from app.schemas.reward import RewardCreateRequest
 from app.services.reward_service import RewardService
 
@@ -60,7 +61,7 @@ async def _setup_redeem_env(db_session, *, balance=500, stock=10):
     svc = RewardService(db_session)
     reward = await svc.create_reward(
         partner_id=partner.id,
-        request=RewardCreateRequest(name="API Reward", points_cost=100, stock=stock),
+        request=RewardCreateRequest(name="API Reward", points_cost=100, stock=stock, offer_type=RewardOfferType.ITEM_GIFT, offer_label="Quà"),
     )
     await db_session.flush()
 

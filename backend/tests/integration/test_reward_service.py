@@ -5,7 +5,7 @@ from datetime import timezone
 import pytest
 import pytest_asyncio
 
-from app.models.reward import Reward
+from app.models.reward import Reward, RewardOfferType
 from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 from app.services.reward_service import RewardNotFoundError, RewardService
@@ -39,6 +39,8 @@ async def test_create_reward(db_session):
         description="Đổi 100 điểm lấy 1 ly coffee",
         points_cost=100,
         stock=50,
+        offer_type=RewardOfferType.ITEM_GIFT,
+        offer_label="Quà",
     )
     reward = await svc.create_reward(partner_id=partner.id, request=req)
     assert reward.id is not None
@@ -57,6 +59,9 @@ async def test_create_reward_unlimited_stock(db_session):
         name="Giảm giá 10%",
         points_cost=50,
         stock=None,
+        offer_type=RewardOfferType.PERCENT_DISCOUNT,
+        offer_value=10,
+        offer_label="Giảm 10%",
     )
     reward = await svc.create_reward(partner_id=partner.id, request=req)
     assert reward.stock is None  # unlimited
@@ -70,7 +75,7 @@ async def test_list_rewards(db_session):
     for i in range(3):
         await svc.create_reward(
             partner_id=partner.id,
-            request=RewardCreateRequest(name=f"Reward {i}", points_cost=100),
+            request=RewardCreateRequest(name=f"Reward {i}", points_cost=100, offer_type=RewardOfferType.ITEM_GIFT, offer_label="Quà"),
         )
 
     rewards = await svc.list_rewards(partner_id=partner.id)
@@ -84,7 +89,7 @@ async def test_update_reward(db_session):
 
     reward = await svc.create_reward(
         partner_id=partner.id,
-        request=RewardCreateRequest(name="Old Name", points_cost=100),
+        request=RewardCreateRequest(name="Old Name", points_cost=100, offer_type=RewardOfferType.ITEM_GIFT, offer_label="Quà"),
     )
     updated = await svc.update_reward(
         partner_id=partner.id,
@@ -102,7 +107,7 @@ async def test_soft_delete_reward(db_session):
 
     reward = await svc.create_reward(
         partner_id=partner.id,
-        request=RewardCreateRequest(name="Deletable", points_cost=50),
+        request=RewardCreateRequest(name="Deletable", points_cost=50, offer_type=RewardOfferType.ITEM_GIFT, offer_label="Quà"),
     )
     deleted = await svc.soft_delete_reward(partner_id=partner.id, reward_id=reward.id)
     assert deleted.deleted_at is not None

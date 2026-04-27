@@ -6,7 +6,7 @@ import pytest
 
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, PointLedger
-from app.models.reward import Reward
+from app.models.reward import Reward, RewardOfferType
 from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
 from app.schemas.reward import RewardCreateRequest
@@ -51,7 +51,7 @@ async def _setup_for_redemption(db_session, *, balance=500, stock=10):
     svc = RewardService(db_session)
     reward = await svc.create_reward(
         partner_id=partner.id,
-        request=RewardCreateRequest(name="Reward Test", points_cost=100, stock=stock),
+        request=RewardCreateRequest(name="Reward Test", points_cost=100, stock=stock, offer_type=RewardOfferType.ITEM_GIFT, offer_label="Quà"),
     )
     await db_session.flush()
 
