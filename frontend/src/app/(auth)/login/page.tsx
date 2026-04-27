@@ -233,12 +233,12 @@ export default function LoginPage() {
                   </p>
                 )}
                 <div className="flex justify-end">
-                  <a
-                    href="#"
+                  <Link
+                    href="/forgot-password"
                     className="text-sm font-medium text-brand-indigo hover:underline"
                   >
                     Quên mật khẩu?
-                  </a>
+                  </Link>
                 </div>
               </div>
 

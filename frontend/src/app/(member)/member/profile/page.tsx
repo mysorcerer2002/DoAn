@@ -5,6 +5,7 @@ import {
   Calendar,
   ChevronRight,
   Crown,
+  KeyRound,
   Loader2,
   LogOut,
   Mail,
@@ -23,6 +24,7 @@ import { useEffect, useState } from "react";
 
 import { authApi } from "@/lib/api";
 import { useLogout } from "@/lib/hooks/use-logout";
+import type { AxiosError } from "axios";
 import { useMe, useMyMemberships } from "@/lib/hooks/use-me";
 import type { User } from "@/types/auth";
 
@@ -50,6 +52,7 @@ export default function ProfilePage() {
   const { data: user, isLoading, isError } = useMe();
   const { data: memberships } = useMyMemberships();
   const [editOpen, setEditOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const logout = useLogout();
 
   const updateMut = useMutation({
@@ -241,6 +244,19 @@ export default function ProfilePage() {
             </div>
             <button
               type="button"
+              onClick={() => setChangePasswordOpen(true)}
+              className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-3.5 text-left transition-colors hover:bg-slate-50"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
+                <KeyRound className="h-5 w-5 text-brand-indigo" />
+              </div>
+              <p className="flex-1 text-[14px] font-medium text-slate-800">
+                Đổi mật khẩu
+              </p>
+              <ChevronRight className="h-5 w-5 text-slate-300" />
+            </button>
+            <button
+              type="button"
               onClick={handleLogout}
               className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-3.5 text-left transition-colors hover:bg-red-50"
             >
@@ -268,7 +284,193 @@ export default function ProfilePage() {
           }
         />
       )}
+
+      {changePasswordOpen && (
+        <ChangePasswordModal onClose={() => setChangePasswordOpen(false)} />
+      )}
     </>
+  );
+}
+
+function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError("Vui lòng điền đầy đủ thông tin");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Mật khẩu mới tối thiểu 8 ký tự");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await authApi.changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e: unknown) {
+      const err = e as AxiosError<{ detail?: string }>;
+      setError(err.response?.data?.detail ?? "Đổi mật khẩu thất bại, thử lại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-sm sm:items-center"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-headline text-[18px] font-bold text-slate-800">
+            Đổi mật khẩu
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100"
+            aria-label="Đóng"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {success ? (
+          <div className="mt-5 space-y-4">
+            <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+              Đổi mật khẩu thành công!
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet py-3 font-headline text-[14px] font-bold text-white shadow-lg"
+            >
+              Đóng
+            </button>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            <div className="space-y-1">
+              <label
+                htmlFor="current_password"
+                className="block pl-1 text-[12px] font-medium text-slate-500"
+              >
+                Mật khẩu hiện tại
+              </label>
+              <input
+                id="current_password"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => {
+                  setCurrentPassword(e.target.value);
+                  if (error) setError(null);
+                }}
+                className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3 px-3 outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label
+                htmlFor="new_password"
+                className="block pl-1 text-[12px] font-medium text-slate-500"
+              >
+                Mật khẩu mới
+              </label>
+              <input
+                id="new_password"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  if (error) setError(null);
+                }}
+                className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3 px-3 outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
+                placeholder="Tối thiểu 8 ký tự"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label
+                htmlFor="confirm_password"
+                className="block pl-1 text-[12px] font-medium text-slate-500"
+              >
+                Xác nhận mật khẩu mới
+              </label>
+              <input
+                id="confirm_password"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (error) setError(null);
+                }}
+                className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3 px-3 outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
+                placeholder="Nhập lại mật khẩu mới"
+              />
+            </div>
+
+            {error && (
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-600">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-3 font-headline text-[14px] font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Huỷ
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet py-3 font-headline text-[14px] font-bold text-white shadow-lg active:scale-[0.98] disabled:opacity-60"
+              >
+                {submitting ? "Đang lưu..." : "Xác nhận"}
+              </button>
+            </div>
+          </div>
+        )}
+      </form>
+    </div>
   );
 }
 

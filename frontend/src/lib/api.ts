@@ -120,6 +120,10 @@ export const authApi = {
     phone?: string;
     birthday?: string;
   }) => api.patch<User>("/auth/me", data),
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>("/auth/forgot-password", { email }),
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    api.patch("/auth/me/password", data),
 };
 
 export const memberApi = {
