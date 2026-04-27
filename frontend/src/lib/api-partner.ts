@@ -26,6 +26,7 @@ import type {
   PointsSummaryResponse,
   RewardCreateRequest,
   RewardResponse,
+  RewardStatsResponse,
   RewardUpdateRequest,
   StaffListResponse,
   StaffResetResponse,
@@ -84,6 +85,8 @@ export const rewardsApi = {
     api.patch<RewardResponse>(`/partner/rewards/${id}`, data),
   remove: (id: number) =>
     api.delete<RewardResponse>(`/partner/rewards/${id}`),
+  stats: (id: number) =>
+    api.get<RewardStatsResponse>(`/partner/rewards/${id}/stats`),
 };
 
 // ==================== Partner Staff ====================

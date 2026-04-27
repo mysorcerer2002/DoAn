@@ -35,3 +35,13 @@ class RewardResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class RewardStatsResponse(BaseModel):
+    reward_id: int
+    issued: int
+    redeemed: int
+    used: int
+    expired: int
+    # null khi reward không phải kiểu giảm giá (ITEM_GIFT) → FE ẩn dòng "Tổng chi phí".
+    total_discount_cost: int | None = None

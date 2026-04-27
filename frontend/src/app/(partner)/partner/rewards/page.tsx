@@ -2,6 +2,7 @@
 
 import {
   CheckCircle2,
+  Eye,
   Gift,
   Loader2,
   Pencil,
@@ -16,6 +17,7 @@ import { useState } from "react";
 import {
   useCreateReward,
   useDeleteReward,
+  useRewardStats,
   useRewards,
   useUpdateReward,
 } from "@/lib/hooks/use-partner";
@@ -48,6 +50,8 @@ export default function MerchantRewardsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [statsRewardId, setStatsRewardId] = useState<number | null>(null);
+  const statsReward = rewards?.find((r) => r.id === statsRewardId) ?? null;
 
   const stats = {
     total: rewards?.length ?? 0,
@@ -240,6 +244,14 @@ export default function MerchantRewardsPage() {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
+                        onClick={() => setStatsRewardId(reward.id)}
+                        aria-label="Xem chi tiết"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => openEditModal(reward)}
                         aria-label="Sửa"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-brand-indigo hover:bg-indigo-50"
@@ -389,7 +401,116 @@ export default function MerchantRewardsPage() {
           </form>
         </div>
       )}
+
+      {statsRewardId != null && (
+        <RewardStatsModal
+          rewardId={statsRewardId}
+          rewardName={statsReward?.name ?? ""}
+          onClose={() => setStatsRewardId(null)}
+        />
+      )}
     </main>
+  );
+}
+
+function RewardStatsModal({
+  rewardId,
+  rewardName,
+  onClose,
+}: {
+  rewardId: number;
+  rewardName: string;
+  onClose: () => void;
+}) {
+  const { data, isLoading, isError } = useRewardStats(rewardId);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-[12px] text-slate-400">Chi tiết quà tặng</p>
+            <h2 className="mt-1 font-headline text-[18px] font-bold text-slate-800">
+              {rewardName}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100"
+            aria-label="Đóng"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex h-32 items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-brand-indigo" />
+          </div>
+        ) : isError || !data ? (
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-600">
+            Không tải được thống kê.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <StatRow label="Đã phát hành" value={data.issued.toLocaleString("vi-VN")} />
+            <StatRow
+              label="Đã đổi (chưa dùng)"
+              value={data.redeemed.toLocaleString("vi-VN")}
+            />
+            <StatRow label="Đã dùng" value={data.used.toLocaleString("vi-VN")} />
+            <StatRow label="Đã hết hạn" value={data.expired.toLocaleString("vi-VN")} />
+            {data.total_discount_cost != null && (
+              <StatRow
+                label="Tổng chi phí"
+                value={`${data.total_discount_cost.toLocaleString("vi-VN")}đ`}
+                highlight
+              />
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+        highlight
+          ? "border-orange-100 bg-orange-50"
+          : "border-slate-100 bg-slate-50"
+      }`}
+    >
+      <span className="text-[13px] text-slate-600">{label}</span>
+      <span
+        className={`font-headline text-[16px] font-bold ${
+          highlight ? "text-brand-orange" : "text-slate-800"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 

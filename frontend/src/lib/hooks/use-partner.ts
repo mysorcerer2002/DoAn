@@ -177,6 +177,15 @@ export function useDeleteReward() {
   });
 }
 
+export function useRewardStats(id: number | null) {
+  const partnerId = usePartnerId();
+  return useQuery({
+    queryKey: ["partner", "rewards", partnerId, id, "stats"],
+    queryFn: async () => (await rewardsApi.stats(id!)).data,
+    enabled: partnerId != null && id != null,
+  });
+}
+
 // ==================== Staff ====================
 export function useStaff(filter?: { is_active?: "true" | "false" | "all" }) {
   const partnerId = usePartnerId();

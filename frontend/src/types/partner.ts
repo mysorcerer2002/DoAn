@@ -94,6 +94,15 @@ export interface RewardUpdateRequest {
   image_url?: string | null;
 }
 
+export interface RewardStatsResponse {
+  reward_id: number;
+  issued: number;
+  redeemed: number;
+  used: number;
+  expired: number;
+  total_discount_cost: number | null;
+}
+
 // Staff
 export interface StaffResponse {
   id: number;

@@ -2,11 +2,16 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.reward import Reward
-from app.schemas.reward import RewardCreateRequest, RewardUpdateRequest
+from app.models.redemption import Redemption, RedemptionStatus
+from app.models.reward import Reward, RewardOfferType
+from app.schemas.reward import (
+    RewardCreateRequest,
+    RewardStatsResponse,
+    RewardUpdateRequest,
+)
 
 
 class RewardNotFoundError(Exception):
@@ -81,3 +86,72 @@ class RewardService:
         reward.is_active = False
         await self.db.flush()
         return reward
+
+    async def get_stats(
+        self, *, partner_id: int, reward_id: int
+    ) -> RewardStatsResponse:
+        reward = await self.get_reward(partner_id=partner_id, reward_id=reward_id)
+
+        is_discount = reward.offer_type in (
+            RewardOfferType.PERCENT_DISCOUNT,
+            RewardOfferType.FIXED_DISCOUNT,
+        )
+
+        row = (
+            await self.db.execute(
+                select(
+                    func.count(Redemption.id).label("issued"),
+                    func.coalesce(
+                        func.sum(
+                            case(
+                                (Redemption.status == RedemptionStatus.PENDING, 1),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ).label("redeemed"),
+                    func.coalesce(
+                        func.sum(
+                            case(
+                                (Redemption.status == RedemptionStatus.USED, 1),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ).label("used"),
+                    func.coalesce(
+                        func.sum(
+                            case(
+                                (Redemption.status == RedemptionStatus.EXPIRED, 1),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ).label("expired"),
+                    func.coalesce(
+                        func.sum(
+                            case(
+                                (
+                                    Redemption.status == RedemptionStatus.USED,
+                                    func.coalesce(Redemption.discount_amount, 0),
+                                ),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ).label("discount_cost"),
+                ).where(
+                    Redemption.reward_id == reward_id,
+                    Redemption.partner_id == partner_id,
+                )
+            )
+        ).one()
+
+        return RewardStatsResponse(
+            reward_id=reward_id,
+            issued=int(row.issued or 0),
+            redeemed=int(row.redeemed or 0),
+            used=int(row.used or 0),
+            expired=int(row.expired or 0),
+            total_discount_cost=int(row.discount_cost or 0) if is_discount else None,
+        )

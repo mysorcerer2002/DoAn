@@ -5,7 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_partner_id, require_owner_in_partner
-from app.schemas.reward import RewardCreateRequest, RewardResponse, RewardUpdateRequest
+from app.schemas.reward import (
+    RewardCreateRequest,
+    RewardResponse,
+    RewardStatsResponse,
+    RewardUpdateRequest,
+)
 from app.services.reward_service import RewardNotFoundError, RewardService
 
 router = APIRouter(prefix="/partner/rewards", tags=["partner-rewards"])
@@ -37,6 +42,20 @@ async def create_reward(
     service = RewardService(db)
     reward = await service.create_reward(partner_id=partner_id, request=body)
     return RewardResponse.model_validate(reward)
+
+
+@router.get("/{reward_id}/stats", response_model=RewardStatsResponse)
+async def get_reward_stats(
+    reward_id: int,
+    partner_id: int = Depends(get_partner_id),
+    _=Depends(require_owner_in_partner),
+    db: AsyncSession = Depends(get_db),
+) -> RewardStatsResponse:
+    service = RewardService(db)
+    try:
+        return await service.get_stats(partner_id=partner_id, reward_id=reward_id)
+    except RewardNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.get("/{reward_id}", response_model=RewardResponse)
