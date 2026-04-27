@@ -63,9 +63,14 @@ export interface MemberResponse {
 }
 
 // Rewards
+export type RewardOfferType =
+  | "PERCENT_DISCOUNT"
+  | "FIXED_DISCOUNT"
+  | "ITEM_GIFT";
+
 export interface RewardResponse {
   id: number;
-  tenant_id: number;
+  partner_id: number;
   name: string;
   description: string | null;
   points_cost: number;
@@ -74,6 +79,13 @@ export interface RewardResponse {
   image_url: string | null;
   created_at: string;
   deleted_at: string | null;
+
+  offer_type: RewardOfferType;
+  offer_value: number | null;
+  offer_label: string;
+  min_purchase_amount: number | null;
+  valid_until: string | null; // ISO date "YYYY-MM-DD"
+  terms: string | null;
 }
 
 export interface RewardCreateRequest {
@@ -83,6 +95,13 @@ export interface RewardCreateRequest {
   stock?: number | null;
   is_active?: boolean;
   image_url?: string | null;
+
+  offer_type: RewardOfferType;
+  offer_value?: number | null;
+  offer_label: string;
+  min_purchase_amount?: number | null;
+  valid_until?: string | null;
+  terms?: string | null;
 }
 
 export interface RewardUpdateRequest {
@@ -92,9 +111,14 @@ export interface RewardUpdateRequest {
   stock?: number | null;
   is_active?: boolean;
   image_url?: string | null;
-}
 
-export type RewardOfferType = "PERCENT_DISCOUNT" | "FIXED_DISCOUNT" | "ITEM_GIFT";
+  // offer_type INTENTIONALLY OMITTED — BE rejects nếu gửi (immutable)
+  offer_value?: number | null;
+  offer_label?: string;
+  min_purchase_amount?: number | null;
+  valid_until?: string | null;
+  terms?: string | null;
+}
 
 export interface RewardStatsResponse {
   reward_id: number;
