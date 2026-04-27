@@ -159,7 +159,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <main className="-mt-8 space-y-5 px-4">
+      <main className="relative z-20 -mt-8 space-y-5 px-4">
         <section className="grid grid-cols-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-lg">
           <Stat
             value={totalPoints.toLocaleString("vi-VN")}

@@ -643,7 +643,7 @@ function VoucherCard({
   voucher: RedemptionInspectResponse;
   onReset: () => void;
 }) {
-  const { reward, customer } = voucher;
+  const { reward } = voucher;
   return (
     <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
       <div className="flex items-start gap-3">
@@ -674,15 +674,6 @@ function VoucherCard({
             · {voucher.points_spent.toLocaleString("vi-VN")} điểm
           </p>
         </div>
-      </div>
-      <div className="rounded-md bg-white p-2 text-[12px]">
-        <p className="text-slate-500">Chủ voucher</p>
-        <p className="font-bold text-slate-800">
-          {customer.full_name ?? "—"}{" "}
-          {customer.phone && (
-            <span className="font-normal text-slate-500">· {customer.phone}</span>
-          )}
-        </p>
       </div>
       <button
         type="button"
