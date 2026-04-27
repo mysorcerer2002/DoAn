@@ -39,9 +39,10 @@ class RewardResponse(BaseModel):
 
 class RewardStatsResponse(BaseModel):
     reward_id: int
+    offer_type: str
     issued: int
     redeemed: int
     used: int
     expired: int
-    # null khi reward không phải kiểu giảm giá (ITEM_GIFT) → FE ẩn dòng "Tổng chi phí".
+    # null khi reward không phải kiểu giảm giá (ITEM_GIFT) → FE hiển thị note thay vì box chi phí.
     total_discount_cost: int | None = None

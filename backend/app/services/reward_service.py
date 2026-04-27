@@ -92,7 +92,9 @@ class RewardService:
     ) -> RewardStatsResponse:
         reward = await self.get_reward(partner_id=partner_id, reward_id=reward_id)
 
-        is_discount = reward.offer_type in (
+        # offer_type cột String(20) → ORM trả str, coerce về Enum để so sánh chuẩn.
+        offer_type = RewardOfferType(reward.offer_type)
+        is_discount = offer_type in (
             RewardOfferType.PERCENT_DISCOUNT,
             RewardOfferType.FIXED_DISCOUNT,
         )
@@ -149,6 +151,7 @@ class RewardService:
 
         return RewardStatsResponse(
             reward_id=reward_id,
+            offer_type=offer_type.value,
             issued=int(row.issued or 0),
             redeemed=int(row.redeemed or 0),
             used=int(row.used or 0),

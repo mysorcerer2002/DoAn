@@ -13,6 +13,7 @@ class User(Base, TimestampMixin):
             "system_role IN ('regular', 'admin', 'super_admin')",
             name="ck_users_valid_role",
         ),
+        CheckConstraint("points_balance >= 0", name="points_balance_nonneg"),
         Index("ix_users_email_unique", "email", unique=True, postgresql_where="email IS NOT NULL"),
         Index("ix_users_phone_unique", "phone", unique=True, postgresql_where="phone IS NOT NULL"),
     )

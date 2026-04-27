@@ -94,8 +94,11 @@ export interface RewardUpdateRequest {
   image_url?: string | null;
 }
 
+export type RewardOfferType = "PERCENT_DISCOUNT" | "FIXED_DISCOUNT" | "ITEM_GIFT";
+
 export interface RewardStatsResponse {
   reward_id: number;
+  offer_type: RewardOfferType;
   issued: number;
   redeemed: number;
   used: number;

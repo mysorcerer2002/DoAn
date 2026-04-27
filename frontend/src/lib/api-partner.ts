@@ -25,6 +25,7 @@ import type {
   PointRuleUpdateRequest,
   PointsSummaryResponse,
   RewardCreateRequest,
+  RewardOfferType,
   RewardResponse,
   RewardStatsResponse,
   RewardUpdateRequest,
@@ -39,6 +40,8 @@ import type {
   TransactionUpdateRequest,
   TransactionWithMemberResponse,
 } from "@/types/partner";
+
+export type { RewardOfferType };
 
 // ==================== Partner Analytics ====================
 export const analyticsApi = {
@@ -159,11 +162,6 @@ export const transactionsApi = {
 };
 
 // ==================== Partner Redemptions ====================
-export type RewardOfferType =
-  | "PERCENT_DISCOUNT"
-  | "FIXED_DISCOUNT"
-  | "ITEM_GIFT";
-
 export interface RedemptionUseResponse {
   id: number;
   partner_id: number;

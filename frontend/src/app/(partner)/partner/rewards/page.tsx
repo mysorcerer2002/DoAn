@@ -2,13 +2,17 @@
 
 import {
   CheckCircle2,
+  Clock,
   Eye,
   Gift,
   Loader2,
   Pencil,
   Plus,
+  Send,
+  Ticket,
   Trash2,
   TrendingUp,
+  Wallet,
   X,
   XCircle,
 } from "lucide-react";
@@ -424,92 +428,178 @@ function RewardStatsModal({
 }) {
   const { data, isLoading, isError } = useRewardStats(rewardId);
 
+  const offerLabel =
+    data?.offer_type === "PERCENT_DISCOUNT"
+      ? "Voucher % giảm giá"
+      : data?.offer_type === "FIXED_DISCOUNT"
+      ? "Voucher giảm tiền"
+      : "Quà tặng";
+  const offerBadgeTone =
+    data?.offer_type === "ITEM_GIFT"
+      ? "bg-indigo-50 text-brand-indigo"
+      : "bg-orange-50 text-brand-orange";
+  const usageRate = data && data.issued > 0 ? Math.round((data.used / data.issued) * 100) : 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-[12px] text-slate-400">Chi tiết quà tặng</p>
-            <h2 className="mt-1 font-headline text-[18px] font-bold text-slate-800">
-              {rewardName}
-            </h2>
-          </div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative bg-gradient-to-br from-brand-indigo to-indigo-600 px-6 pb-5 pt-6 text-white">
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100"
+            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"
             aria-label="Đóng"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
+          <p className="text-[11px] uppercase tracking-wider text-white/70">Chi tiết quà tặng</p>
+          <h2 className="mt-1 font-headline text-[20px] font-bold leading-tight">
+            {rewardName}
+          </h2>
+          {data && (
+            <span
+              className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${offerBadgeTone}`}
+            >
+              <Gift className="h-3 w-3" />
+              {offerLabel}
+            </span>
+          )}
         </div>
 
-        {isLoading ? (
-          <div className="flex h-32 items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-indigo" />
-          </div>
-        ) : isError || !data ? (
-          <div className="rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-600">
-            Không tải được thống kê.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <StatRow label="Đã phát hành" value={data.issued.toLocaleString("vi-VN")} />
-            <StatRow
-              label="Đã đổi (chưa dùng)"
-              value={data.redeemed.toLocaleString("vi-VN")}
-            />
-            <StatRow label="Đã dùng" value={data.used.toLocaleString("vi-VN")} />
-            <StatRow label="Đã hết hạn" value={data.expired.toLocaleString("vi-VN")} />
-            {data.total_discount_cost != null && (
-              <StatRow
-                label="Tổng chi phí"
-                value={`${data.total_discount_cost.toLocaleString("vi-VN")}đ`}
-                highlight
-              />
-            )}
-          </div>
-        )}
+        <div className="space-y-4 p-6">
+          {isLoading ? (
+            <div className="flex h-32 items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-brand-indigo" />
+            </div>
+          ) : isError || !data ? (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-600">
+              Không tải được thống kê.
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <StatTile
+                  icon={Send}
+                  label="Đã phát hành"
+                  value={data.issued.toLocaleString("vi-VN")}
+                  tone="indigo"
+                />
+                <StatTile
+                  icon={Clock}
+                  label="Đã đổi (chưa dùng)"
+                  value={data.redeemed.toLocaleString("vi-VN")}
+                  tone="amber"
+                />
+                <StatTile
+                  icon={CheckCircle2}
+                  label="Đã dùng"
+                  value={data.used.toLocaleString("vi-VN")}
+                  tone="green"
+                />
+                <StatTile
+                  icon={XCircle}
+                  label="Đã hết hạn"
+                  value={data.expired.toLocaleString("vi-VN")}
+                  tone="slate"
+                />
+              </div>
 
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Đóng
-          </button>
+              {data.issued > 0 && (
+                <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <div className="flex items-center justify-between text-[12px] text-slate-600">
+                    <span>Tỷ lệ sử dụng</span>
+                    <span className="font-semibold text-slate-800">{usageRate}%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all"
+                      style={{ width: `${usageRate}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {data.total_discount_cost != null ? (
+                <div className="rounded-xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-brand-orange">
+                      <Wallet className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[11px] font-medium text-orange-700/80">
+                        Tổng chi phí giảm giá
+                      </p>
+                      <p className="font-headline text-[22px] font-bold text-brand-orange">
+                        {data.total_discount_cost.toLocaleString("vi-VN")}đ
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    Tổng tiền đã giảm cho khách qua {data.used} lượt dùng.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <Ticket className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                  <p className="text-[12px] text-slate-500">
+                    <span className="font-semibold text-slate-600">Loại quà tặng</span> —
+                    không phát sinh chi phí giảm giá. Chỉ áp dụng với voucher giảm % hoặc
+                    giảm tiền cố định.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Đóng
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function StatRow({
+function StatTile({
+  icon: Icon,
   label,
   value,
-  highlight,
+  tone,
 }: {
+  icon: typeof Gift;
   label: string;
   value: string;
-  highlight?: boolean;
+  tone: "indigo" | "amber" | "green" | "slate";
 }) {
+  const toneClass =
+    tone === "green"
+      ? "bg-emerald-50 text-emerald-600"
+      : tone === "amber"
+      ? "bg-amber-50 text-amber-600"
+      : tone === "slate"
+      ? "bg-slate-100 text-slate-500"
+      : "bg-indigo-50 text-brand-indigo";
   return (
-    <div
-      className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
-        highlight
-          ? "border-orange-100 bg-orange-50"
-          : "border-slate-100 bg-slate-50"
-      }`}
-    >
-      <span className="text-[13px] text-slate-600">{label}</span>
-      <span
-        className={`font-headline text-[16px] font-bold ${
-          highlight ? "text-brand-orange" : "text-slate-800"
-        }`}
-      >
-        {value}
-      </span>
+    <div className="rounded-xl border border-slate-100 bg-white p-3">
+      <div className="flex items-center gap-2">
+        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${toneClass}`}>
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <p className="text-[11px] text-slate-500">{label}</p>
+      </div>
+      <p className="mt-1.5 font-headline text-[20px] font-bold text-slate-800">{value}</p>
     </div>
   );
 }
