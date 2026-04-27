@@ -11,7 +11,7 @@ from app.schemas.reward import (
     RewardStatsResponse,
     RewardUpdateRequest,
 )
-from app.services.reward_service import RewardNotFoundError, RewardService
+from app.services.reward_service import RewardNotFoundError, RewardService, RewardValidationError
 
 router = APIRouter(prefix="/partner/rewards", tags=["partner-rewards"])
 
@@ -86,6 +86,8 @@ async def update_reward(
         reward = await service.update_reward(
             partner_id=partner_id, reward_id=reward_id, request=body
         )
+    except RewardValidationError as e:
+        raise HTTPException(status_code=422, detail=e.message) from e
     except RewardNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return RewardResponse.model_validate(reward)
