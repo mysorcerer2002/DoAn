@@ -216,6 +216,7 @@ class TransactionService:
             gross_amount=request.gross_amount,
             note=request.note,
             method=TransactionMethod.QR_CUSTOMER,
+            receipt_code=request.receipt_code,
         )
 
     async def _create_transaction_for_membership(
@@ -226,6 +227,7 @@ class TransactionService:
         gross_amount: int,
         note: str | None,
         method: TransactionMethod,
+        receipt_code: str | None = None,
     ) -> TransactionWithMemberResponse:
         """Logic tạo transaction dùng chung cho manual và QR."""
         ledger_svc = LedgerService(self.db)
@@ -260,6 +262,7 @@ class TransactionService:
             points_earned=points_earned,
             method=method,
             note=note,
+            receipt_code=receipt_code,
         )
         self.db.add(txn)
         await self.db.flush()

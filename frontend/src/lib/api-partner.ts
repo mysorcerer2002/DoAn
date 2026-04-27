@@ -119,6 +119,7 @@ export const transactionsApi = {
     qr_payload: string;
     gross_amount: number;
     note?: string | null;
+    receipt_code?: string | null;
   }) =>
     api.post<TransactionWithMemberResponse>(
       "/partner/transactions/qr",

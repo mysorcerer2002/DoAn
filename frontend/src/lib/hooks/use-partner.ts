@@ -202,6 +202,7 @@ export function useCreateQrTransaction() {
       qr_payload: string;
       gross_amount: number;
       note?: string | null;
+      receipt_code?: string | null;
     }) => transactionsApi.createFromQr(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["partner", "transactions"] });

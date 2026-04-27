@@ -54,6 +54,18 @@ class CreateQrCustomerTransactionRequest(BaseModel):
     qr_payload: str = Field(min_length=1, max_length=500)
     gross_amount: int = Field(gt=0, le=100_000_000)
     note: str | None = Field(default=None, max_length=1000)
+    receipt_code: str | None = Field(default=None, max_length=50)
+
+    @field_validator("receipt_code", mode="before")
+    @classmethod
+    def _normalize_receipt_code(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "":
+                return None
+        return v
 
 
 class NoMembershipResponse(BaseModel):

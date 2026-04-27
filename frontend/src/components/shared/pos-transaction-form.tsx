@@ -169,6 +169,7 @@ export function PosTransactionForm({
           qr_payload: qrPayload.trim(),
           gross_amount: Number(amount),
           note: null,
+          receipt_code: receiptCode.trim() || null,
         });
         setResult(res.data);
         setAmount("");
@@ -422,31 +423,29 @@ export function PosTransactionForm({
           </div>
         </div>
 
-        {/* Mã hoá đơn — chỉ cho luồng phone (backend POST "/qr" chưa nhận receipt_code) */}
-        {mode === "phone" && (
-          <div className="border-t border-slate-100 pt-4">
-            <h2 className="font-headline text-[16px] font-bold text-slate-800">
-              Mã hoá đơn{" "}
-              <span className="text-[11px] font-normal text-slate-400">
-                (tuỳ chọn)
-              </span>
-            </h2>
-            <p className="mt-1 text-[11px] text-slate-500">
-              Tham chiếu tới hoá đơn/bill trên hệ thống POS của shop
-            </p>
-            <div className="relative mt-3">
-              <Receipt className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={receiptCode}
-                onChange={(e) => setReceiptCode(e.target.value)}
-                maxLength={50}
-                placeholder="VD: HD-00123"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-9 pr-3 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-              />
-            </div>
+        {/* Mã hoá đơn — áp dụng cho cả luồng phone và QR */}
+        <div className="border-t border-slate-100 pt-4">
+          <h2 className="font-headline text-[16px] font-bold text-slate-800">
+            Mã hoá đơn{" "}
+            <span className="text-[11px] font-normal text-slate-400">
+              (tuỳ chọn)
+            </span>
+          </h2>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Tham chiếu tới hoá đơn/bill trên hệ thống POS của shop
+          </p>
+          <div className="relative mt-3">
+            <Receipt className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={receiptCode}
+              onChange={(e) => setReceiptCode(e.target.value)}
+              maxLength={50}
+              placeholder="VD: HD-00123"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-9 pr-3 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+            />
           </div>
-        )}
+        </div>
       </section>
 
       {/* Summary */}
