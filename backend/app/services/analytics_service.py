@@ -11,9 +11,11 @@ from app.models.redemption import Redemption
 from app.models.tier import Tier
 from app.models.transaction import Transaction
 from app.schemas.analytics import (
+    DailyRedemptionPoint,
     DailyTransactionPoint,
     DashboardResponse,
     TierDistributionPoint,
+    TopRewardRow,
 )
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -51,6 +53,24 @@ def _fill_missing_days(
     return result
 
 
+def _fill_missing_redemption_days(
+    points: list[DailyRedemptionPoint], from_date: date, to_date: date
+) -> list[DailyRedemptionPoint]:
+    """Fill ngày không có redemption với 0 → chart luôn đủ data points."""
+    existing = {p.day: p for p in points}
+    result = []
+    d = from_date
+    while d <= to_date:
+        result.append(
+            existing.get(
+                d,
+                DailyRedemptionPoint(day=d, redemption_count=0),
+            )
+        )
+        d += timedelta(days=1)
+    return result
+
+
 class AnalyticsService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -65,6 +85,10 @@ class AnalyticsService:
         )
         daily = await self._daily_transactions(partner_id, from_date, to_date)
         tier_dist = await self._tier_distribution(partner_id)
+        daily_redemptions = await self._daily_redemptions(
+            partner_id, from_date, to_date
+        )
+        top_rewards = await self._top_rewards(partner_id, from_date, to_date)
 
         # redemption_rate = redemptions / transactions (% giao dịch có đổi quà)
         if txn_stats["count"] > 0:
@@ -82,6 +106,8 @@ class AnalyticsService:
             redemption_rate=redemption_rate,
             daily_transactions=daily,
             tier_distribution=tier_dist,
+            daily_redemptions=daily_redemptions,
+            top_rewards=top_rewards,
         )
 
     async def _count_members(self, partner_id: int) -> int:
@@ -170,6 +196,79 @@ class AnalyticsService:
             for row in result
         ]
         return _fill_missing_days(raw_points, from_date, to_date)
+
+    async def _daily_redemptions(
+        self, partner_id: int, from_date: date, to_date: date
+    ) -> list[DailyRedemptionPoint]:
+        """Quà phát ra theo ngày (timezone VN, bỏ expired)."""
+        from app.models.redemption import RedemptionStatus
+
+        from_dt, to_dt_excl = _date_range_to_utc(from_date, to_date)
+        day_expr = func.date(
+            func.timezone("Asia/Ho_Chi_Minh", Redemption.redeemed_at)
+        ).label("day")
+
+        result = await self.db.execute(
+            select(
+                day_expr,
+                func.count().label("cnt"),
+            )
+            .where(
+                Redemption.partner_id == partner_id,
+                Redemption.redeemed_at >= from_dt,
+                Redemption.redeemed_at < to_dt_excl,
+                Redemption.status != RedemptionStatus.EXPIRED,
+            )
+            .group_by(day_expr)
+            .order_by(day_expr)
+        )
+        raw = [
+            DailyRedemptionPoint(day=row.day, redemption_count=int(row.cnt))
+            for row in result
+        ]
+        return _fill_missing_redemption_days(raw, from_date, to_date)
+
+    async def _top_rewards(
+        self, partner_id: int, from_date: date, to_date: date, limit: int = 5
+    ) -> list[TopRewardRow]:
+        """Top quà được đổi nhiều nhất (bao gồm cả quà đã xoá mềm để bảo toàn lịch sử)."""
+        from app.models.redemption import RedemptionStatus
+        from app.models.reward import Reward
+        from sqlalchemy import case
+
+        from_dt, to_dt_excl = _date_range_to_utc(from_date, to_date)
+        result = await self.db.execute(
+            select(
+                Reward.id.label("reward_id"),
+                Reward.name.label("name"),
+                func.count().label("issued"),
+                func.sum(
+                    case(
+                        (Redemption.status == RedemptionStatus.USED, 1),
+                        else_=0,
+                    )
+                ).label("used"),
+            )
+            .join(Reward, Redemption.reward_id == Reward.id)
+            .where(
+                Redemption.partner_id == partner_id,
+                Redemption.redeemed_at >= from_dt,
+                Redemption.redeemed_at < to_dt_excl,
+                Redemption.status != RedemptionStatus.EXPIRED,
+            )
+            .group_by(Reward.id, Reward.name)
+            .order_by(func.count().desc(), Reward.id.asc())
+            .limit(limit)
+        )
+        return [
+            TopRewardRow(
+                reward_id=int(row.reward_id),
+                name=row.name,
+                issued=int(row.issued),
+                used=int(row.used),
+            )
+            for row in result
+        ]
 
     async def _tier_distribution(
         self, partner_id: int

@@ -22,6 +22,22 @@ class TierDistributionPoint(BaseModel):
     member_count: int
 
 
+class DailyRedemptionPoint(BaseModel):
+    """Một ngày trong biểu đồ quà phát ra theo ngày."""
+
+    day: date
+    redemption_count: int
+
+
+class TopRewardRow(BaseModel):
+    """Một hàng trong bảng Top 5 quà."""
+
+    reward_id: int
+    name: str
+    issued: int
+    used: int
+
+
 class DashboardResponse(BaseModel):
     """Phản hồi tổng hợp dashboard analytics."""
 
@@ -34,6 +50,8 @@ class DashboardResponse(BaseModel):
     redemption_rate: float
     daily_transactions: list[DailyTransactionPoint]
     tier_distribution: list[TierDistributionPoint]
+    daily_redemptions: list[DailyRedemptionPoint]
+    top_rewards: list[TopRewardRow]
 
 
 class PartnerDetailStats(BaseModel):
