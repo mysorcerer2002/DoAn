@@ -10,8 +10,10 @@ import {
 
 import { useDashboard } from "@/lib/hooks/use-partner";
 import type {
+  DailyRedemptionPoint,
   DailyTransactionPoint,
   TierDistributionPoint,
+  TopRewardRow,
 } from "@/types/partner";
 
 function formatVnd(n: number): string {
@@ -121,7 +123,7 @@ export default function MerchantDashboardPage() {
       </header>
 
       {/* KPI cards với trend badge + progress bar */}
-      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <KpiCard
           label="Doanh thu"
           value={formatVnd(data.total_revenue)}
@@ -150,6 +152,25 @@ export default function MerchantDashboardPage() {
           progress={Math.min(100, (totalPointsIssued / 20000) * 100)}
           progressColor="bg-brand-orange"
           highlight
+        />
+        <KpiCard
+          label="Lượt đổi quà"
+          value={data.total_redemption_count.toLocaleString("vi-VN")}
+          trend={null}
+          progress={Math.min(
+            100,
+            (data.total_redemption_count /
+              Math.max(data.transaction_count, 1)) *
+              100
+          )}
+          progressColor="bg-emerald-500"
+        />
+        <KpiCard
+          label="Tỉ lệ đổi/giao dịch"
+          value={(data.redemption_rate * 100).toFixed(1) + "%"}
+          trend={null}
+          progress={Math.min(100, data.redemption_rate * 100)}
+          progressColor="bg-amber-500"
         />
       </section>
 
@@ -192,6 +213,39 @@ export default function MerchantDashboardPage() {
             </p>
           </header>
           <TierDonutChart data={data.tier_distribution} total={totalMembers} />
+        </article>
+      </section>
+
+      {/* Row mới: Bar chart quà phát ra theo ngày (2/3) + Top 5 quà (1/3) */}
+      <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm lg:col-span-2">
+          <header className="flex items-center justify-between">
+            <div>
+              <h2 className="font-headline text-[18px] font-bold text-slate-800">
+                Quà phát ra theo ngày
+              </h2>
+              <p className="text-[12px] text-slate-400">
+                {data.daily_redemptions.length} ngày
+              </p>
+            </div>
+            <LegendDot color="bg-emerald-500" label="Lượt đổi" />
+          </header>
+          {data.daily_redemptions.every((d) => d.redemption_count === 0) ? (
+            <div className="flex h-60 items-center justify-center text-[13px] text-slate-400">
+              Chưa có lượt đổi quà nào trong khoảng này
+            </div>
+          ) : (
+            <RedemptionBarChart data={data.daily_redemptions} />
+          )}
+        </article>
+
+        <article className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <header>
+            <h2 className="font-headline text-[18px] font-bold text-slate-800">
+              Top 5 quà
+            </h2>
+          </header>
+          <TopRewardsTable data={data.top_rewards} />
         </article>
       </section>
 
@@ -345,6 +399,112 @@ function RevenueLineChart({
           );
         })}
     </svg>
+  );
+}
+
+function RedemptionBarChart({ data }: { data: DailyRedemptionPoint[] }) {
+  const W = 700;
+  const H = 240;
+  const padX = 40;
+  const padY = 30;
+  if (data.length === 0) return null;
+  const maxCount = Math.max(1, ...data.map((d) => d.redemption_count));
+  const barWidth = Math.max(
+    2,
+    Math.floor((W - padX * 2) / data.length) - 2
+  );
+  const yScale = (H - padY * 2) / maxCount;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="mt-4 h-60 w-full">
+      {[0, 1, 2, 3].map((i) => (
+        <line
+          key={i}
+          x1={padX}
+          y1={padY + (i * (H - padY * 2)) / 3}
+          x2={W - padX}
+          y2={padY + (i * (H - padY * 2)) / 3}
+          stroke="#e2e8f0"
+          strokeDasharray="2 4"
+        />
+      ))}
+      {data.map((d, i) => {
+        const barH = Math.max(1, d.redemption_count * yScale);
+        const xStep = (W - padX * 2) / data.length;
+        const cx = padX + i * xStep + xStep / 2;
+        return (
+          <rect
+            key={`bar-${d.day}`}
+            x={cx - barWidth / 2}
+            y={H - padY - barH}
+            width={barWidth}
+            height={barH}
+            rx="2"
+            fill="#10b981"
+            fillOpacity="0.85"
+          />
+        );
+      })}
+      {data
+        .filter((_, i) => i % Math.max(1, Math.floor(data.length / 8)) === 0)
+        .map((d, idx) => {
+          const xStep = (W - padX * 2) / data.length;
+          const realIdx = data.indexOf(d);
+          const cx = padX + realIdx * xStep + xStep / 2;
+          return (
+            <text
+              key={`x-${d.day}-${idx}`}
+              x={cx}
+              y={H - 8}
+              textAnchor="middle"
+              fontSize="9"
+              fill="#94a3b8"
+            >
+              {formatDate(d.day)}
+            </text>
+          );
+        })}
+    </svg>
+  );
+}
+
+function TopRewardsTable({ data }: { data: TopRewardRow[] }) {
+  if (data.length === 0) {
+    return (
+      <div className="mt-6 flex h-40 items-center justify-center text-[13px] text-slate-400">
+        Chưa có lượt đổi quà nào trong khoảng này.
+      </div>
+    );
+  }
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full text-[13px]">
+        <thead>
+          <tr className="border-b border-slate-100 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <th className="pb-2 pr-2">#</th>
+            <th className="pb-2 pr-2">Tên quà</th>
+            <th className="pb-2 pr-2 text-right">Đã phát</th>
+            <th className="pb-2 text-right">Đã dùng</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, idx) => (
+            <tr key={row.reward_id} className="border-b border-slate-50">
+              <td className="py-2 pr-2 font-bold text-slate-400">{idx + 1}</td>
+              <td className="py-2 pr-2 font-medium text-slate-700">
+                {row.name}
+              </td>
+              <td className="py-2 pr-2 text-right font-bold text-emerald-600">
+                {row.issued.toLocaleString("vi-VN")}
+              </td>
+              <td className="py-2 text-right text-slate-500">
+                {row.used.toLocaleString("vi-VN")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

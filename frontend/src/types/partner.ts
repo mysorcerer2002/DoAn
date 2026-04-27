@@ -246,6 +246,18 @@ export interface TierDistributionPoint {
   member_count: number;
 }
 
+export interface DailyRedemptionPoint {
+  day: string;
+  redemption_count: number;
+}
+
+export interface TopRewardRow {
+  reward_id: number;
+  name: string;
+  issued: number;
+  used: number;
+}
+
 export interface DashboardResponse {
   period_from: string;
   period_to: string;
@@ -256,6 +268,8 @@ export interface DashboardResponse {
   redemption_rate: number;
   daily_transactions: DailyTransactionPoint[];
   tier_distribution: TierDistributionPoint[];
+  daily_redemptions: DailyRedemptionPoint[];
+  top_rewards: TopRewardRow[];
 }
 
 // Tiers
