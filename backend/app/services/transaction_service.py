@@ -34,6 +34,18 @@ class NoMembershipError(Exception):
     pass
 
 
+class MembershipDisabledError(Exception):
+    """Owner đã khoá thẻ thành viên ở đối tác này — không cho tích điểm."""
+    pass
+
+
+def _format_earn_description(gross_amount: int, receipt_code: str | None) -> str:
+    amount_str = f"{gross_amount:,}".replace(",", ".")
+    if receipt_code:
+        return f"Tích điểm hoá đơn số {receipt_code}: {amount_str}đ"
+    return f"Tích điểm hoá đơn: {amount_str}đ"
+
+
 # LOCK ORDERING RULE (HYBRID points — xem spec M5):
 # 1. memberships (lock per-shop, dùng SELECT FOR UPDATE để bảo vệ lifetime_earned)
 # 2. tiers / point_rules (chỉ đọc, không cần lock)
@@ -75,6 +87,10 @@ class TransactionService:
         )
         if membership is None:
             raise ValueError(f"Membership {member.membership_id} not found")
+        if not membership.is_active:
+            raise MembershipDisabledError(
+                "Thành viên đã bị khoá ở đối tác này."
+            )
 
         # Snapshot old_tier TRƯỚC khi recompute
         old_tier_id = membership.current_tier_id
@@ -133,7 +149,9 @@ class TransactionService:
                 ref_type=LedgerRefType.TRANSACTION,
                 ref_id=txn.id,
                 new_balance=new_balance,
-                description=f"Manual transaction #{txn.id}",
+                description=_format_earn_description(
+                    txn.gross_amount, txn.receipt_code
+                ),
             )
 
         new_tier = await tier_svc.recompute_tier(
@@ -230,6 +248,11 @@ class TransactionService:
         receipt_code: str | None = None,
     ) -> TransactionWithMemberResponse:
         """Logic tạo transaction dùng chung cho manual và QR."""
+        if not membership.is_active:
+            raise MembershipDisabledError(
+                "Thành viên đã bị khoá ở đối tác này."
+            )
+
         ledger_svc = LedgerService(self.db)
         tier_svc = TierService(self.db)
 
@@ -282,7 +305,9 @@ class TransactionService:
                 ref_type=LedgerRefType.TRANSACTION,
                 ref_id=txn.id,
                 new_balance=new_balance,
-                description=f"{method.value} transaction #{txn.id}",
+                description=_format_earn_description(
+                    txn.gross_amount, txn.receipt_code
+                ),
             )
 
         new_tier = await tier_svc.recompute_tier(

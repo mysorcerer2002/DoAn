@@ -85,6 +85,7 @@ class CustomerLookupResponse(BaseModel):
     email: str | None = None
     points_balance: int | None = None
     is_member: bool = False
+    is_active: bool | None = None  # None khi chưa là member; True/False khi đã có membership
     lifetime_earned: int | None = None
     current_tier_name: str | None = None
 

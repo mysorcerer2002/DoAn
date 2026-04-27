@@ -58,6 +58,7 @@ export interface MemberResponse {
   current_tier_name: string | null;
   joined_at: string;
   last_activity_at: string | null;
+  is_active: boolean;
   is_new: boolean;
 }
 
@@ -162,6 +163,7 @@ export interface CustomerLookupResponse {
   email: string | null;
   points_balance: number | null;
   is_member: boolean;
+  is_active: boolean | null;
   lifetime_earned: number | null;
   current_tier_name: string | null;
 }

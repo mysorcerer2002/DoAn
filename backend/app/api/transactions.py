@@ -27,6 +27,7 @@ from app.services.partner_transaction_service import (
     TransactionNotFoundError,
 )
 from app.services.transaction_service import (
+    MembershipDisabledError,
     NoActivePointRuleError,
     NoMembershipError,
     TransactionService,
@@ -49,6 +50,8 @@ async def create_manual_transaction(
         return await service.create_manual(partner_id=partner_id, request=body)
     except InvalidPhoneError as e:
         raise HTTPException(status_code=422, detail=f"Invalid phone: {e}") from e
+    except MembershipDisabledError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except NoActivePointRuleError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
     except IntegrityError as e:
@@ -91,6 +94,8 @@ async def create_qr_transaction(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except NoMembershipError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except MembershipDisabledError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except NoActivePointRuleError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
     except IntegrityError as e:
@@ -143,6 +148,7 @@ async def lookup_customer_by_phone(
         email=user.email,
         points_balance=user.points_balance,
         is_member=membership is not None,
+        is_active=membership.is_active if membership else None,
         lifetime_earned=membership.lifetime_earned if membership else None,
         current_tier_name=(
             membership.current_tier.name
@@ -197,6 +203,7 @@ async def lookup_customer_by_qr(
         email=user.email,
         points_balance=user.points_balance,
         is_member=True,
+        is_active=membership.is_active,
         lifetime_earned=membership.lifetime_earned,
         current_tier_name=(
             membership.current_tier.name if membership.current_tier else None

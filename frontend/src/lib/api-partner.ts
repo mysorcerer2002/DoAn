@@ -64,6 +64,10 @@ export const membersApi = {
     api.get<LedgerEntryResponse[]>(`/partner/members/${id}/ledger`, {
       params: { limit },
     }),
+  adjustPoints: (id: number, data: { delta: number; description: string }) =>
+    api.post<MemberResponse>(`/partner/members/${id}/adjust-points`, data),
+  update: (id: number, data: { is_active: boolean }) =>
+    api.patch<MemberResponse>(`/partner/members/${id}`, data),
 };
 
 // ==================== Partner Rewards ====================

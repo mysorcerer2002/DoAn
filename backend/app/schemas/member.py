@@ -22,6 +22,7 @@ class MemberResponse(BaseModel):
     current_tier_name: str | None
     joined_at: datetime
     last_activity_at: datetime | None
+    is_active: bool = True
     is_new: bool
 
     model_config = {"from_attributes": True}

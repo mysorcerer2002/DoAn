@@ -80,6 +80,10 @@ export function PosTransactionForm({
 
   const phoneLocked = phoneLookupReady && phoneLookup.data?.found === true;
 
+  const activeLookup = mode === "phone" ? phoneLookup.data : qrLookup.data;
+  const memberDisabled =
+    activeLookup?.is_member === true && activeLookup?.is_active === false;
+
   // BarcodeDetector — chrome/edge/android. Feature detect an toàn cho SSR.
   const hasBarcodeDetector =
     typeof window !== "undefined" && "BarcodeDetector" in window;
@@ -153,6 +157,12 @@ export function PosTransactionForm({
     setResult(null);
     if (!amount.trim() || Number(amount) <= 0) {
       setError("Vui lòng nhập số tiền hợp lệ");
+      return;
+    }
+    if (memberDisabled) {
+      setError(
+        "Thành viên đã bị khoá tại đối tác — không thể tích điểm. Vui lòng mở khoá ở mục Thành viên trước."
+      );
       return;
     }
     try {
@@ -521,7 +531,7 @@ export function PosTransactionForm({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || memberDisabled}
             className={`flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r ${accentGradient} py-3 font-headline text-[14px] font-bold text-white shadow-lg active:scale-[0.98] disabled:opacity-60`}
           >
             {submitting ? (
@@ -553,22 +563,46 @@ function CustomerInfoCard({
   onChange: () => void;
   changeLabel?: string;
 }) {
+  const disabled = data.is_member && data.is_active === false;
+  const containerCls = disabled
+    ? "rounded-xl border border-red-200 bg-red-50 px-4 py-3"
+    : "rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3";
+  const avatarCls = disabled
+    ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-200 text-red-800"
+    : "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-emerald-800";
+  const nameCls = disabled
+    ? "flex items-center gap-1.5 text-[13px] font-bold text-red-900"
+    : "flex items-center gap-1.5 text-[13px] font-bold text-emerald-900";
+  const phoneCls = disabled ? "text-[12px] text-red-800" : "text-[12px] text-emerald-800";
+  const buttonCls = disabled
+    ? "shrink-0 rounded-lg border border-red-300 bg-white px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-100"
+    : "shrink-0 rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100";
+
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+    <div className={containerCls}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-emerald-800">
+          <div className={avatarCls}>
             <User className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[13px] font-bold text-emerald-900">
+            <p className={nameCls}>
               <CheckCircle2 className="h-3.5 w-3.5" />
               {data.full_name || "Khách hàng"}
+              {disabled && (
+                <span className="ml-1 rounded-full bg-red-200 px-2 py-0.5 text-[10px] font-bold uppercase text-red-800">
+                  Đã khoá
+                </span>
+              )}
             </p>
-            <p className="text-[12px] text-emerald-800">
+            <p className={phoneCls}>
               {data.phone ?? "—"}
             </p>
-            {data.is_member ? (
+            {disabled ? (
+              <p className="mt-1 text-[11px] font-medium text-red-700">
+                Thành viên đã bị khoá tại shop — không thể tích điểm. Vui lòng mở khoá ở mục Thành viên trước.
+              </p>
+            ) : data.is_member ? (
               <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded-full bg-white/70 px-2 py-0.5 font-medium text-emerald-900">
                   Điểm: {(data.points_balance ?? 0).toLocaleString("vi-VN")}
@@ -587,11 +621,7 @@ function CustomerInfoCard({
             )}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onChange}
-          className="shrink-0 rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100"
-        >
+        <button type="button" onClick={onChange} className={buttonCls}>
           {changeLabel}
         </button>
       </div>

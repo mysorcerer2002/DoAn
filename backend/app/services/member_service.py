@@ -105,6 +105,7 @@ class MemberService:
             else None,
             joined_at=existing_membership.joined_at,
             last_activity_at=existing_membership.last_activity_at,
+            is_active=existing_membership.is_active,
             is_new=is_membership_new,
         )
 

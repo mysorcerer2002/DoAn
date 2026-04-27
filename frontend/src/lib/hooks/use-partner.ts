@@ -99,6 +99,45 @@ export function useMemberDetail(id: number | null) {
   });
 }
 
+export function useMemberLedger(id: number | null, limit = 50) {
+  const partnerId = usePartnerId();
+  return useQuery({
+    queryKey: ["partner", "members", partnerId, id, "ledger", limit],
+    queryFn: async () => (await membersApi.ledger(id!, limit)).data,
+    enabled: partnerId != null && id != null,
+  });
+}
+
+export function useAdjustMemberPoints() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      delta,
+      description,
+    }: {
+      id: number;
+      delta: number;
+      description: string;
+    }) => membersApi.adjustPoints(id, { delta, description }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["partner", "members"] });
+      qc.invalidateQueries({ queryKey: ["partner", "dashboard"] });
+    },
+  });
+}
+
+export function useUpdateMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, is_active }: { id: number; is_active: boolean }) =>
+      membersApi.update(id, { is_active }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["partner", "members"] });
+    },
+  });
+}
+
 // ==================== Rewards ====================
 export function useRewards(params?: {
   active_only?: boolean;
