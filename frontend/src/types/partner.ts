@@ -470,6 +470,7 @@ export interface AdminUserRow {
   phone: string | null;
   full_name: string | null;
   system_role: "regular" | "admin" | "super_admin";
+  partner_role: "owner" | "staff" | null;
   is_active: boolean;
   created_at: string;
   last_login_at: string | null;

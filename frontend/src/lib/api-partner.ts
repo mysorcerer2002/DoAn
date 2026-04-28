@@ -268,7 +268,13 @@ export const adminApi = {
     api.post<PartnerResponse>(`/admin/partners/${id}/suspend`),
   listUsers: (params?: {
     q?: string;
-    role?: "regular" | "admin" | "super_admin";
+    role?:
+      | "regular"
+      | "admin"
+      | "super_admin"
+      | "owner"
+      | "staff"
+      | "customer";
     limit?: number;
     offset?: number;
   }) => api.get<AdminUserListResponse>("/admin/users", { params }),

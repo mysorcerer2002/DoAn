@@ -9,8 +9,10 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  Store,
   Unlock,
   UserCog,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
@@ -28,26 +30,51 @@ import type {
   AdminUserRow,
 } from "@/types/partner";
 
+// SystemRole: giá trị field thực ở DB (User.system_role) — RoleEditModal
+// chỉ chỉnh sửa được 3 giá trị này.
 type SystemRole = "regular" | "admin" | "super_admin";
 
-function roleBadge(role: string) {
-  if (role === "super_admin")
+// RoleFilter: superset cho filter buttons — bổ sung owner/staff/customer
+// suy ra từ Partner.owner_user_id và PartnerStaff.user_id.
+type RoleFilter = SystemRole | "owner" | "staff" | "customer";
+
+// Hiển thị 1 badge duy nhất theo thứ tự ưu tiên:
+// super_admin > admin > chủ shop > nhân viên > khách hàng.
+// Mục đích: ở /admin/users user có nhiều "vai trò" (vd vừa là owner partner A
+// vừa là staff partner B) nhưng UI cần 1 badge để đọc nhanh.
+function roleBadge(systemRole: string, partnerRole: string | null) {
+  if (systemRole === "super_admin")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-bold text-red-600">
         <ShieldAlert className="h-3 w-3" />
         Super Admin
       </span>
     );
-  if (role === "admin")
+  if (systemRole === "admin")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-indigo">
         <ShieldCheck className="h-3 w-3" />
         Admin
       </span>
     );
+  if (partnerRole === "owner")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">
+        <Store className="h-3 w-3" />
+        Chủ shop
+      </span>
+    );
+  if (partnerRole === "staff")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+        <UserCog className="h-3 w-3" />
+        Nhân viên
+      </span>
+    );
   return (
-    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">
-      Người dùng
+    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">
+      <UserRound className="h-3 w-3" />
+      Khách hàng
     </span>
   );
 }
@@ -63,7 +90,7 @@ function fmtDate(iso: string | null): string {
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
-  const [role, setRole] = useState<SystemRole | "">("");
+  const [role, setRole] = useState<RoleFilter | "">("");
   const [detailId, setDetailId] = useState<number | null>(null);
   const [roleEdit, setRoleEdit] = useState<AdminUserRow | null>(null);
   const [resetConfirm, setResetConfirm] = useState<AdminUserRow | null>(null);
@@ -143,25 +170,28 @@ export default function AdminUsersPage() {
             className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-3 outline-none transition-all placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
           />
         </div>
-        <div className="flex gap-2">
-          {(["", "regular", "admin", "super_admin"] as const).map((r) => (
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              { id: "", label: "Tất cả" },
+              { id: "super_admin", label: "Super Admin" },
+              { id: "admin", label: "Admin" },
+              { id: "owner", label: "Chủ shop" },
+              { id: "staff", label: "Nhân viên" },
+              { id: "customer", label: "Khách hàng" },
+            ] as const
+          ).map((opt) => (
             <button
-              key={r || "all"}
+              key={opt.id || "all"}
               type="button"
-              onClick={() => setRole(r)}
+              onClick={() => setRole(opt.id)}
               className={
-                role === r
+                role === opt.id
                   ? "rounded-lg bg-brand-indigo px-4 py-2 text-[12px] font-bold text-white"
                   : "rounded-lg border border-slate-200 bg-white px-4 py-2 text-[12px] font-medium text-slate-600 hover:bg-slate-50"
               }
             >
-              {r === ""
-                ? "Tất cả"
-                : r === "super_admin"
-                  ? "Super Admin"
-                  : r === "admin"
-                    ? "Admin"
-                    : "User"}
+              {opt.label}
             </button>
           ))}
         </div>
@@ -228,7 +258,9 @@ export default function AdminUsersPage() {
                           </p>
                         )}
                       </td>
-                      <td className="px-6 py-4">{roleBadge(u.system_role)}</td>
+                      <td className="px-6 py-4">
+                        {roleBadge(u.system_role, u.partner_role ?? null)}
+                      </td>
                       <td className="px-6 py-4">
                         {u.is_active ? (
                           <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-[11px] font-medium text-green-700">
@@ -483,7 +515,7 @@ function UserDetailModal({
                   #{data.id} • {data.email || "không có email"}
                 </p>
                 <div className="mt-1 flex items-center gap-2">
-                  {roleBadge(data.system_role)}
+                  {roleBadge(data.system_role, data.partner_role ?? null)}
                   {data.is_active ? (
                     <span className="inline-flex rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700">
                       Hoạt động

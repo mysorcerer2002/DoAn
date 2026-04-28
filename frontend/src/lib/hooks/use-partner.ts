@@ -357,7 +357,13 @@ export function useMyLedger(params?: { limit?: number; offset?: number; partnerS
 // ==================== Admin extensions ====================
 export function useAdminUsers(params?: {
   q?: string;
-  role?: "regular" | "admin" | "super_admin";
+  role?:
+    | "regular"
+    | "admin"
+    | "super_admin"
+    | "owner"
+    | "staff"
+    | "customer";
   limit?: number;
   offset?: number;
 }) {

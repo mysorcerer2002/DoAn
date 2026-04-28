@@ -20,6 +20,7 @@ from app.models.point_ledger import LedgerReason, PointLedger
 from app.models.redemption import Redemption
 from app.models.reward import Reward
 from app.models.partner import Partner, PartnerStatus
+from app.models.partner_staff import PartnerStaff
 from app.models.tier import Tier
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -355,6 +356,9 @@ class AdminUserRow(BaseModel):
     phone: str | None
     full_name: str | None
     system_role: str
+    # Vai trò gắn với partner: "owner" (chủ shop), "staff" (nhân viên),
+    # hoặc None (khách thuần). Ưu tiên owner > staff khi user có cả hai.
+    partner_role: str | None = None
     is_active: bool
     created_at: datetime
     last_login_at: datetime | None
@@ -388,19 +392,52 @@ class AdminSettingsResponse(BaseModel):
 @router.get("/users", response_model=AdminUserListResponse)
 async def list_platform_users(
     q: str | None = Query(default=None, max_length=100),
-    role: str | None = Query(default=None, pattern="^(regular|admin|super_admin)$"),
+    role: str | None = Query(
+        default=None,
+        pattern="^(regular|admin|super_admin|owner|staff|customer)$",
+    ),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     _admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ) -> AdminUserListResponse:
-    """Super Admin xem danh sách user toàn platform."""
+    """Super Admin xem danh sách user toàn platform.
+
+    Filter ``role`` hỗ trợ cả system_role gốc (``regular``/``admin``/
+    ``super_admin``) lẫn vai trò partner suy ra từ Partner.owner_user_id /
+    PartnerStaff.user_id (``owner``/``staff``/``customer``).
+    """
+    owner_subq = select(Partner.owner_user_id).where(
+        Partner.owner_user_id.is_not(None)
+    )
+    staff_subq = select(PartnerStaff.user_id)
+
     stmt = select(User)
     count_stmt = select(func.count()).select_from(User)
 
-    if role:
+    if role in ("regular", "admin", "super_admin"):
         stmt = stmt.where(User.system_role == role)
         count_stmt = count_stmt.where(User.system_role == role)
+    elif role == "owner":
+        stmt = stmt.where(User.id.in_(owner_subq))
+        count_stmt = count_stmt.where(User.id.in_(owner_subq))
+    elif role == "staff":
+        # Staff không bao gồm owner — owner luôn ưu tiên hiển thị "Chủ shop".
+        stmt = stmt.where(User.id.in_(staff_subq), User.id.notin_(owner_subq))
+        count_stmt = count_stmt.where(
+            User.id.in_(staff_subq), User.id.notin_(owner_subq)
+        )
+    elif role == "customer":
+        stmt = stmt.where(
+            User.system_role == "regular",
+            User.id.notin_(owner_subq),
+            User.id.notin_(staff_subq),
+        )
+        count_stmt = count_stmt.where(
+            User.system_role == "regular",
+            User.id.notin_(owner_subq),
+            User.id.notin_(staff_subq),
+        )
 
     if q:
         like = f"%{q.strip().lower()}%"
@@ -417,12 +454,44 @@ async def list_platform_users(
 
     total = int(await db.scalar(count_stmt) or 0)
     stmt = stmt.order_by(User.created_at.desc()).limit(limit).offset(offset)
-    users = (await db.scalars(stmt)).all()
+    users = list((await db.scalars(stmt)).all())
 
-    return AdminUserListResponse(
-        total=total,
-        items=[AdminUserRow.model_validate(u) for u in users],
-    )
+    user_ids = [u.id for u in users]
+    owner_ids: set[int] = set()
+    staff_ids: set[int] = set()
+    if user_ids:
+        owner_ids = set(
+            (
+                await db.scalars(
+                    select(Partner.owner_user_id).where(
+                        Partner.owner_user_id.in_(user_ids)
+                    )
+                )
+            ).all()
+        )
+        staff_ids = set(
+            (
+                await db.scalars(
+                    select(PartnerStaff.user_id).where(
+                        PartnerStaff.user_id.in_(user_ids)
+                    )
+                )
+            ).all()
+        )
+
+    items: list[AdminUserRow] = []
+    for u in users:
+        if u.id in owner_ids:
+            partner_role: str | None = "owner"
+        elif u.id in staff_ids:
+            partner_role = "staff"
+        else:
+            partner_role = None
+        row = AdminUserRow.model_validate(u)
+        row.partner_role = partner_role
+        items.append(row)
+
+    return AdminUserListResponse(total=total, items=items)
 
 
 @router.get("/audit-feed", response_model=list[AuditFeedItem])
@@ -535,6 +604,7 @@ class AdminUserDetailResponse(BaseModel):
     phone: str | None
     full_name: str | None
     system_role: str
+    partner_role: str | None = None
     is_active: bool
     created_at: datetime
     last_login_at: datetime | None
@@ -606,12 +676,31 @@ async def get_user_detail(
         for m, p, tier_name in rows
     ]
 
+    is_owner = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Partner)
+            .where(Partner.owner_user_id == user_id)
+        )
+        or 0
+    ) > 0
+    is_staff = (
+        await db.scalar(
+            select(func.count())
+            .select_from(PartnerStaff)
+            .where(PartnerStaff.user_id == user_id)
+        )
+        or 0
+    ) > 0
+    partner_role = "owner" if is_owner else ("staff" if is_staff else None)
+
     return AdminUserDetailResponse(
         id=target.id,
         email=target.email,
         phone=target.phone,
         full_name=target.full_name,
         system_role=target.system_role,
+        partner_role=partner_role,
         is_active=target.is_active,
         created_at=target.created_at,
         last_login_at=target.last_login_at,
