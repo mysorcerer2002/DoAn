@@ -104,6 +104,55 @@ def build(rb) -> None:
         "hoặc retry queue để tự động gửi lại khi SMTP phục hồi."
     )
 
+    rb.h3("5.2.6. Multi-tenant Shared Schema thiếu defense-in-depth ở tầng DB")
+    rb.p(
+        "Mô hình Shared Schema được lựa chọn để giữ chi phí vận hành thấp và "
+        "phù hợp với scope đồ án. Tuy nhiên, cô lập dữ liệu giữa các partner "
+        "hiện chỉ dựa trên application-level filter (mỗi query đều thêm điều "
+        "kiện partner_id = X) và dependency require_owner_in_tenant. Nếu một "
+        "endpoint trong tương lai quên thêm filter, dữ liệu của partner khác "
+        "có thể bị rò rỉ. Giải pháp tiêu chuẩn công nghiệp là bật PostgreSQL "
+        "Row-Level Security (RLS) — tạo policy ràng buộc row trả về phải có "
+        "partner_id khớp với biến session current_setting('app.partner_id'). "
+        "Khi đó, ngay cả khi application code có lỗi cũng không thể đọc dữ "
+        "liệu sai tenant. Đây là cải tiến quan trọng cần thực hiện trước khi "
+        "đưa hệ thống lên môi trường multi-tenant thực sự."
+    )
+
+    rb.h3("5.2.7. Append-only ledger không kháng được tấn công ở tầng superuser")
+    rb.p(
+        "Trigger no_update_or_delete_point_ledger chặn mọi UPDATE/DELETE từ "
+        "application code và các tài khoản DB thường. Tuy nhiên, người có "
+        "quyền superuser PostgreSQL vẫn có thể DROP TRIGGER, sửa dữ liệu, "
+        "rồi tạo lại trigger — toàn bộ thao tác này không để lại dấu vết "
+        "trong ledger. Đây là giới hạn cố hữu của bất kỳ trigger-based "
+        "approach nào. Hai giải pháp triệt để: (a) bật pgaudit để log "
+        "DDL/DML có quyền cao và push log sang hệ thống lưu trữ riêng "
+        "ngoài tầm kiểm soát của DB admin; (b) chuyển sang hash-chained "
+        "ledger — mỗi ledger entry chứa hash của entry trước đó, do đó bất "
+        "kỳ thay đổi nào ở giữa chuỗi cũng sẽ phá vỡ chuỗi hash và bị "
+        "phát hiện khi đối soát định kỳ. Hướng (b) là giải pháp đầy đủ "
+        "nhất nhưng vượt scope đồ án."
+    )
+
+    rb.h3("5.2.8. JWT 24 giờ không có cơ chế revoke khi đổi password")
+    rb.p(
+        "Access token JWT hiện tại có thời gian sống 24 giờ và là stateless "
+        "(server không lưu trạng thái token). Khi user đổi password hoặc "
+        "owner khoá tài khoản nhân viên, các access token đã phát từ trước "
+        "vẫn còn hiệu lực trong tối đa 24 giờ — tạo ra một cửa sổ rủi ro "
+        "nhất định. Giải pháp tiêu chuẩn là thêm một tầng Redis blocklist: "
+        "(1) mỗi JWT thêm trường jti (JWT ID) duy nhất và iat (issued-at); "
+        "(2) khi user đổi password, lưu users.password_changed_at vào DB; "
+        "(3) middleware kiểm tra mỗi request: nếu token.iat < user."
+        "password_changed_at thì reject. Cách này không yêu cầu truy vấn "
+        "Redis nếu password_changed_at được cache trong JWT của session "
+        "tiếp theo. Trong scope đồ án, lựa chọn JWT 24 giờ + dependency "
+        "require_staff_in_tenant đọc lại is_active mỗi request đã giảm bề "
+        "mặt rủi ro xuống mức chấp nhận được, nhưng đây vẫn là điểm cần "
+        "hoàn thiện trước khi triển khai sản xuất quy mô lớn."
+    )
+
     # ─────────────────────────────────────────────
     # 5.3 Mở rộng (luận văn tốt nghiệp)
     # ─────────────────────────────────────────────

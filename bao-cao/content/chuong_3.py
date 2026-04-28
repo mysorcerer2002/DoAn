@@ -139,7 +139,7 @@ def build(rb) -> None:
         rows=[
             ["Actor", "Customer, Owner, Staff, Super Admin"],
             ["Precondition", "Người dùng đã có tài khoản, chưa đăng nhập; trang /login đang mở"],
-            ["Main flow", "1. Người dùng nhập email/phone + mật khẩu và submit form.\n2. Frontend POST /auth/login.\n3. Backend xác thực bcrypt; nếu đúng, phát JWT (HS256, 7 ngày).\n4. Frontend lưu token vào localStorage, chuyển hướng về trang chính của role."],
+            ["Main flow", "1. Người dùng nhập email/phone + mật khẩu và submit form.\n2. Frontend POST /auth/login.\n3. Backend xác thực bcrypt; nếu đúng, phát access token JWT (HS256, 24 giờ) và refresh token (30 ngày).\n4. Frontend lưu token vào localStorage, chuyển hướng về trang chính của role."],
             ["Alternate flow", "3a. Mật khẩu sai → 401, hiển thị lỗi. 3b. Quá rate limit → 429, hiển thị thông báo chờ."],
             ["Postcondition", "Người dùng đã đăng nhập; axios interceptor tự động đính JWT vào mọi request tiếp theo"],
         ],
@@ -208,7 +208,7 @@ def build(rb) -> None:
         "POST /auth/login với email/phone và password → Backend tra cứu user theo "
         "email/phone → Xác thực bcrypt(password, password_hash) → Nếu đúng, "
         "ký JWT bằng SECRET_KEY (HS256, payload chứa user_id và system_role, "
-        "exp = 7 ngày) → Trả access_token về Frontend → Frontend lưu vào "
+        "exp = 24 giờ; refresh token có exp 30 ngày) → Trả access_token về Frontend → Frontend lưu vào "
         "localStorage → axios interceptor tự động thêm Authorization: Bearer {token} "
         "vào mọi request tiếp theo. Mỗi lần đăng nhập thành công, backend "
         "INSERT một bản ghi vào bảng login_logs."
