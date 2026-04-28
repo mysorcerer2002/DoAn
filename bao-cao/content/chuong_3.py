@@ -390,3 +390,94 @@ def build(rb) -> None:
         "và số partner đang active. Các chỉ số này cho phép admin theo dõi "
         "sức khỏe tổng thể của hệ thống điểm và phát hiện bất thường."
     )
+
+    # ─────────────────────────────────────────────
+    # 3.5 Kiến trúc triển khai
+    # ─────────────────────────────────────────────
+    rb.h2("3.5. KIẾN TRÚC TRIỂN KHAI")
+    rb.p(
+        "Hệ thống được triển khai theo mô hình container hoá với năm thành "
+        "phần chính giao tiếp qua mạng Docker nội bộ và một egress tunnel "
+        "duy nhất ra Internet. Sơ đồ dưới đây trình bày toàn cảnh các thành "
+        "phần và đường đi của request từ trình duyệt người dùng tới cơ sở "
+        "dữ liệu, kèm các điểm quan trọng về bảo mật và vận hành. Mục đích "
+        "trình bày là để người đọc hình dung được hạ tầng vật lý / logic "
+        "đứng phía sau ứng dụng, đồng thời làm cơ sở cho phần đánh giá "
+        "rủi ro ở chương 5."
+    )
+    _img(rb, "bao-cao/assets/uml/deployment.png",
+         "Sơ đồ kiến trúc triển khai — Cloudflare Edge → cloudflared → "
+         "Docker network → 3 container nghiệp vụ.",
+         width_cm=15.5)
+
+    rb.h3("3.5.1. Cloudflare Edge và cloudflared (hai thành phần khác nhau)")
+    rb.p(
+        "Cloudflare Edge là tầng dịch vụ chạy trên hạ tầng toàn cầu của "
+        "Cloudflare (cloud-side), đảm nhiệm bốn việc: (i) kết thúc TLS "
+        "(TLS termination) — chứng chỉ HTTPS được Cloudflare quản lý tự "
+        "động, ứng dụng không cần xử lý chứng chỉ; (ii) chống DDoS và "
+        "lọc WAF; (iii) inject header X-Forwarded-For chứa IP thật của "
+        "client trước khi forward request xuống backend — đây là nguồn "
+        "duy nhất để slowapi tính rate limit theo IP (mục 4.3.5); và "
+        "(iv) định tuyến bốn subdomain (member.ecom-bill.com, "
+        "merchant.ecom-bill.com, admin.ecom-bill.com, pos.ecom-bill.com) "
+        "đều cùng đi tới một service frontend duy nhất qua tunnel."
+    )
+    rb.p(
+        "cloudflared là daemon chạy bên trong Docker host (host-side), có "
+        "tên container loyalty-cloudflared. Nó duy trì kết nối egress "
+        "(outbound) từ host ra Cloudflare Edge và lắng nghe request được "
+        "Edge đẩy xuống. Một đặc điểm quan trọng: tunnel my-tunnel của đề "
+        "tài đang ở chế độ remotely-managed — toàn bộ cấu hình ingress "
+        "(subdomain → service nội bộ nào) được quản lý tại Cloudflare Edge, "
+        "không phải bằng file config.yml local. Hệ quả vận hành là bất kỳ "
+        "thay đổi routing nào (thêm subdomain, đổi target service) đều "
+        "phải thực hiện qua Cloudflare API hoặc Zero Trust dashboard."
+    )
+
+    rb.h3("3.5.2. Mạng Docker nội bộ và ba container nghiệp vụ")
+    rb.p(
+        "Frontend, backend và postgres đều nằm trong cùng một mạng Docker "
+        "do compose tạo ra (loyalty-net). Các container giao tiếp với nhau "
+        "qua DNS service-name nội bộ (frontend, backend, postgres) và "
+        "không bind port ra host máy thật — chỉ cloudflared có đường ra "
+        "Internet, giúp giảm bề mặt tấn công đáng kể."
+    )
+    rb.p(
+        "loyalty-frontend-prod chạy Next.js 14 ở chế độ SSR (output: "
+        "standalone) trên Node 20, lắng nghe cổng 3000 nội bộ. Frontend "
+        "đảm nhiệm hai vai trò: render server-side các trang App Router "
+        "và đóng vai trò reverse proxy — quy tắc rewrite trong "
+        "next.config.mjs ánh xạ /api/:path* tới http://backend:8000/:path* "
+        "qua mạng Docker nội bộ. Nhờ cách này, browser không cần biết URL "
+        "của backend; mọi request đều đi qua frontend trên cùng origin, "
+        "tránh các vấn đề CORS phức tạp."
+    )
+    rb.p(
+        "loyalty-backend-prod chạy FastAPI + uvicorn (async). Khi container "
+        "khởi động, entrypoint thực thi alembic upgrade head để đồng bộ "
+        "migration trước khi bật uvicorn — đảm bảo schema database luôn "
+        "khớp với code đang chạy. Backend cũng host APScheduler cho các "
+        "job định kỳ và dùng slowapi làm middleware rate limit, key theo "
+        "header X-Forwarded-For do Cloudflare Edge inject."
+    )
+    rb.p(
+        "loyalty-postgres-prod chạy PostgreSQL 15 với volume pg_data mount "
+        "vào /var/lib/postgresql/data. Volume này persistent — tồn tại "
+        "ngay cả khi container bị xóa và tạo lại — đảm bảo dữ liệu không "
+        "mất khi deploy hay khi server khởi động lại. Backup hiện được "
+        "thực hiện thủ công bằng pg_dump theo lịch (đề tài thừa nhận đây "
+        "là hạn chế và đề xuất tự động hóa trong giai đoạn luận văn — "
+        "xem mục 5.3)."
+    )
+
+    rb.h3("3.5.3. SMTP ngoài và luồng quên mật khẩu")
+    rb.p(
+        "Backend kết nối tới một SMTP server bên ngoài (mặc định "
+        "smtp.gmail.com:587 với STARTTLS) qua thư viện aiosmtplib khi xử "
+        "lý luồng quên mật khẩu. Đây là kết nối optional — nếu SMTP server "
+        "timeout hay từ chối kết nối, backend áp dụng cơ chế fail-silent: "
+        "trả HTTP 200 với thông điệp trung lập cho client và chỉ ghi log "
+        "WARNING tại docker logs. Chi tiết phân tích bảo mật của hành vi "
+        "fail-silent này nằm ở mục 4.3.4."
+    )
