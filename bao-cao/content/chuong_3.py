@@ -28,29 +28,44 @@ def build(rb) -> None:
 
     rb.h3("3.1.1. Mức ý niệm (Conceptual)")
     rb.p(
-        "Ở mức ý niệm, hệ thống được mô hình hóa thành các thực thể chính phản "
+        "Ở mức ý niệm, hệ thống được mô hình hóa thành chín thực thể chính phản "
         "ánh các đối tượng nghiệp vụ cốt lõi. Mỗi thực thể đại diện cho một "
         "khái niệm nghiệp vụ độc lập và có quan hệ rõ ràng với các thực thể "
         "xung quanh. Sơ đồ ERD tổng thể được trình bày trong hình dưới đây, "
-        "còn bảng này mô tả vai trò của từng thực thể chính."
+        "còn bảng kế tiếp mô tả vai trò của từng thực thể."
     )
-    _img(rb, "bao-cao/assets/uml/erd.png", "ERD tổng thể các thực thể chính của hệ thống.")
+    rb.p(
+        "Lưu ý về TimestampMixin: hai cột created_at và updated_at được khai báo "
+        "tập trung trong lớp TimestampMixin của tệp app/models/base.py, sau đó "
+        "được kế thừa vào hầu hết các bảng (User, Partner, PartnerStaff, "
+        "Membership, Reward, Redemption, Transaction, PointLedger). Đây là "
+        "kỹ thuật mixin của Python để tránh lặp code, không phải một bảng "
+        "riêng — vì vậy ERD chỉ vẽ chín thực thể nghiệp vụ và liệt kê "
+        "created_at / updated_at trực tiếp bên trong mỗi thực thể."
+    )
+    _img(rb, "bao-cao/assets/uml/erd.png", "ERD tổng thể chín thực thể chính của hệ thống.")
     rb.table(
         headers=["Entity", "Mô tả", "Quan hệ chính"],
         rows=[
-            ["User", "Người dùng hệ thống — khách hàng, chủ partner, nhân viên hoặc admin", "1 User → nhiều Membership (qua từng partner)"],
+            ["User", "Người dùng hệ thống — khách hàng, chủ partner, nhân viên hoặc admin; ví điểm toàn cục points_balance ≥ 0", "1 User → nhiều Membership (qua từng partner)"],
             ["Partner", "Doanh nghiệp đối tác tham gia nền tảng loyalty", "1 Partner → nhiều Membership, Reward, Transaction"],
-            ["PartnerStaff", "Liên kết nhân viên với partner (role staff)", "N User ↔ N Partner qua PartnerStaff"],
-            ["Membership", "Quan hệ khách hàng – partner; lưu lifetime_earned", "1 User + 1 Partner → 1 Membership (unique)"],
+            ["PartnerStaff", "Liên kết nhân viên với partner (role staff)", "1 User ↔ tối đa 1 Partner qua PartnerStaff (uniq user_id)"],
+            ["Membership", "Quan hệ khách hàng – partner; lưu lifetime_earned cho hạng thành viên", "UNIQUE(partner_id, user_id) → 1 Membership"],
             ["Reward", "Phần thưởng có thể đổi điểm: PERCENT_DISCOUNT, FIXED_DISCOUNT, ITEM_GIFT", "1 Partner → nhiều Reward"],
-            ["Redemption", "Lệnh đổi quà đã thực hiện; mang mã 8 ký tự để dùng tại POS", "1 User + 1 Reward → 1 Redemption"],
+            ["Redemption", "Lệnh đổi quà; mang redemption_code 8 ký tự để dùng tại POS", "1 User + 1 Reward → nhiều Redemption"],
             ["Transaction", "Giao dịch POS tích điểm cho khách hàng", "1 Membership → nhiều Transaction"],
-            ["PointLedger", "Sổ cái điểm append-only ghi mọi biến động điểm toàn cục", "1 User → nhiều PointLedger entry"],
-            ["PointAdjustment", "Điều chỉnh điểm thủ công do owner thực hiện", "1 Membership + actor User → 1 PointAdjustment"],
-            ["LoginLog", "Nhật ký đăng nhập để admin kiểm toán", "1 User → nhiều LoginLog"],
-            ["VerificationCode", "Mã xác thực đa mục đích (forgot password, v.v.)", "1 User → nhiều VerificationCode"],
+            ["PointLedger", "Sổ cái điểm append-only ghi mọi biến động (earn / redeem / adjust / expire / refund). Cột actor_user_id ghi nhận chủ shop khi điều chỉnh thủ công", "1 User → nhiều entry (cross-partner)"],
+            ["LoginLog", "Nhật ký đăng nhập (thành công / thất bại) để admin kiểm toán", "1 User → nhiều LoginLog"],
         ],
-        caption="Các thực thể chính và quan hệ ở mức ý niệm."
+        caption="Chín thực thể chính và quan hệ ở mức ý niệm."
+    )
+    rb.p(
+        "Việc điều chỉnh điểm thủ công của chủ shop không có bảng riêng: "
+        "mỗi lần điều chỉnh chỉ INSERT một bản ghi vào point_ledger với "
+        "reason = 'adjust', actor_user_id = chủ shop và description = lý do. "
+        "Cách này tận dụng được trigger append-only của point_ledger nên không "
+        "thể UPDATE / DELETE để xoá dấu vết, đồng thời tránh trùng lặp dữ liệu "
+        "với một bảng PointAdjustment riêng."
     )
 
     rb.h3("3.1.2. Mức luận lý (Logical)")
