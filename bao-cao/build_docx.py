@@ -15,13 +15,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from builder import ReportBuilder
 
-TITLE = "XÂY DỰNG HỆ THỐNG TÍCH ĐIỂM THÀNH VIÊN VÀ QUẢN LÝ KHUYẾN MẠI CHO DOANH NGHIỆP VỪA VÀ NHỎ"
-SV_PLACEHOLDER = "[HỌ TÊN SINH VIÊN]"
+TITLE = "XÂY DỰNG WEBSITE TÍCH ĐIỂM THÀNH VIÊN CHO DOANH NGHIỆP VỪA VÀ NHỎ"
+SV_PLACEHOLDER = "Nguyễn Hải Đăng"
 MSSV_PLACEHOLDER = "[MSSV]"
 GVHD_PLACEHOLDER = "[HỌ TÊN GVHD]"
-YEAR_PLACEHOLDER = "[NĂM HỌC]"
+YEAR_PLACEHOLDER = "2025-2026"
 
-OUTPUT = Path(__file__).parent / "bao-cao-final.docx"
+OUTPUT = Path(__file__).parent / "bao-cao-mvp.docx"
 
 
 def build_smoke() -> None:
