@@ -5,157 +5,166 @@ from __future__ import annotations
 def build(rb) -> None:
     rb.start_chapter("Chương 5", "Kết luận")
 
-    # ---------------- 5.1 ----------------
-    rb.h2("5.1. Đối chiếu kết quả đạt được với mục tiêu")
+    # ─────────────────────────────────────────────
+    # 5.1 Đối chiếu kết quả vs mục tiêu
+    # ─────────────────────────────────────────────
+    rb.h2("5.1. ĐỐI CHIẾU KẾT QUẢ VỚI MỤC TIÊU")
     rb.p(
-        "Căn cứ vào các mục tiêu đã xác lập ở bảng 1-1 (Chương "
-        "1), kết quả đánh giá mức độ hoàn thành được trình bày "
-        "trong bảng 5-1. Mỗi mục tiêu được đối chiếu với bằng "
-        "chứng thực tế trong mã nguồn, test, hoặc demo."
+        "Sau khi hoàn thành toàn bộ quá trình phát triển và thử nghiệm, đề tài "
+        "tiến hành đối chiếu từng mục tiêu đã đặt ra ở Chương 1.4 với kết quả "
+        "thực tế đạt được. Bảng dưới đây tổng hợp trạng thái của từng mục tiêu "
+        "cùng ghi chú về những phần còn cần cải thiện."
     )
     rb.table(
-        headers=["STT", "Mục tiêu", "Mức độ đạt", "Bằng chứng"],
+        headers=["STT", "Mục tiêu", "Trạng thái", "Ghi chú"],
         rows=[
-            ["1", "Hệ thống multi-tenant ổn định", "Đạt", "5 tenant demo seed, pytest pass 121/121."],
-            ["2", "Phân quyền 4 vai trò", "Đạt", "`require_*_in_tenant` + integration test."],
-            ["3", "Tuân thủ NĐ 81/2018/NĐ-CP", "Đạt", "approval_tier có unit test theo ngưỡng."],
-            ["4", "Chống TOCTOU voucher", "Đạt", "Stress test 60 concurrent/quota 50 — không rò."],
-            ["5", "Ủy quyền OTP + context_hash", "Đạt", "Integration test tamper context."],
-            ["6", "Cron job background", "Đạt", "4 job vận hành + log + unit test."],
-            ["7", "PWA offline-ready", "Cơ bản đạt", "Lighthouse PWA ≈ 85 trên /member."],
-            ["8", "Rate limiting & bảo mật", "Đạt", "slowapi, JWT, HMAC, bcrypt."],
-            ["9", "Test coverage ≥ 70%", "Đạt", "Coverage đo được 76% line, 71% branch."],
-            ["10", "CI/CD & deploy", "Đạt", "Docker Compose dev/prod, Cloudflare Tunnel live."],
-            ["11", "Tài liệu & demo", "Đạt", "Báo cáo ≥ 40 trang + HDSD đầy đủ."],
+            ["1", "Hệ thống multi-tenant hoạt động ổn định", "Đạt",
+             "Nhiều partner (Cafe Cộng, Lala Food) vận hành song song; dữ liệu cô lập qua X-Partner-Id"],
+            ["2", "Phân quyền 4 vai trò đầy đủ", "Đạt",
+             "Super admin, Owner, Staff, Customer — mỗi endpoint khai báo đúng dependency tương ứng"],
+            ["3", "Ví điểm toàn cục với CHECK >= 0", "Đạt",
+             "CHECK constraint points_balance_nonneg trên DB; verify qua smoke test trừ quá số dư bị chặn"],
+            ["4", "Append-only ledger có trigger DB", "Đạt",
+             "Trigger no_update_or_delete_point_ledger xác nhận qua psql direct; không thể UPDATE/DELETE"],
+            ["5", "Smoke E2E các luồng cốt lõi", "Đạt",
+             "Tất cả 27 kịch bản pass qua curl + browser manual trên loyalty.ecom-bill.com"],
+            ["6", "Dashboard merchant analytics", "Đạt",
+             "6 KPI + 2 chart + Top 5 quà; dữ liệu khớp với transactions và redemptions trong DB"],
+            ["7", "Admin giám sát điểm hệ thống", "Đạt",
+             "Trang system-points đọc đúng SUM(points_balance) và breakdown từ point_ledger"],
+            ["8", "Deploy Docker Compose + Cloudflare Tunnel", "Đạt",
+             "Prod chạy sạch; migration auto-run khi container khởi động; accessible qua loyalty.ecom-bill.com"],
+            ["9", "Báo cáo và HDSD đầy đủ", "Đạt",
+             "Báo cáo đồ án hoàn chỉnh; HDSD mô tả luồng đăng ký → đổi quà kèm hình minh họa"],
         ],
-        caption="Đối chiếu kết quả với mục tiêu cần đạt."
+        caption="Đối chiếu mục tiêu và kết quả thực tế của đề tài."
     )
     rb.p(
-        "Như bảng 5-1, toàn bộ 11 mục tiêu đều được đánh giá "
-        "đạt (trong đó mục tiêu 7 – PWA – ở mức cơ bản vì chưa "
-        "tối ưu hết các metric Lighthouse). Điều này cho thấy "
-        "đề tài đã giải quyết trọn vẹn phạm vi đặt ra ban đầu."
-    )
-
-    # ---------------- 5.2 ----------------
-    rb.h2("5.2. Vấn đề còn tồn đọng")
-    rb.p(
-        "Mặc dù các mục tiêu chính đã được hoàn thành, trong "
-        "quá trình triển khai vẫn còn một số hạn chế cần ghi "
-        "nhận để có kế hoạch xử lý ở các phiên bản tiếp theo."
-    )
-    rb.h3("5.2.1. Sai lệch kiểu Enum giữa ORM và DB")
-    rb.p(
-        "Một số cột trong mô hình Campaign và Voucher khai báo "
-        "`Mapped[Enum]` nhưng lưu xuống DB dưới dạng String(20), "
-        "dẫn đến việc caller phải phòng vệ cả hai dạng (str và "
-        "Enum) khi đọc. Đây là nợ kỹ thuật được tracking bằng "
-        "task #183 trong sprint board, hướng khắc phục là dùng "
-        "`SQLEnum(..., native_enum=False)` cho chuẩn."
-    )
-    rb.h3("5.2.2. Phụ thuộc reverse proxy cho rate limit")
-    rb.p(
-        "slowapi keying theo `X-Forwarded-For`, nghĩa là trust "
-        "boundary được đặt ở Cloudflare Tunnel. Nếu triển khai "
-        "ở môi trường khác không có reverse proxy tin cậy, cần "
-        "bổ sung cấu hình cho slowapi để không bị bypass bằng "
-        "header giả."
-    )
-    rb.h3("5.2.3. Chưa có payment thực")
-    rb.p(
-        "Mô hình phí dịch vụ đã có trong DB nhưng cờ "
-        "`SERVICE_FEE_ENABLED=False`. Khi bật thành sản phẩm "
-        "thương mại, cần tích hợp cổng thanh toán (VNPay, "
-        "MoMo, Stripe…) và module invoice."
-    )
-    rb.h3("5.2.4. OTP attempt counter")
-    rb.p(
-        "Hiện tại slowapi chỉ giới hạn số request OTP theo IP. "
-        "Ở tầng DB chưa có attempt_count cho từng OTP nên không "
-        "tự động khoá OTP sau N lần sai. Đây là cải tiến nên "
-        "thêm ngay khi đưa vào vận hành thương mại."
-    )
-    rb.h3("5.2.5. Frontend chưa tối ưu bundle")
-    rb.p(
-        "Bundle Next.js chưa được tree-shake tối đa; một số "
-        "component shadcn/ui được import cả module. Shell "
-        "staff chỉ có 2 trang, có thể gộp vào shell merchant "
-        "để giảm code split. Tối ưu này sẽ giúp tải trang "
-        "nhanh hơn trên mạng 3G."
-    )
-    rb.h3("5.2.6. Cover ảnh / diagram hạn chế")
-    rb.p(
-        "Do thời gian, các sơ đồ ERD, use case, sequence, "
-        "activity chưa được render thành hình ảnh từ Mermaid mà "
-        "vẫn ở dạng mô tả bằng văn bản. Ở phiên bản tiếp theo, "
-        "sẽ bổ sung đầy đủ diagram PNG vào phần thiết kế."
+        "Nhìn chung, toàn bộ chín mục tiêu của đề tài đều đạt ở mức yêu cầu tối "
+        "thiểu. Các chức năng cốt lõi — tích điểm, đổi quà, quản lý partner, "
+        "giám sát điểm — đều hoạt động đúng trên môi trường production. "
+        "Tuy nhiên, vẫn còn một số hạn chế kỹ thuật cần được ghi nhận trung thực "
+        "và sẽ được trình bày trong mục tiếp theo."
     )
 
-    # ---------------- 5.3 ----------------
-    rb.h2("5.3. Hướng phát triển mở rộng")
+    # ─────────────────────────────────────────────
+    # 5.2 Vấn đề còn tồn đọng
+    # ─────────────────────────────────────────────
+    rb.h2("5.2. VẤN ĐỀ CÒN TỒN ĐỌNG")
+
+    rb.h3("5.2.1. Giới hạn kiểm thử tự động (pytest infra gap)")
     rb.p(
-        "Dựa trên nền tảng đã xây dựng, đề tài đề xuất bốn "
-        "hướng phát triển để biến dự án thành một sản phẩm "
-        "thương mại trong thị trường Việt Nam."
-    )
-    rb.h3("5.3.1. Mở thu phí dịch vụ")
-    rb.p(
-        "Bật cờ `SERVICE_FEE_ENABLED=True`, xây dựng module "
-        "invoice, tích hợp VNPay và Stripe. Bảng phí theo "
-        "CampaignFeeSchedule cho phép định giá linh hoạt theo "
-        "quy mô campaign, với tuỳ chọn VAT 10% theo Luật Thuế "
-        "GTGT."
-    )
-    rb.h3("5.3.2. App native mobile")
-    rb.p(
-        "PWA đủ tốt cho khách hàng cuối, nhưng chủ cửa hàng "
-        "thường thích app native có notification push mạnh hơn. "
-        "Đề xuất dùng React Native hoặc Flutter để viết lại app "
-        "merchant – tái sử dụng API FastAPI hiện có."
-    )
-    rb.h3("5.3.3. Voucher NFT / blockchain")
-    rb.p(
-        "Các voucher giá trị cao có thể được phát hành dưới "
-        "dạng token NFT trên mạng có phí thấp (Polygon, BNB "
-        "Smart Chain). Lợi ích: transferable giữa các khách "
-        "hàng, chống giả mạo, tăng trải nghiệm gamification. "
-        "Thách thức: tích hợp ví điện tử và học tập người dùng "
-        "cách sử dụng."
-    )
-    rb.h3("5.3.4. Machine learning cho tier và churn")
-    rb.p(
-        "Dữ liệu tích điểm và đổi quà lâu dài là đầu vào lý "
-        "tưởng cho ML. Hai bài toán cụ thể: (a) gợi ý "
-        "cấu hình tier (min_points, bội số) cho từng doanh "
-        "nghiệp dựa trên phân phối giao dịch thực tế; (b) dự "
-        "đoán tỷ lệ rời bỏ (churn) trong 30 ngày tới để owner "
-        "kịp thời gửi voucher retention. Các mô hình "
-        "gradient boosting (XGBoost, LightGBM) hoặc survival "
-        "analysis phù hợp."
-    )
-    rb.h3("5.3.5. Mở rộng module phân tích pháp lý")
-    rb.p(
-        "Hiện tại đề tài chỉ hỗ trợ Nghị định 81/2018/NĐ-CP. "
-        "Có thể mở rộng sang các văn bản liên quan khác như "
-        "Luật Kế toán (lưu hồ sơ 10 năm đã một phần có trong "
-        "retention) hoặc Thông tư 02/2023/TT-BTC về khuyến mại "
-        "dịch vụ ngân hàng. Module pháp lý hoàn chỉnh sẽ là "
-        "điểm khác biệt lớn so với các nền tảng loyalty nước "
-        "ngoài."
+        "Do đặc thù môi trường phát triển Windows, bộ integration test dùng "
+        "testcontainers không thể chạy hoàn chỉnh vì thư viện này yêu cầu "
+        "quyền truy cập docker.sock và cấu hình Docker network bridge mà "
+        "môi trường hiện tại không đáp ứng được đầy đủ. Đây là khoảng trống "
+        "kỹ thuật cần giải quyết trong tương lai: lý tưởng nhất là thiết lập "
+        "môi trường CI/CD trên Linux (GitHub Actions hoặc GitLab CI) để chạy "
+        "integration test tự động sau mỗi commit, thay thế hoàn toàn cho "
+        "quy trình kiểm thử thủ công hiện tại."
     )
 
-    # ---------------- 5.4 ----------------
-    rb.h2("5.4. Lời kết")
+    rb.h3("5.2.2. Frontend bundle size chưa được tối ưu")
     rb.p(
-        "Qua đồ án, em đã đi qua một hành trình đầy đủ – từ "
-        "khảo sát nghiệp vụ SME, tìm hiểu văn bản pháp lý, "
-        "thiết kế kiến trúc multi-tenant, cài đặt nghiệp vụ "
-        "loyalty, viết kiểm thử, triển khai production và "
-        "viết báo cáo. Đề tài đã giúp em hiểu sâu về tương tác "
-        "giữa công nghệ và pháp lý, đồng thời rèn luyện kỹ "
-        "năng làm việc độc lập trên một dự án có độ phức tạp "
-        "vừa phải. Em tin rằng hệ thống này – với một số bước "
-        "cải tiến – có thể trở thành một sản phẩm thương mại "
-        "thật sự trong thị trường SME Việt Nam đang phát triển "
-        "mạnh mẽ hiện nay."
+        "Bộ frontend Next.js 14 hiện tại chưa được tối ưu sâu về bundle size. "
+        "Một số page component load toàn bộ thư viện charting dù chỉ cần dùng "
+        "một phần nhỏ, dẫn đến First Load JS khá lớn trên các trang dashboard. "
+        "Việc áp dụng dynamic import và lazy loading cho các chart component "
+        "sẽ cải thiện đáng kể thời gian tải trang đầu tiên, đặc biệt trên "
+        "kết nối di động."
+    )
+
+    rb.h3("5.2.3. Chưa có xác thực hai yếu tố (2FA) cho admin")
+    rb.p(
+        "Tài khoản super admin có quyền hạn cao nhất trong hệ thống: duyệt "
+        "partner, xem toàn bộ log và giám sát điểm. Hiện tại, xác thực chỉ "
+        "dựa trên JWT một lớp. Việc bổ sung 2FA (ví dụ TOTP qua Google "
+        "Authenticator hoặc OTP qua email) cho tài khoản admin sẽ giảm đáng "
+        "kể rủi ro nếu token bị đánh cắp."
+    )
+
+    rb.h3("5.2.4. Audit log chưa phủ toàn bộ action")
+    rb.p(
+        "Hiện tại, hệ thống chỉ có audit log cho hai loại sự kiện: đăng nhập "
+        "(bảng login_logs) và điều chỉnh điểm thủ công (bảng point_ledger với "
+        "reason=adjust). Các hành động quan trọng khác như duyệt/từ chối "
+        "partner, sửa thông tin reward, khoá tài khoản thành viên chưa có "
+        "audit trail. Một bảng audit_events tổng quát ghi lại mọi hành động "
+        "có side effect sẽ là cải thiện đáng kể cho tính minh bạch và "
+        "khả năng điều tra sự cố."
+    )
+
+    rb.h3("5.2.5. SMTP fail-silent có thể gây nhầm lẫn cho người dùng")
+    rb.p(
+        "Cơ chế fail-silent cho SMTP giúp bảo mật bằng cách không tiết lộ "
+        "email nào tồn tại. Tuy nhiên, người dùng thực sự quên mật khẩu sẽ "
+        "không nhận được thông báo nếu email không được gửi — họ chỉ thấy "
+        "'Thành công' mà không nhận email. Giải pháp phù hợp cho sản xuất là "
+        "xây dựng dashboard SMTP log cho admin xem các email gửi thất bại, "
+        "hoặc retry queue để tự động gửi lại khi SMTP phục hồi."
+    )
+
+    # ─────────────────────────────────────────────
+    # 5.3 Mở rộng (luận văn tốt nghiệp)
+    # ─────────────────────────────────────────────
+    rb.h2("5.3. HƯỚNG MỞ RỘNG (LUẬN VĂN TỐT NGHIỆP)")
+    rb.p(
+        "Nền tảng hiện tại đã chứng minh tính khả thi về mặt kỹ thuật cho các "
+        "chức năng loyalty cốt lõi. Trong khuôn khổ luận văn tốt nghiệp, đề tài "
+        "có thể được phát triển theo các hướng sau, mỗi hướng đều có giá trị "
+        "nghiên cứu và ứng dụng thực tế rõ ràng."
+    )
+    rb.p(
+        "Hướng mở rộng thứ nhất là hệ thống campaign khuyến mại có tuân thủ "
+        "pháp lý Nghị định 81/2018/NĐ-CP. Đây là hướng có giá trị phân biệt "
+        "cao nhất so với các giải pháp cạnh tranh: tự động phân loại tier "
+        "pháp lý (không thông báo / thông báo Sở Công Thương / đăng ký Sở / "
+        "đăng ký Bộ) dựa trên tổng giá trị khuyến mại ước tính, xây dựng "
+        "luồng nộp hồ sơ điện tử và nhắc nhở báo cáo sau khuyến mại trong 45 ngày. "
+        "Đây cũng là điểm khác biệt giúp nền tảng định vị như một managed "
+        "service thay vì chỉ là phần mềm."
+    )
+    rb.p(
+        "Hướng mở rộng thứ hai là hệ thống tier hạng thành viên với chính sách "
+        "ưu đãi theo hạng (Đồng / Bạc / Vàng / Kim Cương). Tier được xác định "
+        "dựa trên lifetime_earned của từng membership tại từng partner — đã "
+        "có cột này trong schema hiện tại. Khi lên hạng, thành viên nhận "
+        "được benefit khác nhau: tỉ lệ cộng điểm cao hơn, ưu tiên phục vụ "
+        "hoặc voucher chào mừng hạng mới."
+    )
+    rb.p(
+        "Hướng mở rộng thứ ba là service fee thật và tích hợp cổng thanh toán "
+        "(VNPay hoặc MoMo). Mô hình kinh doanh của nền tảng là thu phí theo "
+        "giá trị khuyến mại hoặc theo số lượng transaction — code data model "
+        "đã có placeholder trong schema nhưng chưa kích hoạt. Tích hợp cổng "
+        "thanh toán nội địa sẽ hoàn chỉnh vòng đời thương mại của sản phẩm."
+    )
+    rb.p(
+        "Hướng mở rộng thứ tư là Progressive Web App (PWA) offline-ready với "
+        "Serwist Service Worker. Tại thời điểm hiện tại, app chạy hoàn toàn "
+        "online. Bổ sung PWA cho phép khách hàng xem QR cá nhân và ví voucher "
+        "ngay cả khi không có kết nối mạng — rất hữu ích khi wifi cửa hàng "
+        "không ổn định tại thời điểm thanh toán."
+    )
+    rb.p(
+        "Hướng mở rộng thứ năm là ứng dụng native mobile (React Native hoặc "
+        "Flutter). Mặc dù web app đã được thiết kế mobile-first, các tính năng "
+        "như push notification khi được tặng điểm, biometric authentication "
+        "và camera scan QR nhanh hơn đòi hỏi khả năng của native app. "
+        "Kiến trúc backend RESTful hiện tại có thể phục vụ native app mà "
+        "không cần thay đổi."
+    )
+    rb.p(
+        "Hướng mở rộng thứ sáu là ứng dụng machine learning trong hai bài toán: "
+        "gợi ý quà phù hợp cho từng khách hàng dựa trên lịch sử giao dịch và "
+        "redemption (collaborative filtering hoặc content-based), và dự báo "
+        "tỉ lệ rời bỏ (churn prediction) để chủ partner có thể chủ động "
+        "gửi incentive giữ chân khách hàng có nguy cơ cao."
+    )
+    rb.p(
+        "Hướng mở rộng thứ bảy là bảo mật nâng cao: 2FA (TOTP) cho tài khoản "
+        "admin và owner, audit log toàn diện cho mọi action có side effect, "
+        "và dashboard SMTP monitoring để theo dõi tỉ lệ gửi email thành công. "
+        "Các cải thiện này cần thiết trước khi nền tảng được triển khai ở "
+        "quy mô thương mại thực sự."
     )

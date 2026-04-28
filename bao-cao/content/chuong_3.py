@@ -14,423 +14,364 @@ def _img(rb, filename: str, caption: str, width_cm: float = 14.0) -> None:
 def build(rb) -> None:
     rb.start_chapter("Chương 3", "Thiết kế hệ thống")
 
-    # ---------------- 3.1 ----------------
-    rb.h2("3.1. Mô hình dữ liệu")
+    # ─────────────────────────────────────────────
+    # 3.1 Mô hình dữ liệu
+    # ─────────────────────────────────────────────
+    rb.h2("3.1. MÔ HÌNH DỮ LIỆU")
     rb.p(
-        "Chương này trình bày thiết kế cơ sở dữ liệu của hệ thống "
-        "theo ba mức: mức ý niệm (Conceptual Data Model), mức luận "
-        "lý (Logical Data Model) và mức vật lý (Physical Data "
-        "Model). Mỗi mức đi từ trừu tượng đến chi tiết, đảm bảo "
-        "thiết kế vừa phản ánh đúng nghiệp vụ vừa có thể hiện "
-        "thực hóa bằng PostgreSQL."
+        "Chương này trình bày thiết kế cơ sở dữ liệu của hệ thống theo ba mức: "
+        "mức ý niệm (Conceptual Data Model), mức luận lý (Logical Data Model) và "
+        "mức vật lý (Physical Data Model). Mỗi mức đi từ trừu tượng đến chi tiết, "
+        "đảm bảo thiết kế vừa phản ánh đúng nghiệp vụ vừa có thể hiện thực hóa "
+        "bằng PostgreSQL 15."
     )
 
     rb.h3("3.1.1. Mức ý niệm (Conceptual)")
     rb.p(
-        "Ở mức ý niệm, hệ thống được mô hình hóa thành 10 thực "
-        "thể chính phản ánh các đối tượng nghiệp vụ cốt lõi, bao "
-        "gồm: User (người dùng hệ thống), Tenant (doanh nghiệp), "
-        "Membership (quan hệ khách hàng – doanh nghiệp), Tier "
-        "(hạng thành viên), Transaction (giao dịch POS tích "
-        "điểm), PointLedger (sổ cái điểm), Reward (phần thưởng "
-        "có thể đổi), Redemption (lệnh đổi quà), Campaign (chiến "
-        "dịch khuyến mại), Voucher (phiếu giảm giá đã cấp)."
+        "Ở mức ý niệm, hệ thống được mô hình hóa thành các thực thể chính phản "
+        "ánh các đối tượng nghiệp vụ cốt lõi. Mỗi thực thể đại diện cho một "
+        "khái niệm nghiệp vụ độc lập và có quan hệ rõ ràng với các thực thể "
+        "xung quanh. Sơ đồ ERD tổng thể được trình bày trong hình dưới đây, "
+        "còn bảng này mô tả vai trò của từng thực thể chính."
     )
-    rb.p(
-        "Ngoài 10 thực thể chính, thiết kế cần 13 thực thể phụ "
-        "trợ để hỗ trợ các nghiệp vụ mở rộng: VerificationCode "
-        "(OTP nhiều loại), Notification (thông báo in-app), "
-        "PointRule (cấu hình quy tắc quy đổi điểm theo tenant), "
-        "TenantStaff (liên kết nhân viên với doanh nghiệp), "
-        "TenantSettingsAudit (audit log), TenantAuthorization "
-        "(ủy quyền công ty vận hành), CampaignTemplate (mẫu "
-        "chiến dịch pháp lý), CampaignApprovalEvent (sự kiện "
-        "duyệt), CampaignRegulatorySubmission (hồ sơ Sở CT), "
-        "CampaignIssuance (định mức phát hành), "
-        "CampaignServiceFee (phí dịch vụ), "
-        "CampaignFeeSchedule (cấu hình phí), các enum helper."
-    )
+    _img(rb, "bao-cao/assets/uml/erd.png", "ERD tổng thể các thực thể chính của hệ thống.")
     rb.table(
-        headers=["Nhóm", "Thực thể", "Vai trò"],
+        headers=["Entity", "Mô tả", "Quan hệ chính"],
         rows=[
-            ["Định danh", "User", "Tài khoản đăng nhập, chứa role hệ thống."],
-            ["Định danh", "Tenant", "Doanh nghiệp SME, 1 tenant = 1 shop/chuỗi."],
-            ["Quan hệ", "Membership", "Liên kết user với tenant, giữ tier + điểm."],
-            ["Phân hạng", "Tier", "Ngưỡng điểm, tên hạng, bội số tích điểm."],
-            ["Giao dịch", "Transaction", "Bill POS, pos_bill_id unique trong tenant."],
-            ["Sổ cái", "PointLedger", "Tất cả biến động điểm (+ earn, − redeem)."],
-            ["Quà tặng", "Reward", "Phần thưởng có thể đổi bằng điểm."],
-            ["Đổi quà", "Redemption", "Lệnh đổi quà, mã verify ở POS."],
-            ["Khuyến mại", "Campaign", "Chiến dịch giảm giá, có vòng đời duyệt."],
-            ["Khuyến mại", "Voucher", "Phiếu giảm giá cấp cho member, có QR."],
-            ["Hỗ trợ", "VerificationCode", "OTP register/login/authorization_sign."],
-            ["Hỗ trợ", "TenantAuthorization", "Hợp đồng ủy quyền operator."],
-            ["Hỗ trợ", "CampaignRegulatorySubmission", "Hồ sơ gửi Sở Công Thương."],
+            ["User", "Người dùng hệ thống — khách hàng, chủ partner, nhân viên hoặc admin", "1 User → nhiều Membership (qua từng partner)"],
+            ["Partner", "Doanh nghiệp đối tác tham gia nền tảng loyalty", "1 Partner → nhiều Membership, Reward, Transaction"],
+            ["PartnerStaff", "Liên kết nhân viên với partner (role staff)", "N User ↔ N Partner qua PartnerStaff"],
+            ["Membership", "Quan hệ khách hàng – partner; lưu lifetime_earned", "1 User + 1 Partner → 1 Membership (unique)"],
+            ["Reward", "Phần thưởng có thể đổi điểm: PERCENT_DISCOUNT, FIXED_DISCOUNT, ITEM_GIFT", "1 Partner → nhiều Reward"],
+            ["Redemption", "Lệnh đổi quà đã thực hiện; mang mã 8 ký tự để dùng tại POS", "1 User + 1 Reward → 1 Redemption"],
+            ["Transaction", "Giao dịch POS tích điểm cho khách hàng", "1 Membership → nhiều Transaction"],
+            ["PointLedger", "Sổ cái điểm append-only ghi mọi biến động điểm toàn cục", "1 User → nhiều PointLedger entry"],
+            ["PointAdjustment", "Điều chỉnh điểm thủ công do owner thực hiện", "1 Membership + actor User → 1 PointAdjustment"],
+            ["LoginLog", "Nhật ký đăng nhập để admin kiểm toán", "1 User → nhiều LoginLog"],
+            ["VerificationCode", "Mã xác thực đa mục đích (forgot password, v.v.)", "1 User → nhiều VerificationCode"],
         ],
-        caption="Các nhóm thực thể chính trong mô hình ý niệm."
+        caption="Các thực thể chính và quan hệ ở mức ý niệm."
     )
 
     rb.h3("3.1.2. Mức luận lý (Logical)")
     rb.p(
-        "Ở mức luận lý, các thực thể được chuyển thành quan hệ "
-        "với khóa chính, khóa ngoại, ràng buộc unique. Một số "
-        "điểm thiết kế đáng chú ý."
-    )
-    rb.p(
-        "Thứ nhất, User được tách khỏi Membership: một người có "
-        "thể là khách hàng ở nhiều doanh nghiệp khác nhau, nhưng "
-        "chỉ có một tài khoản đăng nhập chung. Điều này cho phép "
-        "app khách hàng hiển thị danh sách tất cả membership "
-        "của người dùng theo thẻ duy nhất – rất phù hợp với mô "
-        "hình nền tảng dùng chung hạ tầng."
-    )
-    rb.p(
-        "Thứ hai, Transaction có unique constraint "
-        "(tenant_id, pos_bill_id) để chặn trường hợp nhân viên "
-        "POS lỡ bấm \"tích điểm\" hai lần cho cùng một hóa đơn. "
-        "Thiết kế này tận dụng IntegrityError + global handler "
-        "trả về 409 tiếng Việt cho client."
-    )
-    rb.p(
-        "Thứ ba, Voucher có unique code per tenant, đồng thời "
-        "có partial unique index trên "
-        "(member_id, campaign_id) WHERE status != 'cancelled' – "
-        "chặn việc cùng một khách nhận hai voucher hợp lệ của "
-        "cùng một chiến dịch."
-    )
-    rb.p(
-        "Thứ tư, TenantAuthorization có trường context_hash – "
-        "mã hash SHA-256 của nội dung ủy quyền tại thời điểm sinh "
-        "OTP. Khi user xác nhận OTP, hệ thống tính lại hash và "
-        "so sánh; nếu khác, tức có thao tác tamper, quá trình ký "
-        "sẽ bị từ chối."
-    )
-
-    rb.h3("3.1.3. Mức vật lý (Physical) — DDL thực")
-    rb.p(
-        "Ở mức vật lý, thiết kế được chuyển hóa thành 23 bảng "
-        "PostgreSQL thông qua 28 migration Alembic. Một số ràng "
-        "buộc và chỉ mục quan trọng được liệt kê trong bảng 3-2."
+        "Ở mức luận lý, các thực thể được chuyển thành các bảng quan hệ với khóa "
+        "chính, khóa ngoại và các ràng buộc tính nhất quán. Thiết kế tuân theo "
+        "chuẩn 3NF (Third Normal Form) để tránh dư thừa dữ liệu. Bảng dưới đây "
+        "mô tả năm bảng trung tâm với các ràng buộc quan trọng nhất."
     )
     rb.table(
-        headers=["Đối tượng", "Loại", "Mục đích"],
+        headers=["Bảng", "Khóa chính (PK)", "Khóa ngoại (FK) chính", "Ràng buộc unique / check"],
         rows=[
-            ["ix_user_email_unique", "Unique index", "Email tồn tại duy nhất toàn hệ thống."],
-            ["ix_membership_tenant_phone", "Partial unique", "Khách duy nhất theo (tenant, phone)."],
-            ["ix_transaction_tenant_bill", "Unique", "Tránh tích điểm trùng bill."],
-            ["ix_voucher_tenant_code", "Unique", "Mã voucher không đụng trong tenant."],
-            ["ix_voucher_member_campaign_active", "Partial unique", "1 voucher active / (member, campaign)."],
-            ["pg_advisory_xact_lock('claim:' || id)", "Advisory lock", "Tuần tự hóa claim chiến dịch."],
-            ["check_approval_tier", "Check constraint", "approval_tier ∈ {none, notify_so_ct, dang_ky_so_ct, full_dossier}."],
-            ["trg_voucher_validate_max_issuances", "Trigger", "Tầng bảo vệ cuối chống over-issuance."],
-            ["v_campaign_stats", "View", "Tổng hợp claim/used/remaining cho dashboard."],
+            ["users", "id (serial)", "—", "UNIQUE(email) partial WHERE email IS NOT NULL; CHECK points_balance >= 0"],
+            ["partners", "id (serial)", "owner_user_id → users.id", "UNIQUE(slug); status IN ('pending','active','suspended')"],
+            ["memberships", "id (serial)", "partner_id → partners.id; user_id → users.id", "UNIQUE(partner_id, user_id); CHECK lifetime_earned >= 0"],
+            ["rewards", "id (serial)", "partner_id → partners.id", "CHECK points_cost > 0; CHECK offer_value hợp lệ theo offer_type"],
+            ["redemptions", "id (serial)", "partner_id, user_id, reward_id → FK tương ứng", "UNIQUE(partner_id, redemption_code); CHECK points_spent > 0"],
+            ["transactions", "id (serial)", "partner_id → partners.id; membership_id → memberships.id", "PARTIAL UNIQUE(partner_id, receipt_code) WHERE receipt_code IS NOT NULL"],
+            ["point_ledger", "id (serial)", "partner_id → partners.id; user_id → users.id", "CHECK balance_after >= 0; Trigger chặn UPDATE/DELETE"],
         ],
-        caption="Các ràng buộc và đối tượng PostgreSQL quan trọng."
+        caption="Năm bảng trung tâm với ràng buộc ở mức luận lý."
     )
 
-    # ---------------- 3.2 ----------------
-    rb.h2("3.2. Mô hình xử lý")
+    rb.h3("3.1.3. Mức vật lý (Physical)")
     rb.p(
-        "Phần này mô tả các use case chi tiết và cách hệ thống "
-        "xử lý các luồng nghiệp vụ trọng yếu, đi kèm các điểm "
-        "cài đặt kỹ thuật đáng chú ý."
+        "Ở mức vật lý, các ràng buộc được hiện thực hóa trực tiếp trên PostgreSQL "
+        "thông qua DDL. Đây là lớp phòng thủ cuối cùng, đảm bảo tính toàn vẹn dữ "
+        "liệu ngay cả khi có lỗi ở tầng application. Ba cơ chế quan trọng nhất "
+        "được mô tả dưới đây."
     )
+    rb.p(
+        "Thứ nhất, CHECK constraint points_balance >= 0 trên bảng users (tên "
+        "constraint: points_balance_nonneg) đảm bảo không có UPDATE nào có thể "
+        "đưa số dư điểm của bất kỳ người dùng nào về giá trị âm. Constraint này "
+        "chặn lỗi ở cấp database và raise IntegrityError nếu tầng service có bug "
+        "bỏ sót kiểm tra số dư. Migration tương ứng có mã e2f3a4b5c6d7 trong "
+        "thư mục backend/alembic/versions/."
+    )
+    rb.p(
+        "Thứ hai, trigger PostgreSQL no_update_or_delete_point_ledger được định "
+        "nghĩa bằng PL/pgSQL và gắn vào bảng point_ledger với event BEFORE UPDATE "
+        "OR DELETE. Bất kỳ lệnh UPDATE hoặc DELETE nào trên bảng này đều bị "
+        "chặn ngay lập tức bằng lệnh RAISE EXCEPTION với thông báo rõ ràng. "
+        "Trigger này đảm bảo bảng point_ledger là append-only thật sự ở cấp "
+        "database, không chỉ ở tầng application."
+    )
+    rb.p(
+        "Thứ ba, index B-tree kết hợp trên transactions(partner_id, created_at) "
+        "và point_ledger(user_id, created_at) được tạo để tăng tốc truy vấn "
+        "analytics thường dùng: tổng hợp doanh thu theo ngày, lịch sử biến động "
+        "điểm của một người dùng. Ngoài ra, partial unique index trên "
+        "transactions(partner_id, receipt_code) WHERE receipt_code IS NOT NULL "
+        "ngăn trùng mã hóa đơn trong cùng một partner mà không ảnh hưởng đến "
+        "các giao dịch không có mã hóa đơn."
+    )
+
+    # ─────────────────────────────────────────────
+    # 3.2 Mô hình xử lý
+    # ─────────────────────────────────────────────
+    rb.h2("3.2. MÔ HÌNH XỬ LÝ")
 
     rb.h3("3.2.1. Use case chi tiết")
-
-    rb.h4("3.2.1.1. UC-01: Đăng ký merchant")
     rb.p(
-        "Actor: Owner (chưa có tài khoản). Tiền điều kiện: không "
-        "có. Luồng chính: (1) Owner truy cập /register/merchant, "
-        "nhập thông tin doanh nghiệp ba bước: thông tin cơ bản, "
-        "thông tin liên hệ, thông tin pháp lý. (2) Hệ thống tự "
-        "sinh slug unique dựa trên tên doanh nghiệp, kiểm tra "
-        "tiền tố LIKE để tránh trùng. (3) Tạo tenant trạng thái "
-        "pending_approval, gửi email thông báo cho super admin. "
-        "(4) Super admin đăng nhập admin portal, xem danh sách "
-        "tenant chờ duyệt, bấm duyệt. (5) Tenant chuyển sang "
-        "active, owner nhận email kèm liên kết setup. "
-        "Hậu điều kiện: tenant có thể login, bắt đầu khai báo "
-        "tier, reward."
+        "Phần này trình bày năm use case trọng tâm với đầy đủ precondition, "
+        "main flow, alternate flow và postcondition."
     )
 
-    rb.h4("3.2.1.2. UC-02: POS tích điểm")
-    rb.p(
-        "Actor: Staff. Tiền điều kiện: khách đã là membership "
-        "của tenant. Luồng chính: (1) Staff đăng nhập staff "
-        "shell. (2) Scan QR khách (đã ký HMAC bằng "
-        "QR_HMAC_SECRET). (3) Backend verify chữ ký, tìm "
-        "membership theo (tenant, user). (4) Nhập tổng tiền hóa "
-        "đơn, pos_bill_id. (5) Service tính số điểm theo "
-        "PointRule (ví dụ 10.000 đồng = 1 điểm × bội số tier). "
-        "(6) Insert Transaction + PointLedger, cập nhật "
-        "current_points. (7) Trigger kiểm tra tier, thăng hạng "
-        "nếu đủ điểm. Hậu điều kiện: khách có bản ghi transaction "
-        "với điểm vừa cộng."
+    rb.h4("UC-01: Đăng nhập (JWT)")
+    rb.table(
+        headers=["Thuộc tính", "Nội dung"],
+        rows=[
+            ["Actor", "Customer, Owner, Staff, Super Admin"],
+            ["Precondition", "Người dùng đã có tài khoản, chưa đăng nhập; trang /login đang mở"],
+            ["Main flow", "1. Người dùng nhập email/phone + mật khẩu và submit form.\n2. Frontend POST /auth/login.\n3. Backend xác thực bcrypt; nếu đúng, phát JWT (HS256, 7 ngày).\n4. Frontend lưu token vào localStorage, chuyển hướng về trang chính của role."],
+            ["Alternate flow", "3a. Mật khẩu sai → 401, hiển thị lỗi. 3b. Quá rate limit → 429, hiển thị thông báo chờ."],
+            ["Postcondition", "Người dùng đã đăng nhập; axios interceptor tự động đính JWT vào mọi request tiếp theo"],
+        ],
+        caption="UC-01: Đăng nhập JWT."
     )
 
-    rb.h4("3.2.1.3. UC-03: Đổi quà")
-    rb.p(
-        "Actor: Customer (sau đó Staff). Tiền điều kiện: đủ "
-        "điểm, reward còn stock. Luồng chính: (1) Customer "
-        "chọn reward trên app. (2) Service verify điểm ≥ "
-        "reward.cost, stock > 0, trạng thái active. (3) Trừ điểm, "
-        "giảm stock, tạo Redemption với mã redeem_code + QR. "
-        "(4) Staff scan redeem_code tại POS, xác nhận, mark used. "
-        "Luồng thay thế: nếu hết stock, trả 409; nếu điểm không "
-        "đủ, trả 400."
+    rb.h4("UC-02: Đăng ký merchant và admin duyệt")
+    rb.table(
+        headers=["Thuộc tính", "Nội dung"],
+        rows=[
+            ["Actor", "Owner (đăng ký), Super Admin (duyệt)"],
+            ["Precondition", "Owner đã đăng nhập; chưa có partner nào với cùng slug"],
+            ["Main flow", "1. Owner điền form đăng ký partner (tên, mô tả, danh mục, liên hệ) và submit.\n2. Backend tạo partner với status PENDING.\n3. Super Admin vào /admin/partners, xem danh sách PENDING và bấm Approve.\n4. Backend chuyển status → ACTIVE, seed 1.000.000 điểm vào point_ledger (reason=ADJUST, ref_type=SYSTEM)."],
+            ["Alternate flow", "3a. Admin bấm Reject → partner status PENDING giữ nguyên hoặc chuyển SUSPENDED; owner nhận thông báo."],
+            ["Postcondition", "Partner có status ACTIVE; partner_id có thể dùng trong X-Partner-Id header; partner có 1.000.000 điểm khởi đầu"],
+        ],
+        caption="UC-02: Đăng ký merchant và admin duyệt."
     )
 
-    rb.h4("3.2.1.4. UC-04: Tạo chiến dịch")
-    rb.p(
-        "Actor: Owner. Luồng chính: (1) Owner truy cập "
-        "/merchant/campaigns/new. (2) Chọn campaign template "
-        "(pre-set các tham số pháp lý). (3) Nhập tên, thời "
-        "gian, loại giảm giá (% hoặc amount), max_issuances, "
-        "giá trị mỗi voucher. (4) Backend compute estimated_cost "
-        "= max_issuances × value_per_voucher; chọn "
-        "approval_tier theo ngưỡng NĐ 81. (5) Lưu campaign "
-        "status=draft. (6) Nếu tier > none, UI yêu cầu owner "
-        "chuyển sang UC-05 Nộp hồ sơ."
+    rb.h4("UC-03: POS tích điểm")
+    rb.table(
+        headers=["Thuộc tính", "Nội dung"],
+        rows=[
+            ["Actor", "Staff (hoặc Owner)"],
+            ["Precondition", "Staff đã đăng nhập; khách hàng có membership tại partner này"],
+            ["Main flow", "1. Khách hàng mở trang /member/qr, hiển thị QR code.\n2. Staff scan QR (hoặc nhập mã hóa đơn) → lấy được user_id của khách.\n3. Staff nhập gross_amount vào form POS và submit.\n4. Backend tính points_earned = floor(net_amount / 10000).\n5. Backend INSERT transaction, INSERT point_ledger (delta dương), UPDATE users.points_balance trong một DB transaction."],
+            ["Alternate flow", "2a. QR hết hạn hoặc không hợp lệ → 400; staff nhập số điện thoại thay thế."],
+            ["Postcondition", "Transaction được tạo; khách hàng thấy điểm mới ngay khi làm mới trang"],
+        ],
+        caption="UC-03: POS tích điểm."
     )
 
-    rb.h4("3.2.1.5. UC-05: Nộp hồ sơ Sở Công Thương")
-    rb.p(
-        "Actor: Owner hoặc Operator (nếu có ủy quyền). Luồng "
-        "chính: (1) Tạo CampaignRegulatorySubmission với "
-        "doc_refs (URL hồ sơ PDF), số điện thoại, địa chỉ Sở CT. "
-        "(2) Gửi submission, chuyển campaign sang "
-        "status=pending_regulatory. (3) Sau khi Sở CT duyệt, "
-        "Operator bấm \"đánh dấu đã duyệt\", cập nhật "
-        "approval_event + chuyển campaign sang status=approved."
+    rb.h4("UC-04: Đổi quà từ trang đối tác")
+    rb.table(
+        headers=["Thuộc tính", "Nội dung"],
+        rows=[
+            ["Actor", "Customer"],
+            ["Precondition", "Customer đã đăng nhập; points_balance >= points_cost của quà muốn đổi; reward đang active"],
+            ["Main flow", "1. Customer vào /member/partners/{slug}, chọn quà và bấm Đổi quà.\n2. Dialog xác nhận hiển thị tên quà, điểm cần và số điểm hiện có.\n3. Customer xác nhận → Frontend POST /partners/{id}/rewards/{id}/redeem.\n4. Backend kiểm tra balance, trừ điểm, tạo redemption (status=PENDING, code=8 ký tự), ghi point_ledger (delta âm).\n5. Redemption xuất hiện trong /member/vouchers."],
+            ["Alternate flow", "4a. Điểm không đủ → 400, hiển thị lỗi. 4b. Reward hết stock → 409, thông báo hết hàng."],
+            ["Postcondition", "Redemption có status PENDING; khách có mã 8 ký tự để dùng tại POS partner"],
+        ],
+        caption="UC-04: Đổi quà từ trang đối tác."
     )
 
-    rb.h4("3.2.1.6. UC-06: Claim voucher (lõi race condition)")
-    rb.p(
-        "Actor: Customer. Tiền điều kiện: campaign active. "
-        "Luồng chính: (1) Customer bấm \"Nhận voucher\" trên "
-        "app. (2) Service bắt đầu transaction, acquire "
-        "pg_advisory_xact_lock(hashtext('claim:'||campaign_id)). "
-        "(3) Lệnh UPDATE campaigns SET issued_count = "
-        "issued_count + 1 WHERE id = :id AND issued_count < "
-        "max_issuances; nếu rowcount=0, abort. (4) INSERT "
-        "Voucher với status='issued', member_id, code random. "
-        "(5) Commit; advisory lock được release cùng "
-        "transaction. Partial unique index sẽ chặn thêm nếu "
-        "customer cố claim lần nữa. Luồng thay thế: nếu quota "
-        "hết, trả 409 kèm message \"Hết suất\"."
+    rb.h4("UC-05: Admin giám sát điểm hệ thống")
+    rb.table(
+        headers=["Thuộc tính", "Nội dung"],
+        rows=[
+            ["Actor", "Super Admin"],
+            ["Precondition", "Super Admin đã đăng nhập"],
+            ["Main flow", "1. Admin vào /admin/system-points.\n2. Backend tổng hợp: SUM(points_balance) từ users, SUM(delta) theo reason từ point_ledger.\n3. Trang hiển thị card tổng điểm lưu hành, breakdown earned/redeemed/adjusted, bảng log adjustment phân trang."],
+            ["Alternate flow", "Không có — trang chỉ đọc, không có action ghi."],
+            ["Postcondition", "Admin nắm được tổng quan điểm toàn hệ thống; không có thay đổi dữ liệu"],
+        ],
+        caption="UC-05: Admin giám sát điểm hệ thống."
     )
 
-    rb.h4("3.2.1.7. UC-07: Ủy quyền OTP")
+    rb.h3("3.2.2. Sơ đồ tuần tự các luồng quan trọng")
     rb.p(
-        "Actor: Owner. Luồng chính: (1) Owner tạo authorization "
-        "với nội dung (phạm vi ủy quyền, thời hạn, operator "
-        "được ủy quyền). (2) Service compute context_hash = "
-        "sha256(canonical(payload)), sinh OTP "
-        "authorization_sign, gửi SMS. (3) Owner nhập OTP; "
-        "Service verify OTP + đọc lại authorization, tính lại "
-        "context_hash, so sánh. Nếu khớp, đánh dấu signed_at, "
-        "ghi TenantSettingsAudit."
+        "Ba sơ đồ tuần tự dưới đây mô tả chi tiết luồng trao đổi dữ liệu giữa "
+        "các thành phần hệ thống cho ba nghiệp vụ cốt lõi nhất."
     )
-
-    rb.h4("3.2.1.8. UC-08: Thăng hạng tự động")
     rb.p(
-        "Actor: System. Kích hoạt: sau mỗi transaction cộng "
-        "điểm. Luồng: (1) Service đọc tenant tiers sắp xếp theo "
-        "min_points giảm dần. (2) Tìm tier đầu tiên có "
-        "min_points ≤ current_points. (3) Nếu khác tier hiện "
-        "tại, cập nhật membership.tier_id, ghi "
-        "PointLedger loại 'tier_upgrade' ghi chú tiếng Việt."
+        "Luồng đăng nhập JWT: Người dùng submit form đăng nhập → Frontend gọi "
+        "POST /auth/login với email/phone và password → Backend tra cứu user theo "
+        "email/phone → Xác thực bcrypt(password, password_hash) → Nếu đúng, "
+        "ký JWT bằng SECRET_KEY (HS256, payload chứa user_id và system_role, "
+        "exp = 7 ngày) → Trả access_token về Frontend → Frontend lưu vào "
+        "localStorage → axios interceptor tự động thêm Authorization: Bearer {token} "
+        "vào mọi request tiếp theo. Mỗi lần đăng nhập thành công, backend "
+        "INSERT một bản ghi vào bảng login_logs."
     )
-
-    rb.h3("3.2.2. Sơ đồ tuần tự các luồng xử lý chính")
+    _img(rb, "bao-cao/assets/diagrams/seq-login.png", "Sơ đồ tuần tự luồng đăng nhập JWT.")
     rb.p(
-        "Luồng Đăng nhập JWT + chọn tenant được mô tả bởi Hình "
-        "3-1. Người dùng gửi email/mật khẩu tới /auth/login; "
-        "AuthService verify bcrypt và trả về access_token kèm "
-        "danh sách memberships. Frontend lưu token vào Zustand "
-        "auth-store, chọn tenant mặc định qua tenant-store và "
-        "tự inject header X-Tenant-Id cho mọi request tiếp theo "
-        "thông qua axios interceptor. Dependency "
-        "require_customer_in_tenant hoặc require_owner_in_tenant "
-        "trong FastAPI đảm bảo mọi endpoint được scope đúng tenant."
+        "Luồng POS tích điểm: Khách hàng mở /member/qr → trang hiển thị QR SVG "
+        "sinh bằng qrcode.react (payload là user_id dạng JSON) → Staff scan QR → "
+        "Frontend decode payload lấy user_id → Hiển thị tên khách → Staff nhập "
+        "gross_amount và submit → Frontend POST /staff/transactions với "
+        "X-Partner-Id header → Backend thực hiện trong DB transaction: "
+        "tìm membership(partner_id, user_id), tính points_earned = floor(net/10000), "
+        "INSERT transactions, INSERT point_ledger(delta=+earned, reason=earn), "
+        "UPDATE users.points_balance += earned → Trả transaction response "
+        "→ Frontend hiển thị xác nhận."
     )
-    _img(rb, "bao-cao/diagrams/mermaid/seq_login_tenant.png",
-         "Sơ đồ tuần tự — Đăng nhập JWT và chọn tenant.")
-
+    _img(rb, "bao-cao/assets/diagrams/seq-pos-earn.png", "Sơ đồ tuần tự luồng POS tích điểm.")
     rb.p(
-        "Luồng Claim voucher được mô tả chi tiết bởi Hình 3-2 "
-        "với ba actor kỹ thuật: Client (App PWA khách hàng), "
-        "FastAPI Service, và PostgreSQL. Client gửi POST "
-        "/campaigns/{id}/claim kèm JWT và X-Tenant-Id. FastAPI "
-        "qua dependency xác thực customer-in-tenant, tạo một "
-        "AsyncSession. Service mở transaction, gọi "
-        "pg_advisory_xact_lock(hashtext('claim:' || campaign_id)). "
-        "Các request khác cùng campaign_id sẽ được xếp hàng tại "
-        "bước này. Service thực thi UPDATE quota guard; nếu "
-        "rowcount=1, tiếp tục INSERT voucher; nếu rowcount=0, "
-        "raise CampaignQuotaExceededError. Transaction commit – "
-        "lock release. Ngay khi transaction commit, request đứng "
-        "sau sẽ nối tiếp. Đây là cơ chế đảm bảo tính an toàn mà "
-        "vẫn tối ưu được throughput."
+        "Luồng đổi quà: Customer trên /member/partners/{slug} bấm Đổi quà → "
+        "Dialog confirm hiện → Customer bấm Xác nhận → Frontend POST "
+        "/partners/{id}/rewards/{rid}/redeem với X-Partner-Id → Backend kiểm tra "
+        "reward.is_active và not deleted, kiểm tra user.points_balance >= reward.points_cost, "
+        "giảm stock (nếu không NULL), INSERT redemption(status=PENDING, code=random_8_chars), "
+        "INSERT point_ledger(delta=-cost, reason=redeem), UPDATE users.points_balance -= cost "
+        "trong cùng DB transaction → Trả redemption response → Frontend điều "
+        "hướng về /member/vouchers."
     )
-    _img(rb, "bao-cao/diagrams/mermaid/seq_claim_voucher.png",
-         "Sơ đồ tuần tự — Khách hàng claim voucher (chống TOCTOU).")
+    _img(rb, "bao-cao/assets/diagrams/seq-redeem.png", "Sơ đồ tuần tự luồng đổi quà từ trang đối tác.")
 
+    rb.h3("3.2.3. Sơ đồ hoạt động")
     rb.p(
-        "Luồng Đổi quà bằng OTP (Hình 3-3) là một cơ chế hai "
-        "bước request-otp / confirm-otp dùng HMAC-SHA256 để ràng "
-        "buộc mã OTP với đúng bộ ba (reward_id, member_id, "
-        "staff_id). Nếu kẻ xấu cố sử dụng OTP trong một ngữ cảnh "
-        "khác (khác reward hoặc khác khách), context_hash không "
-        "khớp và hệ thống trả về 400 InvalidOTPError. Thời hạn "
-        "OTP là 3 phút; chống abuse bằng slowapi rate limit."
+        "Sơ đồ hoạt động dưới đây mô tả hai luồng nghiệp vụ có quyết định phân "
+        "nhánh quan trọng: đăng ký merchant và quên mật khẩu."
     )
-    _img(rb, "bao-cao/diagrams/mermaid/seq_redeem_otp.png",
-         "Sơ đồ tuần tự — Đổi quà bằng OTP ràng buộc context_hash.")
-
-    rb.h3("3.2.3. Sơ đồ hoạt động của vòng đời chiến dịch và voucher")
     rb.p(
-        "Campaign có vòng đời hoạt động (Hình 3-4): draft → "
-        "pending_regulatory (nếu tier ≥ notify_so_ct) → approved "
-        "→ active → ended → post_report_submitted / overdue. Hệ "
-        "thống thực thi chuyển trạng thái bằng kết hợp giữa thao "
-        "tác thủ công (owner và super admin) và cron "
-        "(expire_vouchers, check_post_report_overdue). Sau khi "
-        "campaign kết thúc, cron tự động tính hạn 45 ngày theo "
-        "Điều 20 NĐ 81/2018/NĐ-CP để cảnh báo báo cáo hậu khuyến "
-        "mại."
+        "Luồng đăng ký merchant: Owner điền và submit form đăng ký partner. "
+        "Backend tạo partner với status PENDING và thông báo thành công. "
+        "Admin vào trang pending list, xem xét thông tin. Nếu Admin bấm Approve: "
+        "backend cập nhật status = ACTIVE, seed 1.000.000 điểm (INSERT point_ledger "
+        "với reason=ADJUST, ref_type=SYSTEM, delta=+1000000), và ghi activated_at. "
+        "Nếu Admin bấm Reject: backend ghi nhận lý do từ chối, owner không thể "
+        "đăng nhập với quyền owner của partner đó. Kết thúc luồng."
     )
-    _img(rb, "bao-cao/diagrams/mermaid/act_campaign_lifecycle.png",
-         "Sơ đồ hoạt động — Vòng đời chiến dịch khuyến mại "
-         "(NĐ 81/2018/NĐ-CP).")
-
+    _img(rb, "bao-cao/assets/diagrams/act-merchant-register.png", "Sơ đồ hoạt động luồng đăng ký và duyệt merchant.")
     rb.p(
-        "Tương ứng, mỗi voucher phát hành có vòng đời riêng "
-        "(Hình 3-5): active → used (khi staff áp dụng thành công "
-        "tại POS) hoặc active → expired (khi cron "
-        "expire_vouchers phát hiện now > expires_at). Hai nhánh "
-        "này chạy song song và được idempotent hóa để tránh "
-        "race giữa POS và cron."
+        "Luồng quên mật khẩu: Người dùng nhập email và submit form. Backend "
+        "tra cứu user theo email — nếu không tìm thấy, vẫn trả HTTP 200 "
+        "(tránh rò rỉ thông tin). Nếu tìm thấy: tạo temporary password ngẫu nhiên "
+        "(12 ký tự alphanum), hash bằng bcrypt, cập nhật users.password_hash, "
+        "gọi aiosmtplib gửi email bất đồng bộ. Nếu SMTP lỗi: ghi log warning "
+        "nhưng vẫn trả HTTP 200 để user không biết email gửi thất bại "
+        "(fail-silent). Người dùng nhận email, đăng nhập bằng mật khẩu tạm, "
+        "rồi đổi sang mật khẩu mới trong profile."
     )
-    _img(rb, "bao-cao/diagrams/mermaid/act_voucher_lifecycle.png",
-         "Sơ đồ hoạt động — Vòng đời voucher.")
+    _img(rb, "bao-cao/assets/diagrams/act-forgot-password.png", "Sơ đồ hoạt động luồng quên mật khẩu (fail-silent SMTP).")
 
-    # ---------------- 3.3 ----------------
-    rb.h2("3.3. Hệ thống màn hình")
+    # ─────────────────────────────────────────────
+    # 3.3 Hệ thống màn hình
+    # ─────────────────────────────────────────────
+    rb.h2("3.3. HỆ THỐNG MÀN HÌNH")
     rb.p(
-        "Frontend được chia thành năm app shell theo vai trò, "
-        "triển khai bằng Next.js 14 App Router route groups. "
-        "Bảng 3-3 liệt kê toàn bộ trang chính kèm vai trò truy "
-        "cập và chức năng tóm tắt."
+        "Frontend được tổ chức thành năm app shell độc lập trong Next.js 14 App "
+        "Router, mỗi shell có layout, theme màu và logic xác thực riêng biệt. "
+        "Cách tổ chức này đảm bảo trải nghiệm người dùng tối ưu cho từng vai trò "
+        "mà không ảnh hưởng lẫn nhau."
+    )
+    rb.p(
+        "Shell (auth) tại /login và /register là public — không có chrome header/sidebar, "
+        "giao diện tập trung vào form. Shell (member) tại /member/* là mobile-first "
+        "với max-width 448px, BottomNavBar 4 tab cố định ở đáy màn hình. "
+        "Shell (partner) tại /partner/* là desktop-first với sidebar trái, "
+        "header và content area dạng responsive grid. Shell (staff) tại /staff/* "
+        "là POS focused với emerald theme, chỉ hiển thị hai chức năng chính: "
+        "tích điểm và verify reward. Shell (admin) tại /admin/* là admin portal "
+        "với sidebar và bảng dữ liệu dạng danh sách."
     )
     rb.table(
-        headers=["App shell", "Route", "Vai trò", "Chức năng"],
+        headers=["Shell", "Đường dẫn", "Mô tả trang", "Role được phép"],
         rows=[
-            ["(auth)", "/login", "Mọi vai trò", "Đăng nhập chung."],
-            ["(auth)", "/register", "Customer", "Đăng ký tài khoản khách."],
-            ["(auth)", "/register/merchant", "Owner", "Đăng ký doanh nghiệp 3 bước."],
-            ["(member)", "/member", "Customer", "Tổng quan điểm và hoạt động."],
-            ["(member)", "/member/qr", "Customer", "QR cá nhân để POS quét."],
-            ["(member)", "/member/shops", "Customer", "Danh sách cửa hàng đã tham gia."],
-            ["(member)", "/member/vouchers", "Customer", "Danh sách voucher khả dụng."],
-            ["(member)", "/member/rewards", "Customer", "Danh sách quà tặng có thể đổi."],
-            ["(member)", "/member/transactions", "Customer", "Lịch sử giao dịch."],
-            ["(member)", "/member/profile", "Customer", "Thông tin cá nhân, đổi mật khẩu."],
-            ["(merchant)", "/merchant", "Owner", "Dashboard tenant: doanh thu, campaign."],
-            ["(merchant)", "/merchant/members", "Owner", "Danh sách khách hàng + tier."],
-            ["(merchant)", "/merchant/tiers", "Owner", "Cấu hình hạng thành viên."],
-            ["(merchant)", "/merchant/rewards", "Owner", "Quản trị phần thưởng."],
-            ["(merchant)", "/merchant/campaigns", "Owner", "Danh sách chiến dịch khuyến mại."],
-            ["(merchant)", "/merchant/campaigns/new", "Owner", "Wizard tạo chiến dịch."],
-            ["(merchant)", "/merchant/campaigns/{id}", "Owner", "Chi tiết chiến dịch + nộp hồ sơ."],
-            ["(merchant)", "/merchant/staff", "Owner", "Quản lý nhân viên POS."],
-            ["(merchant)", "/merchant/settings", "Owner", "Cài đặt tenant, ủy quyền."],
-            ["(staff)", "/staff", "Staff", "Trang chủ POS: tra cứu khách."],
-            ["(staff)", "/staff/pos", "Staff", "POS tích điểm + verify voucher."],
-            ["(admin)", "/admin", "Super admin", "Dashboard toàn hệ thống."],
-            ["(admin)", "/admin/tenants", "Super admin", "Duyệt và quản lý tenant."],
-            ["(admin)", "/admin/campaigns", "Super admin", "Duyệt chiến dịch pháp lý."],
-            ["(admin)", "/admin/users", "Super admin", "Quản lý người dùng hệ thống."],
-            ["(admin)", "/admin/audit", "Super admin", "Xem audit log tenant settings."],
+            ["(auth)", "/login", "Đăng nhập với email/phone + password", "Public"],
+            ["(auth)", "/register", "Đăng ký tài khoản khách hàng", "Public"],
+            ["(auth)", "/register/merchant", "Đăng ký tài khoản chủ partner", "Public"],
+            ["(member)", "/member", "Trang chủ: số điểm + lịch sử gần đây", "Customer"],
+            ["(member)", "/member/qr", "Hiển thị QR cá nhân cho POS scan", "Customer"],
+            ["(member)", "/member/partners", "Danh sách đối tác đang active", "Customer"],
+            ["(member)", "/member/partners/[slug]", "Chi tiết đối tác + danh sách quà", "Customer"],
+            ["(member)", "/member/vouchers", "Ví voucher: tất cả redemption", "Customer"],
+            ["(member)", "/member/vouchers/[id]", "Chi tiết redemption + mã QR dùng tại POS", "Customer"],
+            ["(member)", "/member/profile", "Thông tin cá nhân + đổi mật khẩu", "Customer"],
+            ["(partner)", "/partner", "Dashboard: KPI + biểu đồ + Top 5 quà", "Owner"],
+            ["(partner)", "/partner/rewards", "Danh sách quà của partner", "Owner"],
+            ["(partner)", "/partner/rewards/new", "Tạo quà mới (3 offer type)", "Owner"],
+            ["(partner)", "/partner/rewards/[id]", "Sửa quà (offer_type không đổi được)", "Owner"],
+            ["(partner)", "/partner/members", "Danh sách thành viên", "Owner"],
+            ["(partner)", "/partner/members/[id]", "Chi tiết thành viên + điều chỉnh điểm + khoá", "Owner"],
+            ["(partner)", "/partner/pos", "POS: tích điểm hoặc verify reward", "Owner, Staff"],
+            ["(staff)", "/staff", "POS tích điểm (scan QR hoặc nhập mã hóa đơn)", "Staff"],
+            ["(staff)", "/staff/verify", "POS verify reward (nhập redemption code)", "Staff"],
+            ["(admin)", "/admin", "Dashboard admin: số partner pending", "Super Admin"],
+            ["(admin)", "/admin/partners", "Danh sách partner + approve/reject", "Super Admin"],
+            ["(admin)", "/admin/login-logs", "Log đăng nhập hệ thống — chỉ đọc", "Super Admin"],
+            ["(admin)", "/admin/system-points", "Tổng điểm + breakdown + log adjustment", "Super Admin"],
         ],
-        caption="Danh sách trang chính của hệ thống."
+        caption="Toàn bộ trang chính của hệ thống theo shell và role."
+    )
+    rb.p(
+        "Một số màn hình quan trọng được minh họa trong các hình dưới đây. "
+        "Hình đầu tiên là trang home của khách hàng — hiển thị số điểm và shortcut "
+        "QR. Hình thứ hai là dashboard partner. Hình thứ ba là giao diện POS tích điểm. "
+        "Hình thứ tư là trang admin system-points."
+    )
+    _img(rb, "bao-cao/assets/screenshots/member-home.png", "Trang home khách hàng: số điểm hiện tại và shortcut QR cá nhân.")
+    _img(rb, "bao-cao/assets/screenshots/partner-dashboard.png", "Dashboard partner: KPI 6 cột và biểu đồ analytics.")
+    _img(rb, "bao-cao/assets/screenshots/staff-pos.png", "Giao diện POS tích điểm: scan QR khách hoặc nhập mã hóa đơn.")
+    _img(rb, "bao-cao/assets/screenshots/admin-system-points.png", "Trang admin giám sát điểm hệ thống: tổng điểm lưu hành và breakdown.")
+
+    # ─────────────────────────────────────────────
+    # 3.4 Hệ thống báo biểu
+    # ─────────────────────────────────────────────
+    rb.h2("3.4. HỆ THỐNG BÁO BIỂU")
+    rb.p(
+        "Hệ thống cung cấp bốn loại báo biểu phục vụ cho ba nhóm người dùng khác "
+        "nhau. Mỗi báo biểu được thiết kế để trả lời một câu hỏi nghiệp vụ cụ thể "
+        "và chỉ hiển thị dữ liệu trong phạm vi quyền của người dùng đó."
     )
 
+    rb.h3("3.4.1. Dashboard analytics của đối tác")
     rb.p(
-        "Một số màn hình điển hình được minh hoạ dưới đây để "
-        "cung cấp hình dung trực quan về giao diện và trải "
-        "nghiệm người dùng."
+        "Dashboard partner tại /partner là báo biểu chính của chủ cửa hàng, "
+        "cung cấp cái nhìn tổng quan về hiệu quả chương trình loyalty. "
+        "Dashboard được chia thành ba khu vực: KPI tổng quan, biểu đồ xu hướng "
+        "và bảng ranking."
     )
-    _img(rb, "landing-polished-desktop.png",
-         "Trang chủ giới thiệu dịch vụ (desktop).")
-    _img(rb, "member-polished-mobile.png",
-         "App khách hàng — dashboard điểm và voucher (mobile).")
-    _img(rb, "member-shops-real.png",
-         "Danh sách cửa hàng đã tham gia của khách hàng.")
-    _img(rb, "merchant-polished-desktop.png",
-         "Dashboard merchant — tổng quan doanh thu và campaign.")
-    _img(rb, "merchant-real-data.png",
-         "Merchant — danh sách khách hàng và tier.")
-    _img(rb, "staff-dashboard.png",
-         "Staff shell — trang chủ POS.")
-    _img(rb, "staff-pos-form.png",
-         "Staff shell — form tích điểm sau khi quét QR.")
-    _img(rb, "staff-pos-voucher-applied.png",
-         "Staff shell — xác nhận áp dụng voucher cho hóa đơn.")
-    _img(rb, "admin-polished-desktop.png",
-         "Admin portal — dashboard toàn hệ thống.")
-    _img(rb, "admin-tenants-fixed.png",
-         "Admin portal — danh sách tenant và trạng thái duyệt.")
-    _img(rb, "merchant-register-step1.png",
-         "Luồng đăng ký merchant — bước 1 thông tin cơ bản.")
-    _img(rb, "merchant-register-step2-with-contact.png",
-         "Luồng đăng ký merchant — bước 2 thông tin liên hệ.")
-    _img(rb, "merchant-register-step3.png",
-         "Luồng đăng ký merchant — bước 3 pháp lý và hoàn tất.")
-    _img(rb, "voucher-detail-page-new.png",
-         "App khách — chi tiết voucher với mã QR quét tại quầy.")
-
-    # ---------------- 3.4 ----------------
-    rb.h2("3.4. Hệ thống báo biểu")
     rb.p(
-        "Ngoài các trang nghiệp vụ, hệ thống cung cấp bốn dạng "
-        "báo biểu chính để phục vụ quản trị và tuân thủ."
+        "Khu vực KPI hiển thị sáu chỉ số trong cùng một hàng card: tổng giao dịch "
+        "tích điểm trong kỳ, tổng doanh thu (gross_amount), tổng điểm đã phát "
+        "(SUM delta WHERE reason=earn), tổng lượt đổi quà, tỉ lệ đổi quà "
+        "trên tổng giao dịch (đo engagement của chương trình), và số khách hàng "
+        "mới trong kỳ (membership có joined_at trong khoảng thời gian lọc). "
+        "Người dùng có thể lọc theo khoảng ngày tuỳ chọn."
     )
-    rb.h3("3.4.1. Dashboard analytics cho merchant")
     rb.p(
-        "Trang /merchant hiển thị số liệu tổng hợp theo khoảng "
-        "thời gian: doanh thu từ giao dịch, số lượng khách mới, "
-        "số lượng voucher đã claim/đã dùng, top reward theo "
-        "lượt đổi. Dữ liệu được lấy từ view v_campaign_stats và "
-        "các truy vấn tổng hợp trên Transaction + PointLedger, "
-        "có cache ở tầng TanStack Query để giảm round-trip."
+        "Khu vực biểu đồ gồm hai chart đường/cột đặt cạnh nhau: biểu đồ đường "
+        "doanh thu theo ngày (gross_amount group by date) và biểu đồ cột số lượt "
+        "đổi quà theo ngày (redemptions group by date). Cả hai chart đồng bộ "
+        "theo cùng trục thời gian với bộ lọc ngày."
+    )
+    rb.p(
+        "Khu vực Top 5 quà phổ biến là bảng xếp hạng các Reward có số lượt "
+        "redemption nhiều nhất trong kỳ lọc. Mỗi dòng hiển thị tên quà, "
+        "offer_type, points_cost và số lượt đã đổi."
     )
 
-    rb.h3("3.4.2. Báo cáo hậu khuyến mại (NĐ 81 Điều 20)")
+    rb.h3("3.4.2. Log đăng nhập (Admin)")
     rb.p(
-        "Sau khi chiến dịch kết thúc, owner bấm \"Xuất báo cáo\" "
-        "từ trang chi tiết; hệ thống render file PDF tổng hợp: "
-        "số voucher phát hành, số đã dùng, giá trị quy đổi, danh "
-        "sách khách hàng đã claim. File này có thể được dùng "
-        "trực tiếp để nộp Sở Công Thương."
+        "Trang /admin/login-logs hiển thị lịch sử đăng nhập toàn hệ thống theo "
+        "dạng bảng phân trang. Mỗi bản ghi gồm: user email/phone, IP address "
+        "(từ X-Forwarded-For), thời gian đăng nhập và trạng thái (thành công "
+        "hay thất bại). Admin có thể lọc theo user hoặc khoảng thời gian. "
+        "Đây là công cụ audit để phát hiện đăng nhập bất thường hoặc brute-force."
     )
 
-    rb.h3("3.4.3. Audit log tenant settings")
+    rb.h3("3.4.3. Log điều chỉnh điểm (Admin)")
     rb.p(
-        "Mọi thay đổi cấu hình quan trọng của tenant (thông tin "
-        "doanh nghiệp, tier, authorization, point rule) đều được "
-        "ghi vào TenantSettingsAudit với actor, timestamp, "
-        "before/after JSON. Super admin xem qua "
-        "/admin/audit?tenant_id=…, giúp điều tra các sự cố hoặc "
-        "tranh chấp."
+        "Trang /admin/system-points hiển thị log các điều chỉnh điểm thủ công "
+        "do owner thực hiện cho từng thành viên. Mỗi bản ghi gồm: partner, "
+        "user được điều chỉnh, actor thực hiện (owner nào), delta (dương hoặc âm), "
+        "lý do ghi chú và thời gian. Admin dùng báo biểu này để giám sát các "
+        "hành vi điều chỉnh bất thường giữa các partner."
     )
 
-    rb.h3("3.4.4. Xuất CSV giao dịch")
+    rb.h3("3.4.4. Tổng điểm hệ thống (Admin)")
     rb.p(
-        "Trang /merchant/members/{id} cung cấp nút \"Xuất CSV\" "
-        "để owner tải toàn bộ lịch sử giao dịch của một khách "
-        "hàng cụ thể – hữu ích khi khách hàng khiếu nại về điểm. "
-        "Endpoint trả file CSV encoding UTF-8 BOM để Excel mở "
-        "đúng tiếng Việt."
+        "Card tổng quan tại /admin/system-points hiển thị ba chỉ số toàn cục: "
+        "tổng điểm đang lưu hành (SUM points_balance từ tất cả users active), "
+        "breakdown tích lũy theo loại (SUM delta WHERE reason='earn' là tổng "
+        "điểm đã phát, SUM ABS(delta) WHERE reason='redeem' là tổng điểm đã "
+        "dùng, SUM delta WHERE reason='adjust' là tổng điều chỉnh thủ công), "
+        "và số partner đang active. Các chỉ số này cho phép admin theo dõi "
+        "sức khỏe tổng thể của hệ thống điểm và phát hiện bất thường."
     )

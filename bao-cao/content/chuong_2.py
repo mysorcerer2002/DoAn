@@ -1,253 +1,308 @@
 """Chương 2 — Phương pháp thực hiện."""
 from __future__ import annotations
 
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[2]
-
 
 def build(rb) -> None:
     rb.start_chapter("Chương 2", "Phương pháp thực hiện")
 
-    # ---------------- 2.1 ----------------
-    rb.h2("2.1. Khảo sát hệ thống tương tự")
+    # ─────────────────────────────────────────────
+    # 2.1 Khảo sát hệ thống tương tự
+    # ─────────────────────────────────────────────
+    rb.h2("2.1. KHẢO SÁT HỆ THỐNG TƯƠNG TỰ")
     rb.p(
-        "Trước khi thiết kế hệ thống, đề tài tiến hành khảo sát bốn "
-        "nền tảng loyalty tiêu biểu đang được sử dụng rộng rãi cho "
-        "SME để xác định khoảng trống thị trường cũng như học hỏi "
-        "các thông lệ tốt."
+        "Trước khi thiết kế hệ thống, đề tài tiến hành khảo sát bốn nhóm giải pháp "
+        "loyalty đang phổ biến trên thị trường nhằm xác định khoảng trống mà đề tài "
+        "cần lấp đầy. Việc khảo sát tập trung vào hai tiêu chí chính: khả năng "
+        "hỗ trợ multi-tenant thật sự cho SME và mức độ phù hợp với thói quen "
+        "vận hành của doanh nghiệp nhỏ tại Việt Nam."
     )
-
-    rb.h3("2.1.1. Got It Vietnam")
     rb.p(
-        "Got It là nền tảng voucher quà tặng B2B hàng đầu Việt Nam, "
-        "cho phép doanh nghiệp mua voucher từ các thương hiệu có "
-        "sẵn để tặng khách hàng, nhân viên. Điểm mạnh là hệ sinh "
-        "thái rộng (hơn 200 thương hiệu) và quy trình tích hợp API "
-        "đơn giản. Tuy nhiên, Got It không hỗ trợ chương trình "
-        "loyalty nội bộ – doanh nghiệp vẫn phải tự quản lý điểm "
-        "thành viên và thẻ hạng. Giá dịch vụ cũng tương đối cao "
-        "với SME ngân sách nhỏ."
+        "Smile.io và LoyaltyLion là hai nền tảng SaaS loyalty quốc tế được sử dụng "
+        "rộng rãi trong lĩnh vực thương mại điện tử. Cả hai cung cấp tính năng "
+        "tích điểm, phát thưởng và phân hạng thành viên theo chuẩn quốc tế. "
+        "Tuy nhiên, mô hình định giá theo số lượng thành viên hoặc đơn hàng "
+        "khiến chi phí leo thang nhanh khi quy mô tăng — không phù hợp với ngân "
+        "sách hạn chế của SME Việt Nam. Ngoài ra, cả hai nền tảng đều không được "
+        "thiết kế cho thị trường Việt Nam, thiếu hỗ trợ ngôn ngữ tiếng Việt "
+        "và không tích hợp với các phương thức thanh toán nội địa."
     )
-
-    rb.h3("2.1.2. Urbox")
     rb.p(
-        "Urbox cũng là nền tảng voucher marketplace nhưng thêm "
-        "tính năng ví điểm B2B2C: doanh nghiệp có thể nạp điểm "
-        "cho nhân viên, khách hàng, họ dùng điểm đổi voucher trong "
-        "marketplace. Mô hình này hợp với công ty lớn có chương "
-        "trình phúc lợi nhân viên, nhưng ít phù hợp cho cửa hàng "
-        "cà phê nhỏ – vốn cần tích điểm dựa trên hóa đơn thực tế "
-        "và phát voucher riêng của chính cửa hàng."
+        "Got It và Urbox là hai nền tảng voucher marketplace phổ biến tại Việt Nam, "
+        "cho phép doanh nghiệp phát hành và phân phối voucher qua kênh của nền tảng. "
+        "Điểm mạnh là mạng lưới phân phối rộng và thương hiệu đã được nhận diện. "
+        "Tuy nhiên, cả hai không cung cấp tính năng tích điểm tự quản cho doanh "
+        "nghiệp — khách hàng tích điểm trên hệ thống của nền tảng chứ không phải "
+        "của doanh nghiệp, làm mất đi giá trị dữ liệu khách hàng riêng của từng cửa hàng."
     )
-
-    rb.h3("2.1.3. Loyverse POS")
     rb.p(
-        "Loyverse là bộ công cụ POS miễn phí kèm tính năng loyalty "
-        "cơ bản: tích điểm theo tổng hóa đơn, đổi điểm lấy giảm "
-        "giá. Ưu điểm: dễ dùng, có app mobile cho chủ cửa hàng. "
-        "Nhược điểm: không multi-tenant thật sự – mỗi chủ cần tạo "
-        "một tài khoản riêng, không chia sẻ khách hàng giữa các "
-        "thương hiệu; không hỗ trợ pháp lý khuyến mại Việt Nam."
+        "Loyverse là một hệ thống POS nhỏ gọn phổ biến trong giới F&B tại Đông Nam Á, "
+        "tích hợp tính năng quản lý khách hàng và tích điểm cơ bản. Ưu điểm là "
+        "giao diện đơn giản, dễ dùng cho nhân viên. Tuy nhiên, Loyverse không hỗ "
+        "trợ multi-tenant thật sự — mỗi cửa hàng là một tài khoản độc lập, không "
+        "chia sẻ được ví điểm giữa nhiều thương hiệu trong cùng hệ sinh thái. "
+        "Ngoài ra, tính năng báo cáo analytics còn hạn chế, không đủ để chủ "
+        "chuỗi cửa hàng quản lý tổng thể."
     )
-
-    rb.h3("2.1.4. Smile.io / LoyaltyLion")
-    rb.p(
-        "Hai SaaS loyalty hàng đầu thị trường quốc tế, tích hợp "
-        "sâu với Shopify. Giá trị cộng thêm là bộ UI kit kéo-thả "
-        "cho phép chủ shop tự cấu hình chương trình khách hàng. "
-        "Nhược điểm: thị trường mục tiêu là e-commerce Âu-Mỹ, "
-        "không có module xử lý pháp lý khuyến mại theo NĐ 81 "
-        "Việt Nam."
-    )
-
-    rb.h3("2.1.5. Bảng so sánh tính năng")
     rb.table(
-        headers=["Tính năng", "Got It", "Urbox", "Loyverse", "Smile.io", "Đề tài"],
+        headers=["Tên nền tảng", "Khu vực", "Loại hình", "Multi-tenant SME", "Điểm yếu chính"],
         rows=[
-            ["Tích điểm theo hóa đơn", "Không", "Có", "Có", "Có", "Có"],
-            ["Multi-tenant thật sự", "Có", "Có", "Không", "Một phần", "Có"],
-            ["Voucher marketplace", "Có", "Có", "Không", "Không", "Không"],
-            ["Chiến dịch khuyến mại", "Có", "Có", "Cơ bản", "Có", "Có"],
-            ["Duyệt theo NĐ 81", "Không", "Không", "Không", "Không", "Có"],
-            ["Ủy quyền công ty vận hành", "Không", "Không", "Không", "Không", "Có"],
-            ["PWA offline", "Không", "Không", "Không", "Có", "Có"],
-            ["QR cá nhân khách", "Có", "Có", "Có", "Có", "Có"],
-            ["Chi phí cho SME", "Cao", "Trung bình", "Thấp", "Trung bình", "Quản trị"],
+            ["Smile.io", "Quốc tế", "SaaS loyalty", "Không", "Phí cao theo quy mô; không hỗ trợ VN"],
+            ["LoyaltyLion", "Quốc tế", "SaaS loyalty", "Không", "Tập trung e-commerce; không POS offline"],
+            ["Got It / Urbox", "Việt Nam", "Voucher marketplace", "Không", "Không cho doanh nghiệp tự quản dữ liệu"],
+            ["Loyverse", "Đông Nam Á", "POS + loyalty", "Hạn chế", "Mỗi cửa hàng là tài khoản riêng biệt"],
+            ["Hệ thống này", "Việt Nam", "Loyalty Platform multi-tenant", "Có", "MVP — chưa có tier và campaign nâng cao"],
         ],
-        caption="So sánh tính năng giữa các nền tảng loyalty và đề tài.",
-    )
-    rb.p(
-        "Kết luận: đề tài lấp được khoảng trống mà các nền tảng "
-        "hiện có chưa phục vụ – multi-tenant nghiêm ngặt kết hợp "
-        "tuân thủ pháp lý khuyến mại Việt Nam cho nhóm SME."
+        caption="So sánh các giải pháp loyalty hiện có với hệ thống đề tài."
     )
 
-    # ---------------- 2.2 ----------------
-    rb.h2("2.2. Công nghệ sử dụng")
+    # ─────────────────────────────────────────────
+    # 2.2 Công nghệ sử dụng
+    # ─────────────────────────────────────────────
+    rb.h2("2.2. CÔNG NGHỆ SỬ DỤNG")
     rb.p(
-        "Việc chọn stack công nghệ dựa trên các tiêu chí: tốc độ "
-        "phát triển, cộng đồng lớn, hệ sinh thái đầy đủ, tương "
-        "thích PostgreSQL, hỗ trợ async tốt."
+        "Việc lựa chọn công nghệ được thực hiện dựa trên ba tiêu chí: tốc độ phát "
+        "triển phù hợp với thời gian thực tập, hệ sinh thái thư viện trưởng thành "
+        "đủ để xử lý các bài toán kỹ thuật phức tạp, và khả năng triển khai "
+        "production trên hạ tầng chi phí thấp."
     )
 
     rb.h3("2.2.1. Backend")
-    rb.bullet("FastAPI 0.115+ — framework Python async, auto-generate OpenAPI docs.")
-    rb.bullet("SQLAlchemy 2.0 async + asyncpg — ORM hiện đại, driver PostgreSQL async.")
-    rb.bullet("Alembic — quản lý migration, auto-run khi container khởi động.")
-    rb.bullet("Pydantic v2 — DTO request/response, validate dữ liệu.")
-    rb.bullet("slowapi — rate limiting, khóa theo IP.")
-    rb.bullet("APScheduler — cron-like job runner.")
-    rb.bullet("python-jose + bcrypt — JWT và băm mật khẩu.")
-    rb.bullet("pytest + httpx + testcontainers-postgres — framework test.")
+    rb.table(
+        headers=["Thư viện / Framework", "Vai trò", "Lý do chọn"],
+        rows=[
+            ["FastAPI 0.110+", "Web framework chính", "Async-native, tự động sinh OpenAPI, type-safe với Pydantic v2"],
+            ["SQLAlchemy 2.0 async", "ORM", "Mapped[] annotation type-safe, hỗ trợ asyncpg, session management rõ ràng"],
+            ["asyncpg", "PostgreSQL driver", "Driver async hiệu năng cao nhất cho PostgreSQL"],
+            ["Alembic", "Database migration", "Quản lý migration có versioning, tích hợp tốt với SQLAlchemy"],
+            ["Pydantic v2", "Validation và serialization", "Hiệu năng cao hơn v1, model_validator đủ mạnh cho business rules"],
+            ["python-jose", "JWT", "Thư viện JWT Python phổ biến, hỗ trợ HS256"],
+            ["bcrypt (passlib)", "Password hashing", "Thuật toán bcrypt industry-standard cho lưu trữ mật khẩu an toàn"],
+            ["slowapi", "Rate limiting", "Tích hợp trực tiếp vào FastAPI, key theo header X-Forwarded-For"],
+            ["aiosmtplib", "Gửi email SMTP", "Client SMTP async, fail-silent khi SMTP lỗi không block response"],
+        ],
+        caption="Các thư viện backend và lý do lựa chọn."
+    )
 
     rb.h3("2.2.2. Frontend")
-    rb.bullet("Next.js 14 App Router + TypeScript — SSR + client component.")
-    rb.bullet("Tailwind v4 + shadcn/ui — utility-first CSS + component library.")
-    rb.bullet("TanStack Query — quản lý state dữ liệu server.")
-    rb.bullet("Zustand — store client cho auth token và tenant chọn.")
-    rb.bullet("react-hook-form + zod — form + validation.")
-    rb.bullet("Serwist — service worker cho PWA offline.")
-    rb.bullet("qrcode.react — sinh QR cá nhân khách hàng.")
-
-    rb.h3("2.2.3. Cơ sở dữ liệu")
-    rb.bullet("PostgreSQL 15 — hỗ trợ partial unique index, advisory lock, view.")
-    rb.bullet("23 bảng nghiệp vụ + enum, FK với chiến lược CASCADE/SET NULL.")
-    rb.bullet("View v_campaign_stats cho dashboard.")
-    rb.bullet("Trigger voucher_validate_max_issuances chống over-issuance.")
-    rb.bullet("Partial unique index cho membership theo (tenant, phone).")
-
-    rb.h3("2.2.4. Hạ tầng triển khai")
-    rb.bullet("Docker Compose — file dev (docker-compose.yml) và prod tách biệt.")
-    rb.bullet("Cloudflare Tunnel — không mở port public, expose qua tunnel.")
-    rb.bullet("Backend image ~ 150MB, frontend image ~ 200MB.")
-
-    # ---------------- 2.3 ----------------
-    rb.h2("2.3. Phương pháp luận")
-
-    rb.h3("2.3.1. Kiến trúc thin-route / fat-service")
-    rb.p(
-        "Backend FastAPI được tổ chức theo mô hình \"thin route – "
-        "fat service\": router `app/api/<resource>.py` chỉ parse "
-        "request, gọi service tương ứng, map exception domain "
-        "thành HTTPException và trả về schema. Mọi logic nghiệp "
-        "vụ tập trung trong service – giúp tái sử dụng ở cron "
-        "job, CLI hoặc unit test."
-    )
-    rb.p(
-        "Global exception handler ở `app/main.py` bắt "
-        "`sqlalchemy.exc.IntegrityError` chuyển thành HTTP 409 "
-        "với thông điệp tiếng Việt. Router không cần try/except "
-        "bao quanh mỗi INSERT."
+    rb.table(
+        headers=["Thư viện / Framework", "Vai trò", "Lý do chọn"],
+        rows=[
+            ["Next.js 14 App Router", "Framework frontend", "Server Component + Client Component, routing file-based, production-ready"],
+            ["TypeScript", "Ngôn ngữ", "Type safety giảm bug runtime, IDE support tốt"],
+            ["Tailwind CSS v4", "Styling", "Utility-first, không CSS riêng, dễ responsive"],
+            ["shadcn/ui", "Component library", "Headless components có thể tùy chỉnh, tích hợp Tailwind sẵn"],
+            ["TanStack Query v5", "Server state management", "Cache, refetch, invalidation tự động; giảm boilerplate fetch"],
+            ["Zustand", "Client state", "Nhẹ, không boilerplate, đủ cho auth store và tenant store"],
+            ["react-hook-form + zod", "Form + validation", "Hiệu năng cao, schema validation chia sẻ được với backend"],
+            ["qrcode.react", "Sinh mã QR", "Thư viện QR đơn giản, render SVG hoặc Canvas trực tiếp"],
+            ["axios", "HTTP client", "Interceptor JWT và X-Partner-Id tự động cho mọi request"],
+        ],
+        caption="Các thư viện frontend và lý do lựa chọn."
     )
 
-    rb.h3("2.3.2. Cô lập tenant qua header + dependency")
+    rb.h3("2.2.3. Cơ sở dữ liệu và hạ tầng")
     rb.p(
-        "Mọi endpoint phi-public đều bắt buộc header "
-        "`X-Tenant-Id`. Dependency `get_tenant_id` kết hợp "
-        "`get_current_user` tạo các dependency cao hơn: "
-        "`require_staff_in_tenant`, `require_owner_in_tenant`, "
-        "`require_customer_in_tenant`, `require_super_admin`. "
-        "Thay đổi dependency tương đương thay đổi ai được phép "
-        "gọi endpoint – tài liệu phân quyền rõ ràng."
+        "Cơ sở dữ liệu PostgreSQL 15 được chọn vì hỗ trợ đầy đủ các tính năng "
+        "cần thiết cho đề tài: CHECK constraint phức tạp, trigger PL/pgSQL để "
+        "hiện thực hóa append-only ledger, partial unique index cho ràng buộc "
+        "nghiệp vụ, và index B-tree kết hợp cho truy vấn analytics. Đặc biệt, "
+        "asyncpg — driver async của PostgreSQL — cho phép xử lý nhiều request "
+        "đồng thời mà không chặn event loop của FastAPI."
+    )
+    rb.p(
+        "Về hạ tầng, toàn bộ hệ thống được đóng gói bằng Docker Compose với hai "
+        "môi trường riêng biệt: môi trường phát triển (dev) và môi trường production "
+        "(prod). Cloudflare Tunnel được dùng để expose backend và frontend ra "
+        "internet qua domain loyalty.ecom-bill.com mà không cần mở port trên "
+        "firewall. Migration Alembic được cấu hình chạy tự động khi container "
+        "backend khởi động, đảm bảo schema luôn đồng bộ với code."
     )
 
-    rb.h3("2.3.3. Test-Driven Development cục bộ")
+    # ─────────────────────────────────────────────
+    # 2.3 Phương pháp luận
+    # ─────────────────────────────────────────────
+    rb.h2("2.3. PHƯƠNG PHÁP LUẬN")
+
+    rb.h3("2.3.1. Kiến trúc phân lớp (Layered Architecture)")
     rb.p(
-        "Các module nghiệp vụ quan trọng (voucher, campaign, "
-        "tenant authorization) được viết kèm unit test trước "
-        "khi xây route. Integration test dùng testcontainers để "
-        "khởi tạo PostgreSQL thật, chạy migration rồi test."
+        "Backend được tổ chức theo kiến trúc phân lớp nghiêm ngặt với bốn lớp "
+        "chính. Lớp API (app/api/) chứa các FastAPI router, chịu trách nhiệm "
+        "parse request, gọi service và ánh xạ lỗi domain thành HTTPException "
+        "với status code phù hợp. Lớp Service (app/services/) chứa toàn bộ "
+        "logic nghiệp vụ — service nhận AsyncSession trong constructor và raise "
+        "domain exception khi vi phạm rule. Lớp Model (app/models/) là SQLAlchemy "
+        "ORM với Mapped[] annotation type-safe. Lớp Schema (app/schemas/) là "
+        "Pydantic v2 DTO cho request và response. Nguyên tắc cốt lõi là route "
+        "mỏng, service béo (thin-route, fat-service): không có business logic "
+        "trong file API."
     )
 
-    rb.h3("2.3.4. Quy trình Git")
+    rb.h3("2.3.2. Multi-tenant qua header và dependency injection")
     rb.p(
-        "Mỗi tính năng phát triển trên branch riêng, commit "
-        "messages tiếng Việt theo chuẩn Conventional Commits. "
-        "Trước khi merge, đề tài dùng GitNexus để đánh giá "
-        "blast radius của thay đổi, tránh refactor phá luồng."
+        "Mỗi request API từ frontend gửi kèm header X-Partner-Id chứa ID của "
+        "partner đang được truy cập. Tầng dependency injection của FastAPI "
+        "xác thực header này và kiểm tra quyền của người dùng hiện tại trong "
+        "partner đó trước khi cho phép xử lý request. Bốn dependency được "
+        "định nghĩa trong app/core/deps.py: require_super_admin (chỉ admin hệ "
+        "thống), require_owner_in_partner (chủ đối tác), "
+        "require_staff_in_partner (nhân viên — dùng cho POS), và "
+        "require_customer_in_partner (khách hàng có membership). Mỗi endpoint "
+        "khai báo đúng một dependency, đảm bảo phân quyền nhất quán không "
+        "phụ thuộc vào logic của service."
     )
 
-    # ---------------- 2.4 ----------------
-    rb.h2("2.4. Phân tích nghiệp vụ")
+    rb.h3("2.3.3. Append-only ledger pattern")
+    rb.p(
+        "Thay vì lưu số dư điểm duy nhất và cập nhật theo từng giao dịch, "
+        "hệ thống duy trì cả hai: cột points_balance trên bảng users (để "
+        "truy vấn nhanh số dư hiện tại) và bảng point_ledger append-only "
+        "(để kiểm toán toàn bộ lịch sử). Mỗi khi điểm thay đổi, hệ thống "
+        "thực hiện trong cùng một database transaction: cập nhật "
+        "users.points_balance và INSERT một bản ghi mới vào point_ledger "
+        "với delta, reason, ref_type, ref_id và balance_after. Trigger "
+        "PostgreSQL no_update_or_delete_point_ledger được kích hoạt khi "
+        "có lệnh UPDATE hoặc DELETE trên bảng point_ledger và tự động "
+        "raise exception, ngăn mọi hành vi sửa lịch sử sau khi đã ghi."
+    )
+
+    rb.h3("2.3.4. Kiểm thử và đảm bảo chất lượng")
+    rb.p(
+        "Đề tài sử dụng pytest làm framework kiểm thử chính cho backend, "
+        "với các test được phân chia thành hai nhóm: unit test kiểm tra "
+        "từng service function độc lập và integration test kiểm tra luồng "
+        "end-to-end qua database thật. Tuy nhiên, cần ghi nhận một giới "
+        "hạn kỹ thuật thực tế: trên môi trường Windows, testcontainers — "
+        "thư viện dùng để spin up PostgreSQL tạm thời cho integration test — "
+        "yêu cầu quyền truy cập docker.sock và cấu hình Docker network mà "
+        "môi trường phát triển hiện tại không đáp ứng được hoàn toàn. "
+        "Do đó, đề tài bổ sung phương pháp kiểm thử khác: smoke E2E qua "
+        "curl trực tiếp trên production URL loyalty.ecom-bill.com, kiểm "
+        "thử thủ công từng luồng nghiệp vụ qua trình duyệt, và UAT "
+        "(User Acceptance Testing) với các tài khoản demo seed sẵn."
+    )
+
+    rb.h3("2.3.5. Git workflow và kiểm soát chất lượng code")
+    rb.p(
+        "Toàn bộ lịch sử phát triển được quản lý trên Git với quy ước commit "
+        "message theo Conventional Commits (feat/fix/chore/refactor + scope). "
+        "Code review được thực hiện sau mỗi task hoàn thành trước khi chuyển "
+        "sang task tiếp theo, đảm bảo không tích lũy technical debt. "
+        "Frontend được kiểm tra type bằng tsc --noEmit và ESLint sau mỗi "
+        "lần thay đổi lớn. Migration Alembic được viết với cả upgrade() và "
+        "downgrade() để có thể rollback khi cần. Toàn bộ codebase được "
+        "deploy liên tục lên môi trường production qua Docker Compose, "
+        "cho phép kiểm tra hành vi thực tế của hệ thống song song với phát triển."
+    )
+
+    # ─────────────────────────────────────────────
+    # 2.4 Phân tích nghiệp vụ
+    # ─────────────────────────────────────────────
+    rb.h2("2.4. PHÂN TÍCH NGHIỆP VỤ")
 
     rb.h3("2.4.1. Các quy trình nghiệp vụ chính")
     rb.p(
-        "Hệ thống bao trùm 11 quy trình nghiệp vụ cốt lõi. Bảng "
-        "2-2 liệt kê từng quy trình cùng vai trò chủ động kích "
-        "hoạt và mô tả ngắn."
+        "Hệ thống xử lý tám luồng nghiệp vụ cốt lõi được mô tả lần lượt dưới đây."
+    )
+    rb.p(
+        "Luồng (1) — Đăng ký và đăng nhập: Khách hàng điền form đăng ký với "
+        "email/số điện thoại và mật khẩu. Backend hash mật khẩu bằng bcrypt "
+        "và lưu vào bảng users. Khi đăng nhập, backend xác thực bcrypt và "
+        "phát JWT có thời hạn, frontend lưu token vào localStorage và đính "
+        "kèm vào mọi request tiếp theo qua axios interceptor."
+    )
+    rb.p(
+        "Luồng (2) — Quên mật khẩu: Khách hàng nhập email vào form quên mật khẩu. "
+        "Backend tạo temporary password ngẫu nhiên, hash và cập nhật vào "
+        "users.password_hash, sau đó gọi aiosmtplib gửi email chứa mật khẩu tạm. "
+        "Nếu SMTP lỗi, backend vẫn trả HTTP 200 và ghi log warning — cơ chế "
+        "fail-silent ngăn rò rỉ thông tin về việc email có tồn tại trong hệ "
+        "thống hay không."
+    )
+    rb.p(
+        "Luồng (3) — Đổi mật khẩu: Sau khi đăng nhập bằng mật khẩu tạm, "
+        "khách hàng vào trang profile và cập nhật mật khẩu mới. Backend xác "
+        "thực mật khẩu hiện tại trước khi cập nhật hash mới vào cơ sở dữ liệu."
+    )
+    rb.p(
+        "Luồng (4) — Đăng ký merchant và admin duyệt: Chủ cửa hàng điền form "
+        "đăng ký partner với tên, mô tả, danh mục và thông tin liên hệ. Partner "
+        "được tạo với status PENDING. Admin vào cổng quản trị, xem danh sách "
+        "pending và bấm Approve. Backend chuyển status thành ACTIVE và đồng thời "
+        "seed 1.000.000 điểm khởi đầu vào point_ledger với reason ADJUST và "
+        "ref_type SYSTEM, tạo nền tảng để partner bắt đầu phát điểm cho khách hàng."
+    )
+    rb.p(
+        "Luồng (5) — POS tích điểm: Khách hàng mở trang QR cá nhân trên điện "
+        "thoại. Nhân viên POS scan QR hoặc nhập mã hóa đơn để xác định khách hàng. "
+        "Nhân viên nhập số tiền hóa đơn vào form. Backend tính điểm được cộng, "
+        "tạo transaction record, INSERT vào point_ledger với delta dương và cập "
+        "nhật users.points_balance trong cùng một database transaction."
+    )
+    rb.p(
+        "Luồng (6) — POS đổi điểm (verify reward): Khách hàng đã đổi quà trước "
+        "đó và có mã redemption 8 ký tự. Nhân viên POS nhập mã vào form verify. "
+        "Backend tìm redemption theo partner_id và code, kiểm tra status PENDING "
+        "và thời hạn chưa hết, cập nhật status thành USED và ghi used_at, "
+        "used_by_staff_id. Giao diện POS hiển thị thông tin quà để nhân viên "
+        "xác nhận và trao cho khách."
+    )
+    rb.p(
+        "Luồng (7) — Khách hàng đổi quà từ trang đối tác: Khách hàng vào trang "
+        "chi tiết đối tác, xem danh sách quà và điểm cần thiết cho mỗi quà. "
+        "Khi bấm Đổi quà, dialog xác nhận hiện ra với thông tin chi tiết. "
+        "Sau khi xác nhận, backend kiểm tra points_balance đủ, trừ điểm, tạo "
+        "redemption với mã 8 ký tự ngẫu nhiên unique trong phạm vi partner, "
+        "và ghi vào point_ledger với delta âm."
+    )
+    rb.p(
+        "Luồng (8) — Admin giám sát điểm hệ thống: Admin vào trang system-points "
+        "để xem tổng quan điểm toàn hệ thống. Trang hiển thị tổng điểm đang lưu "
+        "hành (tổng points_balance của tất cả users), breakdown "
+        "earned/redeemed/adjusted tính từ bảng point_ledger, và log lịch sử "
+        "các adjustment thủ công. Đây là chức năng chỉ đọc — admin không có "
+        "form điều chỉnh điểm trực tiếp."
+    )
+
+    rb.h3("2.4.2. Sơ đồ chức năng hệ thống")
+    rb.p(
+        "Hệ thống được phân rã thành ba nhánh chức năng chính tương ứng "
+        "với ba nhóm người dùng. Bảng dưới đây trình bày cây phân rã "
+        "chức năng theo dạng phân cấp."
     )
     rb.table(
-        headers=["STT", "Quy trình", "Actor khởi tạo", "Tóm tắt"],
+        headers=["Nhóm", "Module", "Chức năng con"],
         rows=[
-            ["1", "Đăng ký merchant", "Owner", "Đăng ký tenant 3 bước; super admin duyệt → kích hoạt."],
-            ["2", "POS tích điểm", "Staff", "Scan QR khách, nhập tổng tiền, ghi transaction + cộng điểm."],
-            ["3", "Đổi quà", "Customer", "Chọn reward, trừ điểm, sinh mã đổi quà tại POS."],
-            ["4", "Tạo chiến dịch", "Owner", "Khai báo loại giảm giá, hạn mức; compute approval_tier."],
-            ["5", "Nộp hồ sơ Sở CT", "Owner / Operator", "Khi tier ≥ notify; upload hồ sơ, nhận mã tham chiếu."],
-            ["6", "Duyệt chiến dịch", "Super Admin / Sở CT", "Xem hồ sơ, bấm duyệt / từ chối."],
-            ["7", "Claim voucher", "Customer", "Chiến dịch active, claim trong hạn mức, nhận voucher QR."],
-            ["8", "Verify voucher POS", "Staff", "Quét QR voucher, kiểm tenant + status, mark used."],
-            ["9", "Cron sinh nhật", "System", "Hằng ngày quét membership sinh nhật → phát voucher."],
-            ["10", "Cron hậu khuyến mại", "System", "Quét chiến dịch đã đóng > 45 ngày chưa report → cảnh báo."],
-            ["11", "Ủy quyền ký OTP", "Owner", "Tạo authorization, OTP, ký context_hash."],
+            ["End-user", "Tài khoản", "Đăng ký / Đăng nhập / Quên mật khẩu / Đổi mật khẩu"],
+            ["End-user", "Ví điểm & QR", "Xem điểm hiện tại / Sinh mã QR cá nhân / Lịch sử biến động"],
+            ["End-user", "Khám phá đối tác", "Danh sách đối tác / Chi tiết đối tác / Danh sách quà"],
+            ["End-user", "Đổi quà", "Chọn quà / Xác nhận / Trừ điểm / Tạo redemption code"],
+            ["End-user", "Ví voucher", "Xem redemption đã đổi / Trạng thái PENDING/USED/EXPIRED / Dùng tại POS"],
+            ["Đối tác", "Onboarding", "Đăng ký partner / Chờ duyệt / Xem trạng thái"],
+            ["Đối tác", "Dashboard", "KPI tổng quan / Biểu đồ doanh thu / Biểu đồ đổi quà / Top 5 quà"],
+            ["Đối tác", "Quản lý quà", "Tạo / Sửa / Ẩn quà / 3 loại offer: PERCENT, FIXED, ITEM_GIFT"],
+            ["Đối tác", "POS", "Tích điểm (scan QR hoặc nhập mã hóa đơn) / Verify reward (nhập redemption code)"],
+            ["Đối tác", "Quản lý thành viên", "Xem danh sách / Chi tiết thành viên / Điều chỉnh điểm / Khoá tài khoản"],
+            ["Admin", "Duyệt merchant", "Xem pending list / Approve (+ seed điểm) / Reject"],
+            ["Admin", "Log đăng nhập", "Xem lịch sử đăng nhập theo user/thời gian — chỉ đọc"],
+            ["Admin", "Điểm hệ thống", "Tổng điểm lưu hành / Breakdown / Log adjustment — chỉ đọc"],
         ],
-        caption="Các quy trình nghiệp vụ chính.",
+        caption="Cây phân rã chức năng hệ thống theo ba nhóm người dùng."
     )
 
-    rb.h3("2.4.2. Sơ đồ chức năng tổng quát")
+    rb.h3("2.4.3. Các actor và use case tổng quát")
     rb.p(
-        "Hệ thống được phân rã chức năng theo kiểu top-down "
-        "(xem Hình 2-1). Gốc cây là toàn bộ nền tảng loyalty "
-        "multi-tenant, được chia thành năm phân hệ chức năng "
-        "lớn, mỗi phân hệ tiếp tục phân rã xuống các chức năng "
-        "con có thể đo lường bằng endpoint API hoặc trang giao "
-        "diện cụ thể."
+        "Hệ thống có bốn actor chính với phạm vi truy cập và use case khác nhau "
+        "như mô tả trong bảng dưới đây. Ranh giới quyền hạn giữa Owner và Staff "
+        "đặc biệt quan trọng: Staff chỉ có quyền thực hiện giao dịch POS, không "
+        "được truy cập CRUD quà hay xem dashboard analytics."
     )
-    rb.figure(
-        str(ROOT / "bao-cao" / "assets" / "so_do_chuc_nang.png"),
-        "Sơ đồ chức năng tổng quát của hệ thống.",
-        width_cm=15.5,
-    )
-    rb.p(
-        "Phân hệ thứ nhất – Xác thực & Phân quyền – phụ trách "
-        "đăng ký, đăng nhập, cấp phát JWT, quản lý phiên, kiểm "
-        "tra vai trò. Phân hệ thứ hai – Quản trị đa tenant – "
-        "cung cấp super admin portal để duyệt tenant mới, "
-        "khoá/mở doanh nghiệp, xem analytics toàn hệ thống. "
-        "Phân hệ thứ ba – Nghiệp vụ loyalty – bao gồm tích "
-        "điểm POS, đổi quà, quản lý thẻ hạng, lịch sử giao "
-        "dịch. Phân hệ thứ tư – Khuyến mại & Tuân thủ pháp lý – "
-        "quản lý chiến dịch, voucher, nộp hồ sơ Sở Công Thương, "
-        "ký ủy quyền OTP. Phân hệ thứ năm – App khách hàng "
-        "cuối – giao diện mobile-first cho customer."
-    )
-
-    rb.h3("2.4.3. Use case tổng quát")
-    rb.p(
-        "Sơ đồ use case tổng quát có năm actor: Super Admin "
-        "(công ty vận hành), Owner (chủ doanh nghiệp SME), "
-        "Staff (nhân viên POS), Customer (khách hàng cuối), "
-        "System/Cron (tác nhân hệ thống cho job chạy nền). "
-        "Mỗi actor được phân bổ tập use case tương ứng phạm vi "
-        "quyền hạn – chi tiết từng use case được liệt kê ở "
-        "Chương 3. Nguyên tắc chung: Customer không thao tác "
-        "dữ liệu quản trị; Staff chỉ thực hiện tác vụ POS; "
-        "Owner vận hành toàn bộ nghiệp vụ trong tenant của "
-        "mình nhưng không thấy tenant khác; Super Admin có "
-        "góc nhìn cross-tenant nhưng không truy xuất PII khách "
-        "hàng trực tiếp."
-    )
-
-    rb.h3("2.4.4. Chu trình phát triển")
-    rb.p(
-        "Đề tài chia làm 16 phase, mỗi phase là milestone có "
-        "thể demo độc lập. Phase 0 – khởi tạo repo, hạ tầng "
-        "Docker. Phase 1-3 – backend cơ bản: auth, tenant, "
-        "membership. Phase 4-6 – nghiệp vụ POS, transaction, "
-        "reward. Phase 7-10 – campaign, voucher, redemption, "
-        "tuân thủ NĐ 81. Phase 11-13 – ủy quyền OTP, cron "
-        "jobs, audit log. Phase 14-16 – frontend hoàn thiện, "
-        "PWA, E2E Playwright. Sau mỗi phase có review code, "
-        "cập nhật migration và tài liệu."
+    rb.table(
+        headers=["Actor", "Vai trò", "Use case chính", "Shell truy cập"],
+        rows=[
+            ["Customer", "Khách hàng cuối — người tích điểm và đổi quà", "Đăng ký, đăng nhập, xem điểm, QR cá nhân, xem đối tác, đổi quà, xem voucher", "/member/* — mobile-first, BottomNavBar"],
+            ["Owner", "Chủ đối tác — quản lý toàn bộ hoạt động cửa hàng", "Dashboard, CRUD quà, xem thành viên, điều chỉnh điểm, toàn quyền POS", "/partner/* — desktop sidebar"],
+            ["Staff", "Nhân viên POS — thực hiện giao dịch tại quầy", "Tích điểm (scan QR), verify reward (nhập code), tạo transaction", "/staff/* — POS focused, emerald theme"],
+            ["Super Admin", "Quản trị viên hệ thống — giám sát toàn cục", "Duyệt partner, xem login log, xem điểm hệ thống", "/admin/* — admin portal"],
+        ],
+        caption="Bốn actor và use case tổng quát của hệ thống."
     )
