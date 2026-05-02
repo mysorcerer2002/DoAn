@@ -265,8 +265,6 @@ export const adminApi = {
       approve,
       reason,
     }),
-  suspendTenant: (id: number, reason?: string) =>
-    api.post<PartnerResponse>(`/admin/partners/${id}/suspend`, { reason: reason ?? null }),
   listUsers: (params?: {
     q?: string;
     role?:
