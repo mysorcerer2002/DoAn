@@ -41,15 +41,28 @@ def test_a02_dang_ky_email_trung(http, random_email, random_phone):
     assert r2.status_code == 409, f"Expected 409, got {r2.status_code}: {r2.text}"
 
 
-def test_a03_dang_nhap_dung(http_client):
-    """TC-A03: Đăng nhập đúng → cấp JWT access_token."""
+def test_a03a_dang_nhap_bang_email(http_client):
+    """TC-A03a: Đăng nhập bằng email + mật khẩu đúng → cấp JWT access_token."""
     tok = _login(http_client, CUSTOMER1_EMAIL, CUSTOMER_PWD)
     assert tok is not None, "Login đúng pwd nhưng không trả token"
     assert len(tok) > 50, f"Token nghi vấn ngắn bất thường: len={len(tok)}"
 
 
+def test_a03b_dang_nhap_bang_phone(http_client):
+    """TC-A03b: Đăng nhập bằng SĐT + mật khẩu đúng → cấp JWT access_token.
+
+    Backend dispatcher: identifier chứa '@' → tìm theo email; ngược lại → tìm
+    theo phone (auth_service.AuthService.authenticate).
+    """
+    phone = db_exec(f"SELECT phone FROM users WHERE email='{CUSTOMER1_EMAIL}';")
+    assert phone, f"Không lấy được phone của {CUSTOMER1_EMAIL}"
+    tok = _login(http_client, phone, CUSTOMER_PWD)
+    assert tok is not None, f"Login bằng SĐT {phone} không trả token"
+    assert len(tok) > 50
+
+
 def test_a04_dang_nhap_sai_pwd(http):
-    """TC-A04: Email đúng + pwd sai → 401, không cấp token."""
+    """TC-A04: Email/SĐT đúng + mật khẩu sai → 401, không cấp token."""
     r = http("POST", "/auth/login", body={
         "identifier": CUSTOMER1_EMAIL, "password": "wrong-password-123",
     })
