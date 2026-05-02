@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from app.core.security import create_access_token
@@ -23,9 +25,8 @@ async def _setup_shop_with_rule(db_session):
     await db_session.flush()
     rule = PointRule(
         partner_id=partner.id,
-        points_per_unit=1,
-        unit_amount=1000,
-        min_amount=0,
+        earn_percent=Decimal("1.00"),
+        use_tiers=False,
         is_active=True,
     )
     db_session.add(rule)
@@ -53,9 +54,9 @@ async def test_create_transaction_success(client, db_session):
     data = resp.json()
     assert data["transaction"]["gross_amount"] == 50000
     assert data["transaction"]["net_amount"] == 50000
-    assert data["transaction"]["points_earned"] == 50  # 50000/1000 * 1
-    assert data["new_balance"] == 50
-    assert data["new_total_earned"] == 50
+    assert data["transaction"]["points_earned"] == 500  # 50000 × 1% = 500
+    assert data["new_balance"] == 500
+    assert data["new_total_earned"] == 500
     assert data["member_phone"] is not None
 
 
@@ -149,9 +150,8 @@ async def test_transaction_cross_tenant_isolation(client, db_session):
     db_session.add(
         PointRule(
             partner_id=tenant_b.id,
-            points_per_unit=1,
-            unit_amount=1000,
-            min_amount=0,
+            earn_percent=Decimal("1.00"),
+            use_tiers=False,
             is_active=True,
         )
     )
@@ -267,9 +267,8 @@ async def test_create_transaction_same_receipt_code_different_partners_ok(
     db_session.add(
         PointRule(
             partner_id=partner_b.id,
-            points_per_unit=1,
-            unit_amount=1000,
-            min_amount=0,
+            earn_percent=Decimal("1.00"),
+            use_tiers=False,
             is_active=True,
         )
     )
@@ -444,9 +443,8 @@ async def test_list_cross_partner_isolation(client, db_session):
     db_session.add(
         PointRule(
             partner_id=partner_b.id,
-            points_per_unit=1,
-            unit_amount=1000,
-            min_amount=0,
+            earn_percent=Decimal("1.00"),
+            use_tiers=False,
             is_active=True,
         )
     )

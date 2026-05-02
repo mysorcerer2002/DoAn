@@ -25,14 +25,14 @@ async def test_create_and_get_active_rule(client, db_session):
 
     create = await client.post(
         "/partner/point-rules",
-        json={"points_per_unit": "1.00", "unit_amount": 1000, "min_amount": 10000},
+        json={"earn_percent": "1.00"},
         headers=headers,
     )
     assert create.status_code == 201
 
     get_active = await client.get("/partner/point-rules/active", headers=headers)
     assert get_active.status_code == 200
-    assert get_active.json()["points_per_unit"] == "1.00"
+    assert get_active.json()["earn_percent"] == "1.00"
 
 
 @pytest.mark.asyncio
@@ -42,12 +42,12 @@ async def test_create_rule_deactivates_old(client, db_session):
 
     await client.post(
         "/partner/point-rules",
-        json={"points_per_unit": "1.00"},
+        json={"earn_percent": "1.00"},
         headers=headers,
     )
     await client.post(
         "/partner/point-rules",
-        json={"points_per_unit": "2.00"},
+        json={"earn_percent": "2.00"},
         headers=headers,
     )
 
@@ -57,7 +57,7 @@ async def test_create_rule_deactivates_old(client, db_session):
     assert len(rules) == 2
     active = [r for r in rules if r["is_active"]]
     assert len(active) == 1
-    assert active[0]["points_per_unit"] == "2.00"
+    assert active[0]["earn_percent"] == "2.00"
 
 
 @pytest.mark.asyncio
@@ -78,7 +78,7 @@ async def test_point_rule_cross_tenant_isolation(client, db_session):
 
     await client.post(
         "/partner/point-rules",
-        json={"points_per_unit": "5.00"},
+        json={"earn_percent": "5.00"},
         headers={"Authorization": f"Bearer {token_b}", "X-Partner-Id": str(tenant_b.id)},
     )
 

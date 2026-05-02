@@ -91,7 +91,7 @@ async def test_owner_a_cannot_use_tenant_b_header_for_point_rules(client, two_te
     ctx = two_tenants_with_owners
     response = await client.post(
         "/partner/point-rules",
-        json={"points_per_unit": "100.00"},
+        json={"earn_percent": "1.00"},
         headers={
             "Authorization": f"Bearer {ctx['token_a']}",
             "X-Partner-Id": str(ctx["tenant_b"].id),

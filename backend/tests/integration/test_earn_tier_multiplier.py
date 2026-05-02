@@ -28,12 +28,10 @@ from app.services.tier_service import TierService
 # ---------------------------------------------------------------------------
 
 
-def _make_rule(*, use_tiers: bool, unit_amount: int = 10_000, points_per_unit: Decimal = Decimal("1")) -> SimpleNamespace:
+def _make_rule(*, use_tiers: bool, earn_percent: Decimal = Decimal("1.00")) -> SimpleNamespace:
     """Tạo PointRule stub (SimpleNamespace) — đủ interface cho _calculate_points."""
     return SimpleNamespace(
-        unit_amount=unit_amount,
-        points_per_unit=points_per_unit,
-        min_amount=0,
+        earn_percent=earn_percent,
         use_tiers=use_tiers,
     )
 
@@ -47,48 +45,48 @@ def _make_membership_with_tier(*, earn_multiplier: Decimal) -> SimpleNamespace:
 class TestCalculatePointsUnit:
     """Unit tests cho TransactionService._calculate_points (không cần DB).
 
-    Rule chuẩn: unit_amount=10_000, points_per_unit=1
-    → 10.000₫ = 1 point (base), 100.000₫ = 10 points (base).
+    Rule chuẩn: earn_percent=1.00 (1%)
+    → 100.000₫ = 1000 points (base).
     """
 
     def test_earn_with_tier_multiplier(self):
-        """rule.use_tiers=True + tier Gold(×1.50) + 100.000₫ → 15 points."""
+        """rule.use_tiers=True + tier Gold(×1.50) + 100.000₫ → 1500 points."""
         rule = _make_rule(use_tiers=True)
         membership = _make_membership_with_tier(earn_multiplier=Decimal("1.50"))
-        # 100000/10000 = 10 base → int(10 * 1.50) = 15
+        # 100000 × 1% = 1000 base → int(1000 * 1.50) = 1500
         points = TransactionService._calculate_points(rule, 100_000, membership=membership)
-        assert points == 15
+        assert points == 1500
 
     def test_earn_use_tiers_false_ignores_multiplier(self):
-        """rule.use_tiers=False + tier Gold(×1.50) + 100.000₫ → 10 points (ignore multiplier)."""
+        """rule.use_tiers=False + tier Gold(×1.50) + 100.000₫ → 1000 points (ignore multiplier)."""
         rule = _make_rule(use_tiers=False)
         membership = _make_membership_with_tier(earn_multiplier=Decimal("1.50"))
-        # use_tiers=False → multiplier=1.00 → int(10 * 1.00) = 10
+        # use_tiers=False → multiplier=1.00 → int(1000 * 1.00) = 1000
         points = TransactionService._calculate_points(rule, 100_000, membership=membership)
-        assert points == 10
+        assert points == 1000
 
     def test_earn_bronze_tier_multiplier_1x(self):
-        """rule.use_tiers=True + tier Bronze(×1.00) + 1.000₫ → 0 points (< unit_amount)."""
+        """rule.use_tiers=True + tier Bronze(×1.00) + 1.000₫ → 10 points."""
         rule = _make_rule(use_tiers=True)
         membership = _make_membership_with_tier(earn_multiplier=Decimal("1.00"))
-        # 1000 < unit_amount=10000 → 0.1 unit → int(0.1 * 1 * 1.00) = 0
+        # 1000 × 1% × 1.00 = 10
         points = TransactionService._calculate_points(rule, 1_000, membership=membership)
-        assert points == 0
+        assert points == 10
 
     def test_earn_no_membership_no_multiplier(self):
         """Không có membership → base points (không crash)."""
         rule = _make_rule(use_tiers=True)
-        # 100000/10000 = 10 base → int(10 * 1.00) = 10
+        # 100000 × 1% = 1000 base
         points = TransactionService._calculate_points(rule, 100_000, membership=None)
-        assert points == 10
+        assert points == 1000
 
     def test_earn_membership_no_tier(self):
         """Membership có current_tier=None → base points."""
         rule = _make_rule(use_tiers=True)
         membership = SimpleNamespace(current_tier=None)
-        # 100000/10000 = 10 base → int(10 * 1.00) = 10
+        # 100000 × 1% = 1000 base
         points = TransactionService._calculate_points(rule, 100_000, membership=membership)
-        assert points == 10
+        assert points == 1000
 
 
 # ---------------------------------------------------------------------------
@@ -144,9 +142,7 @@ async def partner_with_tiers(db_session):
 
     rule = PointRule(
         partner_id=partner.id,
-        unit_amount=10_000,
-        points_per_unit=Decimal("1"),
-        min_amount=0,
+        earn_percent=Decimal("1.00"),
         use_tiers=True,
         is_active=True,
     )
@@ -159,9 +155,9 @@ async def partner_with_tiers(db_session):
 @pytest.mark.asyncio
 async def test_earn_with_bronze_then_promote_to_gold(db_session, partner_with_tiers):
     """
-    Tạo member Bronze → earn 1000₫ → 0 points (< unit_amount).
+    Tạo member Bronze → earn 1000₫ → 10 points (1000 × 1% × 1.00).
     Nâng lifetime_earned = 1000 → recompute_tier → Gold.
-    Earn 10.000₫ với tier Gold(×1.50) → 15 points.
+    Earn 100.000₫ với tier Gold(×1.50) → 1500 points.
     """
     from datetime import UTC, datetime
     from app.models.user import User
@@ -200,14 +196,14 @@ async def test_earn_with_bronze_then_promote_to_gold(db_session, partner_with_ti
         .where(Membership.id == membership.id)
     )
 
-    # Earn 1000₫ với Bronze(×1.00): 1000/10000 = 0.1 unit → int(0.1 * 1 * 1.00) = 0
+    # Earn 1000₫ với Bronze(×1.00): 1000 × 1% × 1.00 = 10
     points_bronze = TransactionService._calculate_points(rule, 1_000, membership=membership)
-    assert points_bronze == 0, f"Expected 0 points at Bronze for 1000 VND, got {points_bronze}"
+    assert points_bronze == 10, f"Expected 10 points at Bronze for 1000 VND, got {points_bronze}"
 
-    # Simulate: earn 100000₫ ở Bronze → 10 điểm (còn dưới Gold threshold)
-    # 100000/10000 = 10 base → int(10 * 1.00) = 10
+    # Simulate: earn 100000₫ ở Bronze → 1000 điểm (còn dưới Gold threshold)
+    # 100000 × 1% × 1.00 = 1000
     points_at_bronze_100k = TransactionService._calculate_points(rule, 100_000, membership=membership)
-    assert points_at_bronze_100k == 10, f"Expected 10 at Bronze for 100000 VND, got {points_at_bronze_100k}"
+    assert points_at_bronze_100k == 1000, f"Expected 1000 at Bronze for 100000 VND, got {points_at_bronze_100k}"
 
     # Promote: nâng lifetime_earned lên 1000 (vừa đủ Gold threshold=1000)
     membership.lifetime_earned = 1_000
@@ -229,9 +225,9 @@ async def test_earn_with_bronze_then_promote_to_gold(db_session, partner_with_ti
         .where(Membership.id == membership.id)
     )
 
-    # Earn 100.000₫ với Gold(×1.50): 100000/10000 = 10 base → int(10 * 1.50) = 15
+    # Earn 100.000₫ với Gold(×1.50): 100000 × 1% × 1.50 = 1500
     points_gold = TransactionService._calculate_points(rule, 100_000, membership=membership)
-    assert points_gold == 15, f"Expected 15 points at Gold for 100000 VND, got {points_gold}"
+    assert points_gold == 1500, f"Expected 1500 points at Gold for 100000 VND, got {points_gold}"
 
 
 @pytest.mark.asyncio
@@ -279,6 +275,6 @@ async def test_earn_with_use_tiers_false_ignores_multiplier(db_session, partner_
     assert membership.current_tier is not None
     assert membership.current_tier.earn_multiplier == Decimal("1.50")
 
-    # Với use_tiers=False, multiplier bị ignore → 100000/10000 = 10 base → int(10 * 1.00) = 10
+    # Với use_tiers=False, multiplier bị ignore → 100000 × 1% = 1000
     points = TransactionService._calculate_points(rule, 100_000, membership=membership)
-    assert points == 10, f"Expected 10 points with use_tiers=False, got {points}"
+    assert points == 1000, f"Expected 1000 points with use_tiers=False, got {points}"

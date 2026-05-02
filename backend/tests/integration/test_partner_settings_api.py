@@ -2,6 +2,8 @@
 B6 — Integration tests for PATCH /partner/point-rules/{rule_id} và
 PATCH /partner/tiers/{tier_id} earn_multiplier field.
 """
+from decimal import Decimal
+
 import pytest
 
 from app.core.security import create_access_token
@@ -34,9 +36,7 @@ async def _create_rule(db_session, partner_id: int) -> PointRule:
     """Tạo PointRule trực tiếp trong DB cho partner_id."""
     rule = PointRule(
         partner_id=partner_id,
-        points_per_unit=1,
-        unit_amount=1000,
-        min_amount=0,
+        earn_percent=Decimal("1.00"),
         use_tiers=False,
         is_active=True,
     )

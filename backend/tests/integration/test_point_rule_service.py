@@ -26,12 +26,10 @@ async def test_create_first_active_rule(db_session, active_partner):
     service = PointRuleService(db_session)
     rule = await service.create_rule(
         partner_id=active_partner.id,
-        request=PointRuleCreateRequest(
-            points_per_unit=Decimal("1.00"), unit_amount=1000, min_amount=10000
-        ),
+        request=PointRuleCreateRequest(earn_percent=Decimal("1.00")),
     )
     assert rule.is_active is True
-    assert rule.points_per_unit == Decimal("1.00")
+    assert rule.earn_percent == Decimal("1.00")
 
 
 @pytest.mark.asyncio
@@ -39,12 +37,12 @@ async def test_create_second_rule_deactivates_old(db_session, active_partner):
     service = PointRuleService(db_session)
     old = await service.create_rule(
         partner_id=active_partner.id,
-        request=PointRuleCreateRequest(points_per_unit=Decimal("1.00")),
+        request=PointRuleCreateRequest(earn_percent=Decimal("1.00")),
     )
     await db_session.flush()
     new = await service.create_rule(
         partner_id=active_partner.id,
-        request=PointRuleCreateRequest(points_per_unit=Decimal("2.00")),
+        request=PointRuleCreateRequest(earn_percent=Decimal("2.00")),
     )
     await db_session.flush()
     await db_session.refresh(old)
@@ -57,13 +55,13 @@ async def test_get_active_rule(db_session, active_partner):
     service = PointRuleService(db_session)
     await service.create_rule(
         partner_id=active_partner.id,
-        request=PointRuleCreateRequest(points_per_unit=Decimal("1.00")),
+        request=PointRuleCreateRequest(earn_percent=Decimal("1.00")),
     )
     await db_session.flush()
 
     rule = await service.get_active_rule(partner_id=active_partner.id)
     assert rule is not None
-    assert rule.points_per_unit == Decimal("1.00")
+    assert rule.earn_percent == Decimal("1.00")
 
 
 @pytest.mark.asyncio

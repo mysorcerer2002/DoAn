@@ -29,9 +29,8 @@ async def shop_with_rule_and_tiers(db_session):
 
     rule = PointRule(
         partner_id=partner.id,
-        points_per_unit=Decimal("1.00"),
-        unit_amount=1000,
-        min_amount=0,
+        earn_percent=Decimal("0.10"),  # 0.1%: 1000₫ → 1 điểm; giữ logic tier test
+        use_tiers=False,
         is_active=True,
     )
     db_session.add(rule)
@@ -119,33 +118,3 @@ async def test_create_transaction_without_active_rule_raises(db_session):
         )
 
 
-@pytest.mark.asyncio
-async def test_create_transaction_below_min_amount_zero_points(db_session):
-    """gross < min_amount → 0 điểm nhưng vẫn tạo transaction."""
-    user = User(email="o@example.com", password_hash="x", is_active=True)
-    db_session.add(user)
-    await db_session.flush()
-    partner = Partner(
-        name="T", slug="t", owner_user_id=user.id,
-        status=PartnerStatus.ACTIVE, settings={}
-    )
-    db_session.add(partner)
-    await db_session.flush()
-
-    rule = PointRule(
-        partner_id=partner.id, points_per_unit=Decimal("1.00"),
-        unit_amount=1000, min_amount=100000, is_active=True
-    )
-    db_session.add(rule)
-    bronze = Tier(partner_id=partner.id, name="Bronze", min_points=0, perks={}, is_active=True)
-    db_session.add(bronze)
-    await db_session.flush()
-
-    service = TransactionService(db_session)
-    result = await service.create_manual(
-        partner_id=partner.id,
-        request=CreateManualTransactionRequest(phone="0912345678", gross_amount=50000),
-    )
-    await db_session.flush()
-    assert result.transaction.points_earned == 0
-    assert result.new_balance == 0

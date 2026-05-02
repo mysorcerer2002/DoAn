@@ -1,6 +1,7 @@
 """Integration tests: Redemptions API."""
 
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import pytest
 
@@ -50,9 +51,8 @@ async def _setup_redeem_env(db_session, *, balance=500, stock=10):
 
     rule = PointRule(
         partner_id=partner.id,
-        points_per_unit=1,
-        unit_amount=1000,
-        min_amount=0,
+        earn_percent=Decimal("1.00"),
+        use_tiers=False,
         is_active=True,
     )
     db_session.add(rule)

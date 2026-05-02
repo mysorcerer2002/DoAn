@@ -1,96 +1,60 @@
-from decimal import Decimal
-from types import SimpleNamespace
+"""Unit tests cho _calculate_points sau khi đổi sang earn_percent (Phase 1A)."""
 
-import pytest
+from decimal import Decimal
 
 from app.services.transaction_service import TransactionService
 
 
-def _rule(points_per_unit=1, unit_amount=1000, min_amount=0, use_tiers=False):
-    return SimpleNamespace(
-        points_per_unit=Decimal(points_per_unit),
-        unit_amount=unit_amount,
-        min_amount=min_amount,
-        use_tiers=use_tiers,
+def _rule(earn_percent="1.00", use_tiers=False):
+    return type("R", (), {
+        "earn_percent": Decimal(earn_percent),
+        "use_tiers": use_tiers,
+    })()
+
+
+def _membership(multiplier="1.00"):
+    tier = type("T", (), {"earn_multiplier": Decimal(multiplier)})()
+    return type("M", (), {"current_tier": tier})()
+
+
+def test_calculate_points_1_percent():
+    """100k @ 1% = 1000 điểm."""
+    assert TransactionService._calculate_points(_rule("1.00"), 100_000) == 1000
+
+
+def test_calculate_points_decimal_percent():
+    """100k @ 0.5% = 500 điểm."""
+    assert TransactionService._calculate_points(_rule("0.50"), 100_000) == 500
+
+
+def test_calculate_points_2_5_percent():
+    """200k @ 2.5% = 5000 điểm."""
+    assert TransactionService._calculate_points(_rule("2.50"), 200_000) == 5000
+
+
+def test_calculate_points_with_tier_multiplier():
+    """100k @ 1% × tier 1.5x = 1500 điểm."""
+    assert (
+        TransactionService._calculate_points(
+            _rule("1.00", use_tiers=True), 100_000, membership=_membership("1.50")
+        ) == 1500
     )
 
 
-def _membership_with_tier(multiplier):
-    tier = SimpleNamespace(earn_multiplier=Decimal(str(multiplier)))
-    return SimpleNamespace(current_tier=tier)
+def test_calculate_points_tier_disabled():
+    """use_tiers=false → multiplier không áp dụng dù tier có hệ số."""
+    assert (
+        TransactionService._calculate_points(
+            _rule("1.00", use_tiers=False), 100_000, membership=_membership("1.50")
+        ) == 1000
+    )
 
 
-def test_calculate_points_below_min_amount_returns_zero():
-    rule = _rule(min_amount=5000)
-    assert TransactionService._calculate_points(rule, 1000) == 0
+def test_calculate_points_truncation():
+    """Bill 333 @ 1% = 3.33 → floor về 3."""
+    assert TransactionService._calculate_points(_rule("1.00"), 333) == 3
 
 
-def test_calculate_points_base_no_membership():
-    rule = _rule(points_per_unit=1, unit_amount=1000)
-    assert TransactionService._calculate_points(rule, 10_000) == 10
-
-
-def test_calculate_points_use_tiers_false_ignores_multiplier():
-    rule = _rule(use_tiers=False)
-    membership = _membership_with_tier(1.50)
-    assert TransactionService._calculate_points(
-        rule, 10_000, membership=membership
-    ) == 10
-
-
-def test_calculate_points_use_tiers_true_applies_gold_multiplier():
-    rule = _rule(use_tiers=True)
-    membership = _membership_with_tier(1.50)
-    assert TransactionService._calculate_points(
-        rule, 10_000, membership=membership
-    ) == 15
-
-
-def test_calculate_points_membership_null_tier_falls_back_to_1():
-    rule = _rule(use_tiers=True)
-    membership = SimpleNamespace(current_tier=None)
-    assert TransactionService._calculate_points(
-        rule, 10_000, membership=membership
-    ) == 10
-
-
-def test_calculate_points_truncation_floors_not_rounds():
-    # base 1000/1000 * 1.33 points_per_unit = 1.33; * multiplier 2.00 = 2.66
-    # floor → 2; round() sẽ ra 3 → test phân biệt được truncate vs round.
-    rule = _rule(points_per_unit=Decimal("1.33"), use_tiers=True)
-    membership = _membership_with_tier(2.00)
-    assert TransactionService._calculate_points(
-        rule, 1_000, membership=membership
-    ) == 2
-
-
-def test_calculate_points_boundary_min_multiplier():
-    rule = _rule(use_tiers=True)
-    membership = _membership_with_tier(0.50)
-    # 10_000/1000 * 1 * 0.50 = 5
-    assert TransactionService._calculate_points(
-        rule, 10_000, membership=membership
-    ) == 5
-
-
-def test_calculate_points_boundary_max_multiplier():
-    rule = _rule(use_tiers=True)
-    membership = _membership_with_tier(5.00)
-    # 10_000/1000 * 1 * 5.00 = 50
-    assert TransactionService._calculate_points(
-        rule, 10_000, membership=membership
-    ) == 50
-
-
-def test_calculate_points_membership_without_current_tier_attr():
-    # Guard: membership fresh chưa load relationship → getattr fallback
-    rule = _rule(use_tiers=True)
-    membership = SimpleNamespace()  # không có current_tier attr
-    assert TransactionService._calculate_points(
-        rule, 10_000, membership=membership
-    ) == 10
-
-
-def test_calculate_points_no_membership_kwarg_backcompat():
-    rule = _rule(use_tiers=True)
-    assert TransactionService._calculate_points(rule, 10_000) == 10
+def test_calculate_points_zero_amount():
+    """Bill 0 @ bất kỳ % = 0 điểm."""
+    assert TransactionService._calculate_points(_rule("1.00"), 0) == 0

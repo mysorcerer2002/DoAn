@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from datetime import datetime, timezone
 
@@ -88,9 +90,8 @@ async def test_invariant_e2e_via_transaction_service(db_session):
     await db_session.flush()
     rule = PointRule(
         partner_id=partner.id,
-        points_per_unit=2,
-        unit_amount=1000,
-        min_amount=0,
+        earn_percent=Decimal("2.00"),
+        use_tiers=False,
         is_active=True,
     )
     db_session.add(rule)
