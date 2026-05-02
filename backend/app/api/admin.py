@@ -4,8 +4,8 @@ import string
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -14,6 +14,16 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import require_super_admin
 from app.core.security import hash_password
+from app.core.audit_actions import (
+    ACTION_PARTNER_APPROVE,
+    ACTION_PARTNER_REJECT,
+    ACTION_PARTNER_SUSPEND,
+    ACTION_PARTNER_UNSUSPEND,
+    ACTION_USER_LOCK,
+    ACTION_USER_ROLE_CHANGE,
+    ACTION_USER_UNLOCK,
+)
+from app.models.audit_log import AuditLog
 from app.models.login_log import LoginLog
 from app.models.membership import Membership
 from app.models.point_ledger import LedgerReason, PointLedger
@@ -37,12 +47,14 @@ from app.schemas.analytics import (
     PlatformStatsResponse,
     PartnerDetailResponse,
 )
+from app.schemas.audit_log import AuditLogListResponse, AuditLogResponse
 from app.schemas.ledger import ReconcileResponse
 from app.schemas.login_log import LoginLogListResponse, LoginLogResponse
 from app.schemas.partner import PartnerApprovalRequest, PartnerResponse
 from app.core.exceptions import EmailDeliveryError
 from app.services.email_service import EmailService
 from app.services.ledger_service import LedgerService
+from app.services.audit_log_service import AuditLogService
 from app.services.partner_service import (
     InvalidStatusTransitionError,
     PartnerNotFoundError,
@@ -125,7 +137,7 @@ async def list_all_partners(
 async def approve_partner(
     partner_id: int,
     body: PartnerApprovalRequest,
-    _admin: User = Depends(require_super_admin),
+    admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ) -> PartnerResponse:
     """Super Admin approve/reject partner.
@@ -136,14 +148,56 @@ async def approve_partner(
     """
     service = PartnerService(db)
     try:
+        # Snapshot trước khi đổi trạng thái
+        target_partner = await service.get_partner_by_id(partner_id)
+        before = {
+            "status": str(
+                target_partner.status.value
+                if hasattr(target_partner.status, "value")
+                else target_partner.status
+            )
+        }
         if body.approve:
-            partner = await service.approve_partner(partner_id=partner_id)
+            partner = await service.approve_partner(
+                partner_id=partner_id,
+                reason=body.reason,
+                actor_user_id=admin.id,
+            )
+            action = (
+                ACTION_PARTNER_UNSUSPEND
+                if before["status"] == "suspended"
+                else ACTION_PARTNER_APPROVE
+            )
         else:
-            partner = await service.suspend_partner(partner_id=partner_id)
+            partner = await service.suspend_partner(
+                partner_id=partner_id,
+                reason=body.reason,
+                actor_user_id=admin.id,
+            )
+            action = ACTION_PARTNER_REJECT if before["status"] == "pending" else ACTION_PARTNER_SUSPEND
     except PartnerNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except InvalidStatusTransitionError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
+
+    after = {
+        "status": str(
+            partner.status.value
+            if hasattr(partner.status, "value")
+            else partner.status
+        )
+    }
+    audit_svc = AuditLogService(db)
+    await audit_svc.log(
+        actor_user_id=admin.id,
+        action=action,
+        target_type="partner",
+        target_id=partner_id,
+        reason=body.reason,
+        before_snapshot=before,
+        after_snapshot=after,
+    )
+
     return PartnerResponse.model_validate(partner)
 
 
@@ -333,20 +387,56 @@ async def list_partner_members(
     ]
 
 
+class SuspendPartnerRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
 @router.post("/partners/{partner_id}/suspend", response_model=PartnerResponse)
 async def suspend_partner(
     partner_id: int,
-    _admin: User = Depends(require_super_admin),
+    body: SuspendPartnerRequest = Body(default_factory=SuspendPartnerRequest),
+    admin: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ) -> PartnerResponse:
     """Super Admin suspend một partner."""
     service = PartnerService(db)
     try:
-        partner = await service.suspend_partner(partner_id=partner_id)
+        target_partner = await service.get_partner_by_id(partner_id)
+        before = {
+            "status": str(
+                target_partner.status.value
+                if hasattr(target_partner.status, "value")
+                else target_partner.status
+            )
+        }
+        partner = await service.suspend_partner(
+            partner_id=partner_id,
+            reason=body.reason,
+            actor_user_id=admin.id,
+        )
     except PartnerNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except InvalidStatusTransitionError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
+
+    after = {
+        "status": str(
+            partner.status.value
+            if hasattr(partner.status, "value")
+            else partner.status
+        )
+    }
+    audit_svc = AuditLogService(db)
+    await audit_svc.log(
+        actor_user_id=admin.id,
+        action=ACTION_PARTNER_SUSPEND,
+        target_type="partner",
+        target_id=partner_id,
+        reason=body.reason,
+        before_snapshot=before,
+        after_snapshot=after,
+    )
+
     return PartnerResponse.model_validate(partner)
 
 
@@ -614,6 +704,7 @@ class AdminUserDetailResponse(BaseModel):
 class AdminUserUpdateRequest(BaseModel):
     is_active: bool | None = None
     system_role: Literal["regular", "admin", "super_admin"] | None = None
+    reason: str | None = Field(default=None, max_length=500)
 
 
 class AdminResetPasswordResponse(BaseModel):
@@ -751,10 +842,37 @@ async def update_user(
                 detail="Không thể hạ cấp/khoá super admin cuối cùng của hệ thống",
             )
 
+    before = {"is_active": target.is_active, "system_role": target.system_role}
+
     if body.is_active is not None:
         target.is_active = body.is_active
     if body.system_role is not None:
         target.system_role = body.system_role
+
+    after = {"is_active": target.is_active, "system_role": target.system_role}
+
+    audit_svc = AuditLogService(db)
+    if body.is_active is not None and before["is_active"] != after["is_active"]:
+        action = ACTION_USER_LOCK if not body.is_active else ACTION_USER_UNLOCK
+        await audit_svc.log(
+            actor_user_id=admin.id,
+            action=action,
+            target_type="user",
+            target_id=target.id,
+            reason=body.reason,
+            before_snapshot=before,
+            after_snapshot=after,
+        )
+    if body.system_role is not None and before["system_role"] != after["system_role"]:
+        await audit_svc.log(
+            actor_user_id=admin.id,
+            action=ACTION_USER_ROLE_CHANGE,
+            target_type="user",
+            target_id=target.id,
+            reason=body.reason,
+            before_snapshot=before,
+            after_snapshot=after,
+        )
 
     await db.commit()
     await db.refresh(target)
@@ -1036,3 +1154,87 @@ async def get_points_summary(
         total_adjusted=total_adjusted,
         by_partner=by_partner,
     )
+
+
+@router.get("/audit-logs", response_model=AuditLogListResponse)
+async def list_audit_logs(
+    actor_user_id: int | None = None,
+    target_type: str | None = Query(default=None, pattern="^(user|partner)$"),
+    target_id: int | None = None,
+    action: str | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_super_admin),
+) -> AuditLogListResponse:
+    """Super Admin xem nhật ký kiểm toán quản trị."""
+    svc = AuditLogService(db)
+    rows, total = await svc.list(
+        actor_user_id=actor_user_id,
+        target_type=target_type,
+        target_id=target_id,
+        action=action,
+        limit=limit,
+        offset=offset,
+    )
+
+    # Batch-load actor emails
+    actor_ids = {r.actor_user_id for r in rows if r.actor_user_id is not None}
+    actor_email_map: dict[int, str | None] = {}
+    if actor_ids:
+        actor_rows = (
+            await db.execute(
+                select(User.id, User.email).where(User.id.in_(actor_ids))
+            )
+        ).all()
+        actor_email_map = {r.id: r.email for r in actor_rows}
+
+    # Batch-load target labels (user full_name/email, partner name)
+    user_target_ids = {r.target_id for r in rows if r.target_type == "user" and r.target_id is not None}
+    partner_target_ids = {r.target_id for r in rows if r.target_type == "partner" and r.target_id is not None}
+
+    user_label_map: dict[int, str] = {}
+    if user_target_ids:
+        u_rows = (
+            await db.execute(
+                select(User.id, User.full_name, User.email).where(User.id.in_(user_target_ids))
+            )
+        ).all()
+        user_label_map = {
+            r.id: (r.full_name or r.email or f"User #{r.id}")
+            for r in u_rows
+        }
+
+    partner_label_map: dict[int, str] = {}
+    if partner_target_ids:
+        p_rows = (
+            await db.execute(
+                select(Partner.id, Partner.name).where(Partner.id.in_(partner_target_ids))
+            )
+        ).all()
+        partner_label_map = {r.id: r.name for r in p_rows}
+
+    items: list[AuditLogResponse] = []
+    for r in rows:
+        label: str | None = None
+        if r.target_type == "user" and r.target_id is not None:
+            label = user_label_map.get(r.target_id)
+        elif r.target_type == "partner" and r.target_id is not None:
+            label = partner_label_map.get(r.target_id)
+        items.append(
+            AuditLogResponse(
+                id=r.id,
+                actor_user_id=r.actor_user_id,
+                actor_email=actor_email_map.get(r.actor_user_id) if r.actor_user_id else None,
+                action=r.action,
+                target_type=r.target_type,
+                target_id=r.target_id,
+                target_label=label,
+                reason=r.reason,
+                before_snapshot=r.before_snapshot,
+                after_snapshot=r.after_snapshot,
+                created_at=r.created_at,
+            )
+        )
+
+    return AuditLogListResponse(items=items, total=total)

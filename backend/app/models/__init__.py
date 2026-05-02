@@ -1,3 +1,4 @@
+from app.models.audit_log import AuditLog  # noqa: F401
 from .login_log import LoginLog
 from .partner_staff import PartnerStaff
 from app.models.membership import Membership
@@ -19,5 +20,6 @@ __all__ = [
     "Reward", "RewardOfferType",
     "Redemption", "RedemptionStatus",
     "VoucherTemplate", "VoucherTemplateCategory",
+    "AuditLog",
     "LoginLog", "PartnerStaff",
 ]

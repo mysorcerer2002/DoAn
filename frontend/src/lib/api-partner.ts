@@ -40,6 +40,7 @@ import type {
   TransactionUpdateRequest,
   TransactionWithMemberResponse,
 } from "@/types/partner";
+import type { AuditLogListResponse } from "@/types/audit";
 
 export type { RewardOfferType };
 
@@ -264,8 +265,8 @@ export const adminApi = {
       approve,
       reason,
     }),
-  suspendTenant: (id: number) =>
-    api.post<PartnerResponse>(`/admin/partners/${id}/suspend`),
+  suspendTenant: (id: number, reason?: string) =>
+    api.post<PartnerResponse>(`/admin/partners/${id}/suspend`, { reason: reason ?? null }),
   listUsers: (params?: {
     q?: string;
     role?:
@@ -309,6 +310,14 @@ export const adminApi = {
     }),
   pointsSummary: () =>
     api.get<PointsSummaryResponse>("/admin/points-summary"),
+  auditLogs: (params?: {
+    actor_user_id?: number;
+    target_type?: "user" | "partner";
+    target_id?: number;
+    action?: string;
+    limit?: number;
+    offset?: number;
+  }) => api.get<AuditLogListResponse>("/admin/audit-logs", { params }),
 };
 
 // ==================== Customer Extended ====================

@@ -17,7 +17,7 @@ import {
   UserSquare2,
   X,
 } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { StatCard } from "@/components/ui/stat-card";
 import { TabPills, type TabPillItem } from "@/components/ui/tab-pills";
@@ -68,9 +68,17 @@ const TABS: TabPillItem[] = [
   { id: "suspended", label: "Tạm dừng" },
 ];
 
+interface PartnerActionPending {
+  id: number;
+  approve: boolean;
+  name: string;
+}
+
 export default function AdminTenantsPage() {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
+  const [partnerAction, setPartnerAction] = useState<PartnerActionPending | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const { data: allTenants, isLoading, isError } = useAdminTenants(undefined);
   const approveMutation = useApproveTenant();
 
@@ -90,19 +98,28 @@ export default function AdminTenantsPage() {
       ? allTenants
       : allTenants?.filter((t) => t.status === activeTab);
 
-  const handleApprove = async (
+  const openPartnerAction = (
     id: number,
     approve: boolean,
+    name: string,
     event?: React.MouseEvent,
   ) => {
     event?.stopPropagation();
-    const actionText = approve ? "duyệt" : "từ chối";
-    if (!confirm(`Xác nhận ${actionText} đối tác này?`)) return;
+    setActionError(null);
+    setPartnerAction({ id, approve, name });
+  };
+
+  const handlePartnerActionConfirm = async (reason?: string) => {
+    if (!partnerAction) return;
+    const { id, approve } = partnerAction;
+    setPartnerAction(null);
+    setActionError(null);
     try {
-      await approveMutation.mutateAsync({ id, approve });
+      await approveMutation.mutateAsync({ id, approve, reason });
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
-      alert(err.response?.data?.detail ?? `Không thể ${actionText} đối tác`);
+      const text = approve ? "duyệt" : "từ chối / đình chỉ";
+      setActionError(err.response?.data?.detail ?? `Không thể ${text} đối tác`);
     }
   };
 
@@ -119,6 +136,12 @@ export default function AdminTenantsPage() {
           </p>
         </div>
       </header>
+
+      {actionError && (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+          {actionError}
+        </div>
+      )}
 
       <section className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
@@ -247,7 +270,7 @@ export default function AdminTenantsPage() {
                           <Fragment>
                             <button
                               type="button"
-                              onClick={(e) => handleApprove(t.id, true, e)}
+                              onClick={(e) => openPartnerAction(t.id, true, t.name, e)}
                               disabled={approveMutation.isPending}
                               className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-emerald-100 disabled:opacity-60"
                             >
@@ -256,7 +279,7 @@ export default function AdminTenantsPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={(e) => handleApprove(t.id, false, e)}
+                              onClick={(e) => openPartnerAction(t.id, false, t.name, e)}
                               disabled={approveMutation.isPending}
                               className="flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-100 disabled:opacity-60"
                             >
@@ -268,7 +291,7 @@ export default function AdminTenantsPage() {
                         {t.status === "active" && (
                           <button
                             type="button"
-                            onClick={(e) => handleApprove(t.id, false, e)}
+                            onClick={(e) => openPartnerAction(t.id, false, t.name, e)}
                             disabled={approveMutation.isPending}
                             className="flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-60"
                           >
@@ -279,7 +302,7 @@ export default function AdminTenantsPage() {
                         {t.status === "suspended" && (
                           <button
                             type="button"
-                            onClick={(e) => handleApprove(t.id, true, e)}
+                            onClick={(e) => openPartnerAction(t.id, true, t.name, e)}
                             disabled={approveMutation.isPending}
                             className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-emerald-100 disabled:opacity-60"
                           >
@@ -303,7 +326,95 @@ export default function AdminTenantsPage() {
           onClose={() => setSelectedTenantId(null)}
         />
       )}
+
+      {partnerAction && (
+        <PartnerActionModal
+          action={partnerAction}
+          submitting={approveMutation.isPending}
+          onCancel={() => setPartnerAction(null)}
+          onConfirm={handlePartnerActionConfirm}
+        />
+      )}
     </main>
+  );
+}
+
+function PartnerActionModal({
+  action,
+  submitting,
+  onCancel,
+  onConfirm,
+}: {
+  action: PartnerActionPending;
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: (reason?: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCancel();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  const title = action.approve ? "Duyệt đối tác?" : "Từ chối / Đình chỉ đối tác?";
+  const desc = action.approve
+    ? `Shop "${action.name}" sẽ được kích hoạt.`
+    : `Shop "${action.name}" sẽ bị từ chối hoặc đình chỉ.`;
+  const confirmClass = action.approve
+    ? "bg-gradient-to-r from-emerald-500 to-emerald-600"
+    : "bg-gradient-to-r from-red-500 to-red-600";
+  const confirmLabel = action.approve ? "Duyệt" : "Xác nhận";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+      >
+        <h3 className="font-headline text-[18px] font-bold text-slate-800">
+          {title}
+        </h3>
+        <p className="mt-2 text-[13px] leading-relaxed text-slate-600">{desc}</p>
+        <div className="mt-4">
+          <label className="block text-[12px] font-medium text-slate-600 mb-1">
+            Lý do <span className="text-slate-400">(tùy chọn)</span>
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="Nhập lý do duyệt / từ chối..."
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo resize-none"
+          />
+          <p className="mt-1 text-[11px] text-slate-400 text-right">
+            {reason.length}/500
+          </p>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-xl border border-slate-200 bg-white py-3 font-headline text-[14px] font-bold text-slate-600 hover:bg-slate-50"
+          >
+            Huỷ
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => onConfirm(reason.trim() || undefined)}
+            className={`flex-1 rounded-xl py-3 font-headline text-[14px] font-bold text-white shadow-lg active:scale-[0.98] disabled:opacity-60 ${confirmClass}`}
+          >
+            {submitting ? "Đang xử lý..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

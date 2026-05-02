@@ -81,7 +81,13 @@ class PartnerService:
             stmt = stmt.where(Partner.status == status)
         return list((await self.db.scalars(stmt)).all())
 
-    async def approve_partner(self, *, partner_id: int) -> Partner:
+    async def approve_partner(
+        self,
+        *,
+        partner_id: int,
+        reason: str | None = None,
+        actor_user_id: int | None = None,
+    ) -> Partner:
         """Approve đối tác: chỉ chấp nhận chuyển PENDING/SUSPENDED → ACTIVE."""
         partner = await self.get_partner_by_id(partner_id)
         if partner.status not in (PartnerStatus.PENDING, PartnerStatus.SUSPENDED):
@@ -94,7 +100,13 @@ class PartnerService:
         await self.db.flush()
         return partner
 
-    async def suspend_partner(self, *, partner_id: int) -> Partner:
+    async def suspend_partner(
+        self,
+        *,
+        partner_id: int,
+        reason: str | None = None,
+        actor_user_id: int | None = None,
+    ) -> Partner:
         """Suspend đối tác: chỉ chấp nhận chuyển PENDING/ACTIVE → SUSPENDED."""
         partner = await self.get_partner_by_id(partner_id)
         if partner.status not in (PartnerStatus.PENDING, PartnerStatus.ACTIVE):

@@ -96,6 +96,7 @@ export default function AdminUsersPage() {
   const [resetConfirm, setResetConfirm] = useState<AdminUserRow | null>(null);
   const [resetResult, setResetResult] =
     useState<AdminResetPasswordResponse | null>(null);
+  const [lockTarget, setLockTarget] = useState<AdminUserRow | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data: me } = useMe();
@@ -108,10 +109,10 @@ export default function AdminUsersPage() {
   const updateMut = useUpdateAdminUser();
   const resetMut = useResetAdminUserPassword();
 
-  const handleToggleActive = (u: AdminUserRow) => {
+  const handleToggleActive = (u: AdminUserRow, reason?: string) => {
     setError(null);
     updateMut.mutate(
-      { id: u.id, data: { is_active: !u.is_active } },
+      { id: u.id, data: { is_active: !u.is_active, reason: reason ?? null } },
       {
         onError: (e: unknown) => {
           const msg =
@@ -283,7 +284,7 @@ export default function AdminUsersPage() {
                           user={u}
                           isSelf={isSelf}
                           onDetail={() => setDetailId(u.id)}
-                          onToggleActive={() => handleToggleActive(u)}
+                          onToggleActive={() => setLockTarget(u)}
                           onEditRole={() => setRoleEdit(u)}
                           onResetPassword={() => setResetConfirm(u)}
                           busy={updateMut.isPending || resetMut.isPending}
@@ -324,6 +325,19 @@ export default function AdminUsersPage() {
                 },
               },
             );
+          }}
+          submitting={updateMut.isPending}
+        />
+      )}
+
+      {lockTarget && (
+        <LockReasonModal
+          user={lockTarget}
+          onCancel={() => setLockTarget(null)}
+          onConfirm={(reason) => {
+            const target = lockTarget;
+            setLockTarget(null);
+            handleToggleActive(target, reason);
           }}
           submitting={updateMut.isPending}
         />
@@ -779,6 +793,87 @@ function ConfirmModal({
             className={`flex-1 rounded-xl py-3 font-headline text-[14px] font-bold text-white shadow-lg active:scale-[0.98] ${confirmClass}`}
           >
             {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LockReasonModal({
+  user,
+  onCancel,
+  onConfirm,
+  submitting,
+}: {
+  user: AdminUserRow;
+  onCancel: () => void;
+  onConfirm: (reason?: string) => void;
+  submitting: boolean;
+}) {
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCancel();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  const isLocking = user.is_active;
+  const title = isLocking ? "Khoá tài khoản?" : "Mở khoá tài khoản?";
+  const desc = isLocking
+    ? `Người dùng "${user.full_name || user.email || `#${user.id}`}" sẽ không đăng nhập được nữa.`
+    : `Người dùng "${user.full_name || user.email || `#${user.id}`}" sẽ được đăng nhập trở lại.`;
+  const confirmClass = isLocking
+    ? "bg-gradient-to-r from-red-500 to-red-600"
+    : "bg-gradient-to-r from-emerald-500 to-emerald-600";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+      >
+        <h3 className="font-headline text-[18px] font-bold text-slate-800">
+          {title}
+        </h3>
+        <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+          {desc}
+        </p>
+        <div className="mt-4">
+          <label className="block text-[12px] font-medium text-slate-600 mb-1">
+            Lý do <span className="text-slate-400">(tùy chọn)</span>
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="Nhập lý do khoá / mở khoá..."
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo resize-none"
+          />
+          <p className="mt-1 text-[11px] text-slate-400 text-right">
+            {reason.length}/500
+          </p>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-xl border border-slate-200 bg-white py-3 font-headline text-[14px] font-bold text-slate-600 hover:bg-slate-50"
+          >
+            Huỷ
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => onConfirm(reason.trim() || undefined)}
+            className={`flex-1 rounded-xl py-3 font-headline text-[14px] font-bold text-white shadow-lg active:scale-[0.98] disabled:opacity-60 ${confirmClass}`}
+          >
+            {submitting ? "Đang lưu..." : "Xác nhận"}
           </button>
         </div>
       </div>

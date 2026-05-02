@@ -495,6 +495,7 @@ export interface AdminUserDetailResponse extends AdminUserRow {
 export interface AdminUserUpdateRequest {
   is_active?: boolean;
   system_role?: "regular" | "admin" | "super_admin";
+  reason?: string | null;
 }
 
 export interface AdminResetPasswordResponse {
