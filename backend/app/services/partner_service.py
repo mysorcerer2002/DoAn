@@ -92,7 +92,7 @@ class PartnerService:
         partner = await self.get_partner_by_id(partner_id)
         if partner.status not in (PartnerStatus.PENDING, PartnerStatus.SUSPENDED):
             raise InvalidStatusTransitionError(
-                f"Cannot approve partner in status {partner.status.value}"
+                f"Cannot approve partner in status {partner.status}"
             )
         partner.status = PartnerStatus.ACTIVE
         if partner.activated_at is None:
@@ -111,7 +111,7 @@ class PartnerService:
         partner = await self.get_partner_by_id(partner_id)
         if partner.status not in (PartnerStatus.PENDING, PartnerStatus.ACTIVE):
             raise InvalidStatusTransitionError(
-                f"Cannot suspend partner in status {partner.status.value}"
+                f"Cannot suspend partner in status {partner.status}"
             )
         partner.status = PartnerStatus.SUSPENDED
         await self.db.flush()
