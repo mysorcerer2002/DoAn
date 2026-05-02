@@ -666,6 +666,59 @@ function OverviewTab({ detail }: { detail: PartnerDetailResponse }) {
         </p>
       </section>
 
+      {(detail.business_license_url || detail.terms_version || detail.last_status_reason) && (
+        <section>
+          <h3 className="mb-2 text-[11px] font-bold uppercase text-slate-400">
+            Hồ sơ đăng ký
+          </h3>
+          <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
+            {detail.business_license_url && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-500">Giấy phép kinh doanh</p>
+                <a
+                  href={detail.business_license_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 block"
+                >
+                  <img
+                    src={detail.business_license_url}
+                    alt="Giấy phép kinh doanh"
+                    className="max-h-64 rounded-lg border object-contain"
+                  />
+                </a>
+              </div>
+            )}
+            {detail.terms_version && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-500">Điều khoản đã ký</p>
+                <p className="mt-0.5 text-[13px] text-slate-700">
+                  {detail.terms_version}
+                  {detail.terms_accepted_at && (
+                    <span className="ml-2 text-[11px] text-slate-400">
+                      lúc {new Date(detail.terms_accepted_at).toLocaleString("vi-VN")}
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+            {detail.last_status_reason && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-500">
+                  Lý do thay đổi trạng thái gần nhất
+                </p>
+                <p className="mt-0.5 text-[13px] text-slate-700">{detail.last_status_reason}</p>
+                {detail.last_status_changed_at && (
+                  <p className="mt-0.5 text-[11px] text-slate-400">
+                    {new Date(detail.last_status_changed_at).toLocaleString("vi-VN")}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="grid grid-cols-2 gap-3 text-[12px] text-slate-500">
         <div>
           <p className="text-[11px] font-bold uppercase text-slate-400">

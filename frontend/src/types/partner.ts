@@ -417,6 +417,11 @@ export interface PartnerDetailResponse {
   total_revenue: number;
   redemption_count: number;
   reward_count: number;
+  business_license_url: string | null;
+  terms_accepted_at: string | null;
+  terms_version: string | null;
+  last_status_reason: string | null;
+  last_status_changed_at: string | null;
 }
 
 export interface AdminPartnerListRow {

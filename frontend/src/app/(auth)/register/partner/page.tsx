@@ -91,6 +91,9 @@ export default function MerchantRegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [licenseUrl, setLicenseUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const accountForm = useForm<AccountForm>({
     resolver: zodResolver(accountSchema),
@@ -100,6 +103,23 @@ export default function MerchantRegisterPage() {
     defaultValues: { category: "cafe" },
   });
 
+  const handleLicenseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const res = await api.post<{ url: string }>("/partner/uploads/license", fd);
+      setLicenseUrl(res.data.url);
+    } catch {
+      setError("Tải giấy phép thất bại, vui lòng thử lại");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleAccountSubmit = (data: AccountForm) => {
     setAccount(data);
     setStep(2);
@@ -107,6 +127,8 @@ export default function MerchantRegisterPage() {
 
   const handleShopSubmit = async (data: ShopForm) => {
     if (!account) return;
+    if (!licenseUrl) { setError("Vui lòng tải ảnh giấy phép kinh doanh"); return; }
+    if (!acceptTerms) { setError("Vui lòng đồng ý điều khoản dịch vụ"); return; }
     setError(null);
     setSubmitting(true);
     try {
@@ -130,6 +152,9 @@ export default function MerchantRegisterPage() {
         tax_code: data.tax_code || null,
         website: data.website || null,
         business_hours: data.business_hours || null,
+        business_license_url: licenseUrl,
+        accept_terms: acceptTerms,
+        terms_version: "v1.0",
       });
 
       setStep(3);
@@ -477,6 +502,63 @@ export default function MerchantRegisterPage() {
                   register={shopForm.register("business_hours")}
                   error={shopForm.formState.errors.business_hours?.message}
                 />
+
+                {/* License upload */}
+                <div className="!mt-6 border-t border-dashed border-slate-200 pt-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100">
+                      <Receipt className="h-3.5 w-3.5 text-brand-indigo" />
+                    </span>
+                    <h4 className="font-headline text-[13px] font-bold text-slate-800">
+                      Giấy phép kinh doanh
+                      <span className="ml-1 text-[11px] font-normal text-red-500">*</span>
+                    </h4>
+                  </div>
+                  <label className="block cursor-pointer rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center transition hover:border-brand-indigo">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={handleLicenseUpload}
+                      disabled={uploading}
+                    />
+                    {uploading ? (
+                      <p className="text-[12px] text-slate-500">Đang tải lên...</p>
+                    ) : licenseUrl ? (
+                      <div>
+                        <img src={licenseUrl} alt="Giấy phép" className="mx-auto max-h-40 rounded-lg object-contain" />
+                        <p className="mt-2 text-[11px] text-emerald-600">Tải lên thành công — nhấn để thay</p>
+                      </div>
+                    ) : (
+                      <p className="text-[12px] text-slate-500">
+                        Nhấn để chọn ảnh giấy phép (.jpg/.png, ≤5MB)
+                      </p>
+                    )}
+                  </label>
+                </div>
+
+                {/* ToS checkbox */}
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-indigo-600"
+                    checked={acceptTerms}
+                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                  />
+                  <span className="text-[12px] leading-relaxed text-slate-700">
+                    Tôi đã đọc và đồng ý với{" "}
+                    <a
+                      href="/legal/terms"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-brand-indigo underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Điều khoản dịch vụ
+                    </a>{" "}
+                    của Loyalty Platform
+                  </span>
+                </label>
 
                 {error && (
                   <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
