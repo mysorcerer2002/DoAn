@@ -783,6 +783,8 @@ async def reset_user_password(
 
     temp_password = _generate_temp_password()
     target.password_hash = hash_password(temp_password)
+    if target.system_role != "super_admin":  # SKIP super_admin tránh lock-out admin cuối
+        target.must_change_password = True
     await db.commit()
 
     email_sent = False

@@ -12,6 +12,7 @@ import {
   EyeOff,
   Lock,
   Mail,
+  Phone,
   User as UserIcon,
 } from "lucide-react";
 
@@ -21,6 +22,7 @@ import { useAuthStore } from "@/lib/auth-store";
 const schema = z.object({
   full_name: z.string().min(1, "Họ tên không được để trống"),
   email: z.string().email("Email không hợp lệ"),
+  phone: z.string().regex(/^0\d{9}$/, "SĐT phải 10 số bắt đầu bằng 0 (vd: 0901234567)"),
   password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự"),
 });
 
@@ -145,6 +147,25 @@ export default function RegisterPage() {
                 {errors.email && (
                   <p className="pl-1 text-xs text-red-500">
                     {errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute inset-y-0 left-3 my-auto h-5 w-5 text-slate-400" />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="09xxxxxxxx"
+                    autoComplete="tel"
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-3 outline-none transition-all placeholder:text-slate-400 focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo"
+                    {...register("phone")}
+                  />
+                </div>
+                {errors.phone && (
+                  <p className="pl-1 text-xs text-red-500">
+                    {errors.phone.message}
                   </p>
                 )}
               </div>

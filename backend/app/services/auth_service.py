@@ -3,7 +3,7 @@ import logging
 import secrets
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,10 @@ class EmailAlreadyExistsError(Exception):
     pass
 
 
+class PhoneAlreadyExistsError(Exception):
+    pass
+
+
 class InvalidCredentialsError(Exception):
     pass
 
@@ -36,12 +40,19 @@ class AuthService:
         self.db = db
 
     async def register(self, request: RegisterRequest) -> User:
-        existing = await self.db.scalar(select(User).where(User.email == request.email))
+        existing = await self.db.scalar(
+            select(User).where(
+                or_(User.email == request.email, User.phone == request.phone)
+            )
+        )
         if existing is not None:
-            raise EmailAlreadyExistsError(f"Email {request.email} already registered")
+            if existing.email == request.email:
+                raise EmailAlreadyExistsError(f"Email {request.email} đã được đăng ký")
+            raise PhoneAlreadyExistsError(f"SĐT {request.phone} đã được đăng ký")
 
         user = User(
             email=request.email,
+            phone=request.phone,
             password_hash=hash_password(request.password),
             full_name=request.full_name,
             birthday=request.birthday,
@@ -109,6 +120,8 @@ class AuthService:
             return None
         temp_password = secrets.token_urlsafe(8)
         user.password_hash = hash_password(temp_password)
+        if user.system_role != "super_admin":  # SKIP super_admin tránh lock-out admin cuối
+            user.must_change_password = True
         await self.db.flush()
         logger.info(
             "auth.forgot_password.reset",
@@ -124,5 +137,6 @@ class AuthService:
         ):
             raise InvalidCredentialsError("Mật khẩu hiện tại không đúng")
         user.password_hash = hash_password(new_password)
+        user.must_change_password = False
         await self.db.flush()
         logger.info("auth.change_password.success", extra={"user_id": user.id})

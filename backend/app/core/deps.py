@@ -10,17 +10,17 @@ from app.models.user import User
 security = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    db: AsyncSession = Depends(get_db),
+async def _load_user_from_token(
+    credentials: HTTPAuthorizationCredentials | None,
+    db: AsyncSession,
 ) -> User:
+    """Internal: decode token + load user. Raise 401 nếu invalid."""
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
     try:
         payload = decode_token(credentials.credentials)
     except JWTError as e:
@@ -29,13 +29,11 @@ async def get_current_user(
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
-
     if payload.type != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is not an access token",
         )
-
     try:
         user_id = int(payload.sub)
     except (ValueError, KeyError) as e:
@@ -50,6 +48,28 @@ async def get_current_user(
             detail="User not found or inactive",
         )
     return user
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Default dep — chặn 423 nếu user must_change_password."""
+    user = await _load_user_from_token(credentials, db)
+    if user.must_change_password:
+        raise HTTPException(
+            status_code=423,
+            detail="password_change_required",
+        )
+    return user
+
+
+async def get_current_user_unrestricted(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Dep cho /auth/me + /auth/me/password — không kiểm must_change_password."""
+    return await _load_user_from_token(credentials, db)
 
 
 def extract_partner_id_from_header(x_partner_id: str | None) -> int:

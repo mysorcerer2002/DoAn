@@ -80,8 +80,19 @@ api.interceptors.response.use(
     const url = original?.url ?? "";
     const skip = NO_REFRESH_PATHS.some((p) => url.includes(p));
 
-    // 423 Locked: attach lockedUntil so callers can show countdown.
+    // 423 Locked: two sub-cases.
     if (error.response?.status === 423) {
+      // Sub-case 1: must_change_password — redirect to /change-password.
+      const detail = (error.response.data as { detail?: string } | undefined)?.detail;
+      if (
+        detail === "password_change_required" &&
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/change-password"
+      ) {
+        window.location.href = "/change-password";
+        return Promise.reject(error);
+      }
+      // Sub-case 2: login brute-force lock — attach lockedUntil for countdown.
       const retryAfter = Number(
         (error.response.headers as Record<string, string>)["retry-after"] ?? "900"
       );

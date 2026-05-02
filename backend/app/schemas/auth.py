@@ -52,6 +52,7 @@ def validate_birthday(value: date | None) -> date | None:
 
 class RegisterRequest(BaseModel):
     email: EmailStr
+    phone: str = Field(min_length=10, max_length=10)
     password: str = Field(min_length=8)
     full_name: str = Field(min_length=1, max_length=255)
     birthday: date | None = None
@@ -60,6 +61,19 @@ class RegisterRequest(BaseModel):
     @classmethod
     def _email_lower(cls, v: str) -> str:
         return _normalize_email(v)
+
+    @field_validator("phone")
+    @classmethod
+    def _phone_check(cls, v: str) -> str:
+        v = v.strip()
+        cleaned = re.sub(r"[\s\-\.]", "", v)
+        if cleaned.startswith("+84"):
+            cleaned = "0" + cleaned[3:]
+        elif cleaned.startswith("84") and len(cleaned) == 11:
+            cleaned = "0" + cleaned[2:]
+        if not _is_vn_phone(cleaned):
+            raise ValueError("SĐT phải 10 số bắt đầu bằng 0 (vd: 0901234567)")
+        return cleaned
 
     @field_validator("password")
     @classmethod

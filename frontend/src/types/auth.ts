@@ -34,6 +34,7 @@ export interface TokenResponse {
 
 export interface RegisterRequest {
   email: string;
+  phone: string;
   password: string;
   full_name: string;
 }

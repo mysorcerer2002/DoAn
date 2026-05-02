@@ -7,7 +7,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_current_user_unrestricted
 from app.core.limiter import limiter
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.models.user import User
@@ -49,6 +49,7 @@ from app.services.auth_service import (
     AuthService,
     EmailAlreadyExistsError,
     InvalidCredentialsError,
+    PhoneAlreadyExistsError,
     _hash_email_for_log,
 )
 from app.services.email_service import EmailService
@@ -69,6 +70,8 @@ async def register(
     try:
         user = await service.register(body)
     except EmailAlreadyExistsError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+    except PhoneAlreadyExistsError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
     return TokenResponse(
@@ -177,7 +180,7 @@ async def refresh(
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(current_user: User = Depends(get_current_user)) -> User:
+async def me(current_user: User = Depends(get_current_user_unrestricted)) -> User:
     return current_user
 
 
@@ -256,7 +259,7 @@ async def forgot_password(
 @router.patch("/me/password", status_code=204)
 async def change_password(
     body: ChangePasswordRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_unrestricted),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     service = AuthService(db)

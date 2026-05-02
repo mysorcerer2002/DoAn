@@ -35,6 +35,7 @@ import { useAuthStore } from "@/lib/auth-store";
 const accountSchema = z.object({
   full_name: z.string().min(1, "Họ tên không được để trống"),
   email: z.string().email("Email không hợp lệ"),
+  phone: z.string().regex(/^0\d{9}$/, "SĐT phải 10 số bắt đầu bằng 0 (vd: 0901234567)"),
   password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự"),
 });
 
@@ -112,6 +113,7 @@ export default function MerchantRegisterPage() {
       const reg = await authApi.register({
         full_name: account.full_name,
         email: account.email,
+        phone: account.phone,
         password: account.password,
       });
       setTokens(reg.data.access_token, reg.data.refresh_token);
@@ -235,6 +237,14 @@ export default function MerchantRegisterPage() {
                   autoComplete="email"
                   register={accountForm.register("email")}
                   error={accountForm.formState.errors.email?.message}
+                />
+                <Field
+                  icon={Phone}
+                  placeholder="09xxxxxxxx"
+                  type="tel"
+                  autoComplete="tel"
+                  register={accountForm.register("phone")}
+                  error={accountForm.formState.errors.phone?.message}
                 />
                 <div className="space-y-1">
                   <div className="relative">

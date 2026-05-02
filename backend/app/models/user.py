@@ -28,3 +28,6 @@ class User(Base, TimestampMixin):
     system_role: Mapped[str] = mapped_column(String(20), default="regular", nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     points_balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
