@@ -68,7 +68,8 @@ BASE_URL=https://loyalty.ecom-bill.com/api python -m pytest tests_e2e
 | TC | Test function | Đầu vào | Kết quả mong đợi |
 |---|---|---|---|
 | TC-A01 | `test_a01_dang_ky_hop_le` | Họ tên, SĐT, email, pwd hợp lệ | 201 + JWT |
-| TC-A02 | `test_a02_dang_ky_email_trung` | Email trùng | 409 |
+| TC-A02a | `test_a02a_dang_ky_email_trung` | Email trùng | 409 |
+| TC-A02b | `test_a02b_dang_ky_phone_trung` | SĐT trùng | 409 |
 | TC-A03a | `test_a03a_dang_nhap_bang_email` | Email + pwd đúng | JWT |
 | TC-A03b | `test_a03b_dang_nhap_bang_phone` | SĐT + pwd đúng | JWT |
 | TC-A04 | `test_a04_dang_nhap_sai_thong_tin` | Sai thông tin (pwd sai hoặc identifier không tồn tại) | 401 |
@@ -83,13 +84,15 @@ BASE_URL=https://loyalty.ecom-bill.com/api python -m pytest tests_e2e
 
 | TC | Test function |
 |---|---|
-| TC-B01 | `test_b01_dang_ky_partner_hop_le` |
+| TC-B01a | `test_b01a_dang_ky_partner_hop_le` |
+| TC-B01b | `test_b01b_dang_ky_partner_trung_ten` (slug auto-suffix) |
 | TC-B02 | `test_b02_dang_ky_partner_thieu_giay_phep` |
 | TC-B03 | `test_b03_admin_phe_duyet` |
 | TC-B04 | `test_b04_admin_tu_choi` |
 | TC-B05 | `test_b05_partner_pending_truy_cap_endpoint_active` |
 | TC-B06 | `test_b06_admin_suspend_active_partner` |
-| TC-B07 | `test_b07_cau_hinh_ty_le_tich_diem` |
+| TC-B07a | `test_b07a_cau_hinh_ty_le_tich_diem` |
+| TC-B07b | `test_b07b_them_quy_tac_tu_dong_thay_the` |
 | TC-B08 | `test_b08_cau_hinh_hang_thanh_vien` |
 | TC-B09 | `test_b09_bat_use_tiers` |
 | TC-B10 | `test_b10_tat_use_tiers` |

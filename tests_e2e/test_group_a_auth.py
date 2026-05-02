@@ -24,18 +24,38 @@ def test_a01_dang_ky_hop_le(http, random_email, random_phone):
     assert data.get("token_type") == "bearer"
 
 
-def test_a02_dang_ky_email_trung(http, random_email, random_phone):
-    """TC-A02: Email đã tồn tại → 409 Conflict, không tạo bản ghi."""
+def test_a02a_dang_ky_email_trung(http, random_email, random_phone):
+    """TC-A02a: Đăng ký với email đã tồn tại → 409 Conflict."""
     email = random_email()
-    # Đăng ký lần 1
     r1 = http("POST", "/auth/register", body={
         "email": email, "phone": random_phone(),
         "password": "test1234", "full_name": "First",
     })
     assert r1.status_code == 201
-    # Đăng ký lần 2 cùng email
+    # Đăng ký lần 2 cùng email, phone khác
     r2 = http("POST", "/auth/register", body={
         "email": email, "phone": random_phone(),
+        "password": "another1234", "full_name": "Second",
+    })
+    assert r2.status_code == 409, f"Expected 409, got {r2.status_code}: {r2.text}"
+
+
+def test_a02b_dang_ky_phone_trung(http, random_email, random_phone):
+    """TC-A02b: Đăng ký với SĐT đã tồn tại → 409 Conflict.
+
+    Cả email và phone đều có UNIQUE constraint; global exception handler trong
+    main.py phân loại IntegrityError theo tên ràng buộc (email/phone/slug) để
+    trả thông điệp tiếng Việt cụ thể cho từng trường.
+    """
+    phone = random_phone()
+    r1 = http("POST", "/auth/register", body={
+        "email": random_email(), "phone": phone,
+        "password": "test1234", "full_name": "First",
+    })
+    assert r1.status_code == 201
+    # Đăng ký lần 2 cùng phone, email khác
+    r2 = http("POST", "/auth/register", body={
+        "email": random_email(), "phone": phone,
         "password": "another1234", "full_name": "Second",
     })
     assert r2.status_code == 409, f"Expected 409, got {r2.status_code}: {r2.text}"

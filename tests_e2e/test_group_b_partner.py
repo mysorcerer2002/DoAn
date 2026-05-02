@@ -20,8 +20,8 @@ def _make_owner_token(http, http_client, random_email, random_phone) -> str:
     return r.json()["access_token"]
 
 
-def test_b01_dang_ky_partner_hop_le(http, http_client, random_email, random_phone):
-    """TC-B01: Đăng ký đối tác hợp lệ → 201 pending, lưu terms_version + terms_accepted_at."""
+def test_b01a_dang_ky_partner_hop_le(http, http_client, random_email, random_phone):
+    """TC-B01a: Đăng ký đối tác hợp lệ → 201 pending, lưu terms_version + terms_accepted_at."""
     owner_tok = _make_owner_token(http, http_client, random_email, random_phone)
     body = {
         "name": f"E2E Shop {secrets.token_hex(3)}",
@@ -43,6 +43,36 @@ def test_b01_dang_ky_partner_hop_le(http, http_client, random_email, random_phon
     pid = data["id"]
     row = db_exec(f"SELECT terms_version, terms_accepted_at FROM partners WHERE id={pid};")
     assert "v1.0" in row, f"DB không lưu terms_version='v1.0', got: {row}"
+
+
+def test_b01b_dang_ky_partner_trung_ten(http, http_client, random_email, random_phone):
+    """TC-B01b: Hai đối tác đăng ký cùng tên → slug được tự sinh phân biệt.
+
+    Slug là internal identifier (auto-generated từ name qua generate_unique_slug),
+    không nằm trong request body của owner. Khi 2 đối tác cùng tên đăng ký,
+    backend dò ràng buộc UNIQUE và thêm hậu tố số → cả hai đều 201, slug khác nhau.
+    """
+    same_name = f"Trung Ten Shop {secrets.token_hex(3)}"
+    base_body = {
+        "name": same_name, "category": "cafe", "description": "Test trùng tên",
+        "contact_phone": "0900000099", "contact_email": "trung-ten@e2e.vn",
+        "address": "1 Same Street, HCM", "tax_code": "0123456789",
+        "business_license_url": "/api/uploads/licenses/0/dummy.png",
+        "accept_terms": True, "terms_version": "v1.0",
+    }
+    # Owner 1 đăng ký
+    owner1_tok = _make_owner_token(http, http_client, random_email, random_phone)
+    r1 = http("POST", "/partner/register", body=base_body, token=owner1_tok)
+    assert r1.status_code == 201, r1.text
+    slug1 = r1.json()["slug"]
+    # Owner 2 đăng ký cùng tên
+    owner2_tok = _make_owner_token(http, http_client, random_email, random_phone)
+    r2 = http("POST", "/partner/register", body=base_body, token=owner2_tok)
+    assert r2.status_code == 201, r2.text
+    slug2 = r2.json()["slug"]
+    assert slug1 != slug2, f"Slug phải khác nhau, got slug1={slug1}, slug2={slug2}"
+    # Verify slug2 có hậu tố để phân biệt
+    assert slug2.startswith(slug1), f"slug2={slug2} phải bắt đầu bằng slug1={slug1}"
 
 
 def test_b02_dang_ky_partner_thieu_giay_phep(http, http_client, random_email, random_phone):
@@ -148,8 +178,8 @@ def test_b06_admin_suspend_active_partner(http, admin_token, partner_cafe_id):
     assert entry["after_snapshot"]["status"] == "suspended"
 
 
-def test_b07_cau_hinh_ty_le_tich_diem(http, owner_cafe_token, partner_cafe_id):
-    """TC-B07: Cập nhật earn_percent của point_rule → 200 + giá trị lưu chính xác."""
+def test_b07a_cau_hinh_ty_le_tich_diem(http, owner_cafe_token, partner_cafe_id):
+    """TC-B07a: Cập nhật earn_percent của point_rule → 200 + giá trị lưu chính xác."""
     # Get current rule
     r = http("GET", "/partner/point-rules/active", token=owner_cafe_token, partner_id=partner_cafe_id)
     assert r.status_code == 200
@@ -164,6 +194,38 @@ def test_b07_cau_hinh_ty_le_tich_diem(http, owner_cafe_token, partner_cafe_id):
     # earn_percent có thể trả string "1.00" hoặc number 1.0 — chấp nhận cả 2
     ep = updated["earn_percent"]
     assert str(ep) in ("1.0", "1.00"), f"earn_percent = {ep}"
+
+
+def test_b07b_them_quy_tac_tu_dong_thay_the(http, owner_lala_token, partner_lala_id):
+    """TC-B07b: POST quy tắc mới khi đã có rule active → cũ tự deactivate, mới active.
+
+    Dùng partner Lala (TC-B07a dùng Cafe) để không phá data các test sau dùng Cafe.
+    Service tầng `PointRuleService.create_rule` exec UPDATE deactivate trước khi
+    INSERT rule mới — đảm bảo invariant "max 1 active per partner" do partial
+    unique index `point_rules(partner_id) WHERE is_active`.
+    """
+    # Lấy rule active hiện tại của Lala
+    r = http("GET", "/partner/point-rules/active", token=owner_lala_token, partner_id=partner_lala_id)
+    assert r.status_code == 200, r.text
+    old = r.json()
+    assert old is not None, "Lala phải có active rule (seeded)"
+    old_id = old["id"]
+
+    # Tạo rule mới với earn_percent khác
+    new_percent = 0.5 if float(old["earn_percent"]) != 0.5 else 0.7
+    r2 = http("POST", "/partner/point-rules",
+              body={"earn_percent": new_percent},
+              token=owner_lala_token, partner_id=partner_lala_id)
+    assert r2.status_code == 201, r2.text
+    new_rule = r2.json()
+    new_id = new_rule["id"]
+    assert new_id != old_id
+
+    # Verify DB: rule cũ is_active=False, rule mới is_active=True
+    old_state = db_exec(f"SELECT is_active FROM point_rules WHERE id={old_id};")
+    new_state = db_exec(f"SELECT is_active FROM point_rules WHERE id={new_id};")
+    assert old_state == "f", f"Rule cũ phải bị deactivate, got is_active={old_state}"
+    assert new_state == "t", f"Rule mới phải active, got is_active={new_state}"
 
 
 def test_b08_cau_hinh_hang_thanh_vien(http, owner_cafe_token, partner_cafe_id):
