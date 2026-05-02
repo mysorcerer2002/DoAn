@@ -172,7 +172,7 @@ export function PosTransactionForm({
           return;
         }
         if (qrLookup.isError || qrLookup.data?.found !== true) {
-          setError("QR không hợp lệ hoặc khách chưa là thành viên shop");
+          setError("QR không hợp lệ hoặc không tìm thấy khách hàng");
           return;
         }
         const res = await createQrTxn.mutateAsync({
@@ -615,9 +615,12 @@ function CustomerInfoCard({
                 )}
               </div>
             ) : (
-              <p className="mt-1 text-[11px] text-amber-700">
-                Khách có tài khoản nhưng chưa là thành viên shop — sẽ tự thêm khi tích điểm.
-              </p>
+              <div className="mt-2 rounded-md bg-amber-50 border border-amber-300 px-2 py-1.5">
+                <p className="text-[11px] font-medium text-amber-800">Khách mới — chưa là thành viên shop</p>
+                <p className="text-[10px] text-amber-700">
+                  Sau khi xác nhận tích điểm, hệ thống sẽ tự đăng ký thành viên cho khách này.
+                </p>
+              </div>
             )}
           </div>
         </div>

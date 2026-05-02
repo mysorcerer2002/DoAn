@@ -118,3 +118,29 @@ async def test_create_transaction_without_active_rule_raises(db_session):
         )
 
 
+@pytest.mark.asyncio
+async def test_create_manual_records_actor_in_ledger(
+    db_session, partner_factory, user_factory, point_rule_factory, staff_user_factory
+):
+    """EARN ledger entry phải có actor_user_id = staff thực hiện."""
+    partner = await partner_factory(db_session)
+    staff = await staff_user_factory(db_session, partner_id=partner.id)
+    await point_rule_factory(db_session, partner_id=partner.id)  # default earn_percent=1.00
+
+    from sqlalchemy import select
+
+    from app.models.point_ledger import PointLedger
+    from app.services.transaction_service import TransactionService
+
+    svc = TransactionService(db_session)
+    result = await svc.create_manual(
+        partner_id=partner.id,
+        request=CreateManualTransactionRequest(phone="0901234567", gross_amount=10000),
+        actor_user_id=staff.id,
+    )
+    ledger = await db_session.scalar(
+        select(PointLedger).where(PointLedger.ref_id == result.transaction.id)
+    )
+    assert ledger is not None
+    assert ledger.actor_user_id == staff.id
+

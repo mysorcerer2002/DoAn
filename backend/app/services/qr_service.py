@@ -1,6 +1,9 @@
-"""QR Service — decode raw user_id QR payload + DB lookup."""
+"""QR Service — decode raw user_id QR payload + DB lookup + auto-enroll."""
+
+from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -16,10 +19,6 @@ class QrUserNotFoundError(Exception):
     pass
 
 
-class QrUserNotMemberError(Exception):
-    pass
-
-
 class QrService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -27,26 +26,18 @@ class QrService:
     async def decode_qr_payload(
         self, payload: str, partner_id: int
     ) -> tuple[User, Membership]:
-        """Decode raw user_id QR payload → (User, Membership).
+        """Decode QR payload (raw user_id) → (User, Membership).
 
-        Args:
-            payload: Raw string số (user_id) từ QR cá nhân khách.
-            partner_id: Partner context để lookup membership.
-
-        Returns:
-            (user, membership) với membership đã lock FOR UPDATE.
-
-        Raises:
-            QrPayloadInvalidError nếu payload không phải số nguyên dương.
-            QrUserNotFoundError nếu user không tồn tại hoặc bị khoá.
-            QrUserNotMemberError nếu user chưa là thành viên của partner này.
+        Auto-enroll: nếu user chưa là member shop → tạo membership mới
+        (lifetime_earned=0, current_tier_id=NULL). UniqueConstraint
+        (partner_id, user_id) đảm bảo concurrent scan an toàn.
         """
         try:
             user_id = int(payload.strip())
             if user_id <= 0:
                 raise ValueError
-        except (ValueError, AttributeError):
-            raise QrPayloadInvalidError("QR payload không hợp lệ.")
+        except (ValueError, AttributeError) as e:
+            raise QrPayloadInvalidError("QR payload không hợp lệ.") from e
 
         user = await self.db.get(User, user_id)
         if user is None or not user.is_active:
@@ -65,6 +56,35 @@ class QrService:
             .with_for_update()
         )
         if membership is None:
-            raise QrUserNotMemberError("Khách hàng chưa là thành viên shop này.")
+            # Auto-enroll
+            try:
+                async with self.db.begin_nested():
+                    new_m = Membership(
+                        partner_id=partner_id,
+                        user_id=user_id,
+                        current_tier_id=None,
+                        joined_at=datetime.now(timezone.utc),
+                    )
+                    self.db.add(new_m)
+                    await self.db.flush()
+            except IntegrityError:
+                pass  # Concurrent scan đã tạo, re-fetch
+
+            membership = await self.db.scalar(
+                select(Membership)
+                .options(
+                    joinedload(Membership.user, innerjoin=True),
+                    selectinload(Membership.current_tier),
+                )
+                .where(
+                    Membership.partner_id == partner_id,
+                    Membership.user_id == user_id,
+                )
+                .with_for_update()
+            )
+            if membership is None:
+                raise QrUserNotFoundError(
+                    f"Không thể tạo membership cho user {user_id} tại partner {partner_id}"
+                )
 
         return user, membership

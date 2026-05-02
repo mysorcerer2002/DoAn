@@ -62,6 +62,7 @@ class TransactionService:
         *,
         partner_id: int,
         request: CreateManualTransactionRequest,
+        actor_user_id: int | None = None,
     ) -> TransactionWithMemberResponse:
         """Tạo giao dịch tích điểm method=manual."""
         member_svc = MemberService(self.db)
@@ -152,6 +153,7 @@ class TransactionService:
                 description=_format_earn_description(
                     txn.gross_amount, txn.receipt_code
                 ),
+                actor_user_id=actor_user_id,
             )
 
         new_tier = await tier_svc.recompute_tier(
@@ -214,14 +216,10 @@ class TransactionService:
         *,
         partner_id: int,
         request: CreateQrCustomerTransactionRequest,
+        actor_user_id: int | None = None,
     ) -> TransactionWithMemberResponse:
         """Tạo giao dịch từ QR scan — owner quét QR khách (raw user_id)."""
-        from app.services.qr_service import (
-            QrPayloadInvalidError,
-            QrService,
-            QrUserNotFoundError,
-            QrUserNotMemberError,
-        )
+        from app.services.qr_service import QrService
 
         qr_svc = QrService(self.db)
         _user, membership = await qr_svc.decode_qr_payload(
@@ -235,6 +233,7 @@ class TransactionService:
             note=request.note,
             method=TransactionMethod.QR_CUSTOMER,
             receipt_code=request.receipt_code,
+            actor_user_id=actor_user_id,
         )
 
     async def _create_transaction_for_membership(
@@ -246,6 +245,7 @@ class TransactionService:
         note: str | None,
         method: TransactionMethod,
         receipt_code: str | None = None,
+        actor_user_id: int | None = None,
     ) -> TransactionWithMemberResponse:
         """Logic tạo transaction dùng chung cho manual và QR."""
         if not membership.is_active:
@@ -308,6 +308,7 @@ class TransactionService:
                 description=_format_earn_description(
                     txn.gross_amount, txn.receipt_code
                 ),
+                actor_user_id=actor_user_id,
             )
 
         new_tier = await tier_svc.recompute_tier(
@@ -363,39 +364,3 @@ class TransactionService:
         )
         return result.scalar_one()
 
-    async def _auto_enroll_membership(
-        self, *, partner_id: int, user_id: int
-    ) -> Membership:
-        """Tạo membership mới cho user tại đối tác (auto-enroll lần đầu quét QR)."""
-        from sqlalchemy.exc import IntegrityError as _SAIntegrityError
-
-        try:
-            async with self.db.begin_nested():
-                membership = Membership(
-                    partner_id=partner_id,
-                    user_id=user_id,
-                    current_tier_id=None,
-                    joined_at=datetime.now(timezone.utc),
-                )
-                self.db.add(membership)
-                await self.db.flush()
-        except _SAIntegrityError:
-            pass
-
-        membership = await self.db.scalar(
-            select(Membership)
-            .options(
-                joinedload(Membership.user, innerjoin=True),
-                selectinload(Membership.current_tier),
-            )
-            .where(
-                Membership.partner_id == partner_id,
-                Membership.user_id == user_id,
-            )
-            .with_for_update()
-        )
-        if membership is None:
-            raise NoMembershipError(
-                f"Không thể tạo membership cho user {user_id} tại đối tác {partner_id}"
-            )
-        return membership
