@@ -7,7 +7,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
-from app.core.deps import get_partner_id, require_owner_in_partner
+from app.core.deps import get_current_user, get_partner_id, require_owner_in_partner
+from app.models.user import User
 
 router = APIRouter(prefix="/partner/uploads", tags=["partner-uploads"])
 
@@ -59,3 +60,39 @@ async def upload_image(
     # URL trả về dùng prefix /api/uploads/ để đi qua Next.js rewrite (/api/:path*)
     # → đồng nhất origin với FE; backend StaticFiles serve tại /uploads/.
     return {"url": f"/api/uploads/{partner_id}/{new_name}"}
+
+
+@router.post("/license")
+async def upload_license(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
+    """Upload ảnh giấy phép kinh doanh — dùng trước khi đăng ký partner.
+
+    Khác /partner/uploads/image (cần owner role): endpoint này chỉ cần
+    authenticated user — user chưa có partner khi đăng ký lần đầu.
+    Whitelist .jpg/.jpeg/.png/.webp, max 5MB.
+    Path: uploads/licenses/<user_id>/<uuid>.<ext>.
+    """
+    filename = (file.filename or "").strip()
+    ext = Path(filename).suffix.lower()
+    if ext not in ALLOWED_EXT:
+        raise HTTPException(
+            status_code=400,
+            detail="Định dạng không hỗ trợ. Chỉ chấp nhận .jpg, .jpeg, .png, .webp",
+        )
+
+    contents = await file.read()
+    MAX_LICENSE = 5 * 1024 * 1024
+    if len(contents) > MAX_LICENSE:
+        raise HTTPException(status_code=413, detail="Ảnh vượt quá 5MB")
+    if len(contents) == 0:
+        raise HTTPException(status_code=400, detail="File rỗng")
+
+    license_dir = UPLOAD_ROOT / "licenses" / str(current_user.id)
+    license_dir.mkdir(parents=True, exist_ok=True)
+    new_name = f"{uuid.uuid4().hex}{ext}"
+    target = license_dir / new_name
+    target.write_bytes(contents)
+
+    return {"url": f"/api/uploads/licenses/{current_user.id}/{new_name}"}

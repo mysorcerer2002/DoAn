@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.partner import PartnerCategory, PartnerStatus
 
@@ -20,6 +20,16 @@ class PartnerCreateRequest(BaseModel):
     tax_code: str | None = Field(default=None, max_length=20)
     website: str | None = Field(default=None, max_length=500)
     business_hours: str | None = Field(default=None, max_length=255)
+    business_license_url: str = Field(min_length=1, max_length=500)
+    accept_terms: bool
+    terms_version: str = Field(min_length=1, max_length=20)
+
+    @field_validator("accept_terms")
+    @classmethod
+    def _must_accept(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("Phải đồng ý điều khoản hợp đồng dịch vụ")
+        return v
 
 
 class PartnerUpdateRequest(BaseModel):
@@ -59,6 +69,11 @@ class PartnerResponse(BaseModel):
     settings: dict
     created_at: datetime
     activated_at: datetime | None
+    business_license_url: str | None = None
+    terms_accepted_at: datetime | None = None
+    terms_version: str | None = None
+    last_status_reason: str | None = None
+    last_status_changed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

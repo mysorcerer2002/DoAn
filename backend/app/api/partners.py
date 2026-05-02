@@ -41,7 +41,7 @@ from app.schemas.partner import (
     PartnerUpdateRequest,
 )
 from app.schemas.partner_staff import StaffCreateRequest, StaffPatchRequest
-from app.services.partner_service import PartnerNotFoundError, PartnerService
+from app.services.partner_service import PartnerNotFoundError, PartnerService, TermsVersionMismatchError
 from app.services.redemption_service import (
     InsufficientPointsError,
     OutOfStockError,
@@ -67,7 +67,10 @@ async def register_partner(
 ) -> PartnerResponse:
     """Owner đăng ký đối tác mới (status=pending, chờ Super Admin duyệt)."""
     service = PartnerService(db)
-    partner = await service.create_partner(owner=current_user, request=body)
+    try:
+        partner = await service.create_partner(owner=current_user, request=body)
+    except TermsVersionMismatchError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     return PartnerResponse.model_validate(partner)
 
 

@@ -90,6 +90,11 @@ class PartnerDetailResponse(BaseModel):
     total_revenue: int
     redemption_count: int
     reward_count: int
+    business_license_url: str | None = None
+    terms_accepted_at: datetime | None = None
+    terms_version: str | None = None
+    last_status_reason: str | None = None
+    last_status_changed_at: datetime | None = None
 
 
 class AdminPartnerListRow(BaseModel):

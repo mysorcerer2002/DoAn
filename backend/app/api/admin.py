@@ -313,6 +313,11 @@ async def get_partner_detail(
         total_revenue=int(total_revenue),
         redemption_count=redemption_count,
         reward_count=reward_count,
+        business_license_url=partner.business_license_url,
+        terms_accepted_at=partner.terms_accepted_at,
+        terms_version=partner.terms_version,
+        last_status_reason=partner.last_status_reason,
+        last_status_changed_at=partner.last_status_changed_at,
     )
 
 

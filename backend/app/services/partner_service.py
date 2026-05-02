@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.legal import CURRENT_TERMS_VERSION
 from app.core.slug import generate_slug, generate_unique_slug
 from app.models.partner import Partner, PartnerStatus
 from app.models.user import User
@@ -24,12 +25,23 @@ class InvalidStatusTransitionError(Exception):
     pass
 
 
+class TermsVersionMismatchError(Exception):
+    """Raised khi client gửi phiên bản điều khoản lỗi thời."""
+
+    pass
+
+
 class PartnerService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
     async def create_partner(self, *, owner: User, request: PartnerCreateRequest) -> Partner:
         """Tạo đối tác mới (status=pending). MVP final: 1 owner / shop, không có staff."""
+        if request.terms_version != CURRENT_TERMS_VERSION:
+            raise TermsVersionMismatchError(
+                f"Phiên bản điều khoản đã thay đổi. Vui lòng đọc lại bản {CURRENT_TERMS_VERSION}."
+            )
+
         base = generate_slug(request.name) or "shop"
         existing_slugs = set(
             (
@@ -54,6 +66,9 @@ class PartnerService:
             tax_code=request.tax_code,
             website=request.website,
             business_hours=request.business_hours,
+            business_license_url=request.business_license_url,
+            terms_accepted_at=datetime.now(timezone.utc),
+            terms_version=request.terms_version,
             settings={},
         )
         self.db.add(partner)
@@ -97,6 +112,9 @@ class PartnerService:
         partner.status = PartnerStatus.ACTIVE
         if partner.activated_at is None:
             partner.activated_at = datetime.now(timezone.utc)
+        partner.last_status_reason = reason
+        partner.last_status_changed_by = actor_user_id
+        partner.last_status_changed_at = datetime.now(timezone.utc)
         await self.db.flush()
         return partner
 
@@ -114,6 +132,9 @@ class PartnerService:
                 f"Cannot suspend partner in status {partner.status}"
             )
         partner.status = PartnerStatus.SUSPENDED
+        partner.last_status_reason = reason
+        partner.last_status_changed_by = actor_user_id
+        partner.last_status_changed_at = datetime.now(timezone.utc)
         await self.db.flush()
         return partner
 

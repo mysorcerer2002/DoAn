@@ -61,5 +61,17 @@ class Partner(Base, TimestampMixin):
     activated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    business_license_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    terms_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    last_status_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    last_status_changed_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    last_status_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     owner: Mapped["User"] = relationship("User", foreign_keys=[owner_user_id])
