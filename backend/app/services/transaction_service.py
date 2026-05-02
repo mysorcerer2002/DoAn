@@ -30,10 +30,6 @@ class NoActivePointRuleError(Exception):
     pass
 
 
-class NoMembershipError(Exception):
-    pass
-
-
 class MembershipDisabledError(Exception):
     """Owner đã khoá thẻ thành viên ở đối tác này — không cho tích điểm."""
     pass

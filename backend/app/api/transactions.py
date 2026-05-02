@@ -31,7 +31,6 @@ from app.services.partner_transaction_service import (
 from app.services.transaction_service import (
     MembershipDisabledError,
     NoActivePointRuleError,
-    NoMembershipError,
     TransactionService,
 )
 
@@ -98,8 +97,6 @@ async def create_qr_transaction(
     except QrPayloadInvalidError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except QrUserNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except NoMembershipError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except MembershipDisabledError as e:
         raise HTTPException(status_code=403, detail=str(e)) from e
