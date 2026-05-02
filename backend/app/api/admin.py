@@ -197,6 +197,7 @@ async def approve_partner(
         before_snapshot=before,
         after_snapshot=after,
     )
+    await db.commit()  # Tránh race với client query /admin/audit-logs ngay sau
 
     return PartnerResponse.model_validate(partner)
 
@@ -441,6 +442,7 @@ async def suspend_partner(
         before_snapshot=before,
         after_snapshot=after,
     )
+    await db.commit()  # Tránh race với client query /admin/audit-logs ngay sau
 
     return PartnerResponse.model_validate(partner)
 

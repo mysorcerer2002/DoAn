@@ -73,6 +73,7 @@ async def register_partner(
         partner = await service.create_partner(owner=current_user, request=body)
     except TermsVersionMismatchError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    await db.commit()  # Tránh race với client gọi tiếp /admin/partners/{id}/approve
     return PartnerResponse.model_validate(partner)
 
 
@@ -448,6 +449,7 @@ async def redeem_reward_self(
         raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    await db.commit()  # Tránh race với client gọi tiếp /partner/redemptions/use code này
     return RedemptionResponse.model_validate(redemption)
 
 
@@ -502,6 +504,7 @@ async def claim_free_reward(
         raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    await db.commit()  # Tránh race
     return RedemptionResponse.model_validate(redemption)
 
 

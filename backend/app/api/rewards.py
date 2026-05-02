@@ -41,6 +41,7 @@ async def create_reward(
 ) -> RewardResponse:
     service = RewardService(db)
     reward = await service.create_reward(partner_id=partner_id, request=body)
+    await db.commit()  # Tránh race với client gọi tiếp /users/me/redemptions hoặc /claim
     return RewardResponse.model_validate(reward)
 
 

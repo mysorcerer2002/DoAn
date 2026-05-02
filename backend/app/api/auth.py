@@ -74,6 +74,11 @@ async def register(
     except PhoneAlreadyExistsError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
+    # Explicit commit TRƯỚC khi return: get_db's yield-style cleanup commit SAU
+    # khi response gửi đi → race nếu client gọi tiếp với token này (vd /auth/me,
+    # /partner/register). Commit ở đây đảm bảo user visible trước khi token issue.
+    await db.commit()
+
     return TokenResponse(
         access_token=create_access_token(user_id=user.id),
         refresh_token=create_refresh_token(user_id=user.id),
