@@ -1,0 +1,4 @@
+Method,Name,Error,Occurrences
+POST,POST /auth/login (wrong),HTTPError('423 Client Error: Locked for url: POST /auth/login (wrong)'),25
+POST,POST /auth/login (wrong),HTTPError('401 Client Error: Unauthorized for url: POST /auth/login (wrong)'),5
+POST,POST /auth/login (wrong),HTTPError('429 Client Error: Too Many Requests for url: POST /auth/login (wrong)'),70

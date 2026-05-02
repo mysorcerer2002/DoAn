@@ -1,0 +1,5 @@
+Method,Name,Error,Occurrences
+POST,POST /auth/login,HTTPError('500 Server Error: Internal Server Error for url: POST /auth/login'),130
+POST,POST /users/me/rewards/{id}/claim,HTTPError('500 Server Error: Internal Server Error for url: POST /users/me/rewards/{id}/claim'),16
+POST,POST /users/me/rewards/{id}/claim,HTTPError('409 Client Error: Conflict for url: POST /users/me/rewards/{id}/claim'),44
+POST,POST /auth/login,HTTPError('401 Client Error: Unauthorized for url: POST /auth/login'),3
