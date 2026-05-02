@@ -14,7 +14,7 @@
 - Constraint name double-prefix: dùng tên thực tế `ck_rewards_ck_rewards_points_cost_positive` khi drop.
 - 3 schema Reward (Create/Update/Response) đều phải có `valid_from` đồng thời.
 - Mỗi phase 1 revision riêng (KHÔNG gộp 1 revision).
-- Partial unique index `ux_redemptions_user_reward_active` chống user spam claim.
+- Ràng buộc 1-voucher-1-user **chỉ áp cho `claim_free`** (kiểm ở tầng service, KHÔNG partial unique index DB) — tránh chặn nhầm luồng `redeem` (đổi điểm) khi user đổi cùng quà nhiều lần.
 - `get_current_user_unrestricted` chỉ áp 2 endpoint (không gồm `/auth/refresh` vì endpoint đó không gọi `get_current_user`).
 - Super_admin SKIP `must_change_password` flag.
 - `claim_free` dùng explicit guard sau fetch (không filter ở WHERE).
@@ -51,7 +51,7 @@
 | `backend/app/services/partner_service.py` | 5 | Modify | `create_partner` + `approve_partner` + `suspend_partner` nhận reason, actor |
 | `backend/app/api/partners.py` | 5 | Modify | `register_partner` truyền terms |
 | `backend/app/core/legal.py` | 5 | Create | `CURRENT_TERMS_VERSION` |
-| `backend/alembic/versions/<hex>_qt7_reward_free_voucher.py` | 6 | Create | Drop CK + add CK + `valid_from` + partial unique index |
+| `backend/alembic/versions/<hex>_qt7_reward_free_voucher.py` | 6 | Create | Drop CK rewards/redemptions cũ + add CK nonneg + cột `rewards.valid_from`. Ràng buộc 1-voucher-1-user chỉ áp cho `claim_free` ở tầng service — KHÔNG partial unique index DB. |
 | `backend/app/models/reward.py` | 6 | Modify | CK rename + cột `valid_from` |
 | `backend/app/schemas/reward.py` | 6 | Modify | 3 schema thêm `valid_from`, relax `points_cost` |
 | `backend/app/api/partners.py` | 6 | Modify | `POST /users/me/rewards/{id}/claim` |
@@ -2864,7 +2864,7 @@ git commit -m "feat(qt2): FE admin partner detail hiển thị giấy phép + To
 **Goal:** Reward `points_cost = 0` thành "voucher miễn phí"; thêm `valid_from`; user chỉ claim 1 voucher/reward.
 **Risk:** cao nhất — schema constraint thay đổi + endpoint mới + FE branching.
 
-### Task 6.1 — Migration relax CK + add `valid_from` + partial unique index
+### Task 6.1 — Migration relax CK rewards + redemptions + add `valid_from`
 
 **Files:**
 - Create: `backend/alembic/versions/<hex>_qt7_reward_free_voucher.py`
@@ -2913,17 +2913,12 @@ def upgrade() -> None:
         "points_spent_nonneg", "redemptions", "points_spent >= 0"
     )
 
-    # Partial unique index: 1 user 1 voucher pending/used per reward.
-    # CHÚ Ý: status lưu lowercase trong DB (verified pg) — KHÔNG dùng UPPERCASE.
-    op.execute("""
-        CREATE UNIQUE INDEX ux_redemptions_user_reward_active
-        ON redemptions(user_id, reward_id)
-        WHERE status IN ('pending','used')
-    """)
+    # KHÔNG có partial unique index — ràng buộc 1-voucher-1-user chỉ áp cho
+    # claim_free (free voucher) ở tầng service. Tránh chặn nhầm khi user đổi
+    # cùng quà 2 lần bằng điểm (sau khi voucher cũ đã used).
 
 
 def downgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS ux_redemptions_user_reward_active")
     op.drop_constraint("ck_redemptions_points_spent_nonneg", "redemptions", type_="check")
     op.create_check_constraint(
         "points_positive", "redemptions", "points_spent > 0"
@@ -2948,8 +2943,8 @@ docker exec loyalty-postgres-prod psql -U loyalty -d loyalty -c "\d rewards"
 # Expected: cột valid_from + CK ck_rewards_points_cost_nonneg
 
 docker exec loyalty-postgres-prod psql -U loyalty -d loyalty -c \
-  "SELECT indexname FROM pg_indexes WHERE tablename='redemptions';"
-# Expected: ux_redemptions_user_reward_active
+  "SELECT conname FROM pg_constraint WHERE conrelid='redemptions'::regclass;"
+# Expected: ck_redemptions_points_spent_nonneg (KHÔNG còn ck_redemptions_ck_redemptions_points_positive)
 ```
 
 ### Task 6.2 — Reward model + Redemption model CK + 3 schemas update
@@ -3083,7 +3078,7 @@ class RewardResponse(BaseModel):
 
 ```bash
 git add backend/app/models/reward.py backend/app/schemas/reward.py backend/alembic/versions/<hex>_qt7_reward_free_voucher.py
-git commit -m "feat(qt7): rewards relax CK points_cost >= 0 + valid_from + partial unique index"
+git commit -m "feat(qt7): rewards relax CK points_cost >= 0 + valid_from + redemptions CK nonneg"
 ```
 
 ### Task 6.3 — `RedemptionService.claim_free` + redeem guard
@@ -3178,7 +3173,7 @@ class WrongClaimMethodError(Exception):
 
 
 class AlreadyClaimedError(Exception):
-    """User đã claim voucher này (partial unique index vi phạm)."""
+    """User đã claim voucher miễn phí này rồi (kiểm ở tầng service, không có DB index)."""
     pass
 
 
@@ -3202,35 +3197,14 @@ class RedemptionService:
             raise WrongClaimMethodError(
                 "Reward này là voucher miễn phí, dùng /claim thay vì /redemptions"
             )
-        ...  # rest giữ nguyên: atomic stock + balance + code generation
-
-        # CRITICAL: bọc flush trong begin_nested() savepoint để IntegrityError
-        # không poison session → còn execute được compensation rollback.
-        self.db.add(redemption)
-        already_claimed = False
-        try:
-            async with self.db.begin_nested():
-                await self.db.flush()
-        except IntegrityError:
-            already_claimed = True
-
-        if already_claimed:
-            # Rollback compensation: stock + balance.
-            if reward.stock is not None:
-                await self.db.execute(
-                    update(Reward).where(Reward.id == reward_id)
-                    .values(stock=Reward.stock + 1)
-                )
-            await self.db.execute(
-                update(User).where(User.id == user_id)
-                .values(points_balance=User.points_balance + reward.points_cost)
-            )
-            raise AlreadyClaimedError("Bạn đã đổi quà này rồi")
-
-        # ledger insert (chỉ chạy khi flush thành công)...
+        ...  # rest giữ nguyên: atomic stock + balance + code generation + flush + ledger insert.
+        # Luồng `redeem` (đổi điểm) KHÔNG có ràng buộc 1-voucher-1-user — user có
+        # đủ điểm đổi bao nhiêu lần cũng được. Không cần savepoint pattern cho path này.
 
     async def claim_free(self, *, partner_id, user_id, reward_id, ttl_days=14):
         today = date.today()
+        # 1. Lock Reward FOR UPDATE — serialise concurrent claim cùng reward
+        # (cùng user hoặc khác user). Đây là điểm đồng bộ chính cho free voucher.
         reward = await self.db.scalar(
             select(Reward).where(
                 Reward.id == reward_id,
@@ -3248,6 +3222,20 @@ class RedemptionService:
                 "Reward này yêu cầu đổi bằng điểm, dùng /redemptions"
             )
 
+        # 2. Pre-check 1-voucher-1-user (chỉ áp cho free voucher).
+        # Nhờ Reward.with_for_update() ở Bước 1, không có race giữa check và insert
+        # cho cùng reward — concurrent calls cùng user sẽ serialise ở row lock.
+        existing = await self.db.scalar(
+            select(Redemption.id).where(
+                Redemption.user_id == user_id,
+                Redemption.reward_id == reward_id,
+                Redemption.status == RedemptionStatus.PENDING,
+            )
+        )
+        if existing is not None:
+            raise AlreadyClaimedError("Bạn đã nhận voucher này rồi")
+
+        # 3. Atomic decrement stock (per-shop cap).
         if reward.stock is not None:
             result = await self.db.execute(
                 update(Reward).where(Reward.id == reward_id, Reward.stock > 0)
@@ -3283,23 +3271,10 @@ class RedemptionService:
             expires_at=datetime.now(timezone.utc) + timedelta(days=ttl_days),
         )
 
-        # CRITICAL: savepoint pattern (xem comment ở redeem) — IntegrityError
-        # trên partial unique index không được phép poison outer transaction.
+        # 4. Insert redemption (không cần savepoint — pre-check ở Bước 2 đã chặn
+        # duplicate, không có DB constraint vi phạm).
         self.db.add(redemption)
-        already_claimed = False
-        try:
-            async with self.db.begin_nested():
-                await self.db.flush()
-        except IntegrityError:
-            already_claimed = True
-
-        if already_claimed:
-            if reward.stock is not None:
-                await self.db.execute(
-                    update(Reward).where(Reward.id == reward_id)
-                    .values(stock=Reward.stock + 1)
-                )
-            raise AlreadyClaimedError("Bạn đã nhận voucher này rồi")
+        await self.db.flush()
 
         # KHÔNG ghi point_ledger (delta=0 vô nghĩa)
         return redemption
@@ -3635,7 +3610,7 @@ docker exec loyalty-postgres-prod psql -U loyalty -d loyalty -c \
 
 ### Task 6.8 — Code-reviewer Phase 6
 
-- [ ] **Step 1: Dispatch reviewer.** Tập trung: race khi 10 user đồng thời claim cùng reward stock=3 (chỉ 3 success), partial unique index có cover all status đúng không, FE branching `is_active=false` reward.
+- [ ] **Step 1: Dispatch reviewer.** Tập trung: race khi 10 user đồng thời claim cùng reward stock=3 (chỉ 3 success), service-layer pre-check trong `claim_free` có race-safe khi 1 user double-click (Reward FOR UPDATE đủ để serialise?), FE branching `is_active=false` reward.
 - [ ] **Step 2: Fix.**
 
 ---

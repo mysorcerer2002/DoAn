@@ -423,7 +423,7 @@ async def claim_free(self, *, partner_id, user_id, reward_id, ttl_days=14):
     try:
         await self.db.flush()
     except IntegrityError as e:
-        # Partial unique index ux_redemptions_user_reward_active vi phạm
+        # Trường hợp duy nhất còn lại: collision redemption_code (uq_redemptions_partner_code)
         if reward.stock is not None:
             # Rollback stock đã trừ
             await self.db.execute(
@@ -437,15 +437,22 @@ async def claim_free(self, *, partner_id, user_id, reward_id, ttl_days=14):
     return redemption
 ```
 
-**Per-user uniqueness — partial unique index** trên `redemptions`:
+**Per-user uniqueness — service-layer pre-check** (chỉ áp cho `claim_free`, KHÔNG có DB index):
 
-```sql
-CREATE UNIQUE INDEX ux_redemptions_user_reward_active
-ON redemptions(user_id, reward_id)
-WHERE status IN ('PENDING','USED');
+Trước khi insert redemption mới trong `claim_free`, service truy vấn:
+```python
+existing = await db.scalar(
+    select(Redemption.id).where(
+        Redemption.user_id == user_id,
+        Redemption.reward_id == reward_id,
+        Redemption.status == RedemptionStatus.PENDING,
+    )
+)
+if existing is not None:
+    raise AlreadyClaimedError("Bạn đã nhận voucher này rồi")
 ```
 
-Đảm bảo 1 user chỉ claim 1 voucher per reward (cả khi spam concurrent). Áp dụng cho cả `redeem` (đổi điểm) lẫn `claim_free` — tận dụng chung index. Khi voucher EXPIRED hoặc bị admin cancel sau này → user có thể claim lại.
+`Reward.with_for_update()` ở Bước 1 của `claim_free` serialise các call cùng `reward_id` (cùng user hoặc khác user), nên không có race giữa pre-check và insert. Chỉ áp cho free voucher để tránh chặn nhầm khi user có đủ điểm muốn đổi cùng quà nhiều lần qua luồng `redeem`. Khi voucher cũ chuyển sang `used` hoặc `expired`, user có thể claim free voucher mới.
 
 **`RedemptionService.redeem`** — thêm guard sau fetch:
 ```python
@@ -682,7 +689,7 @@ class AuditLogListResponse(BaseModel):
 | QT1 | `<hex>_qt1_must_change_password.py` | `users.must_change_password BOOL DEFAULT FALSE NOT NULL` |
 | QT8 | `<hex>_qt8_audit_logs.py` | `audit_logs` table + indexes |
 | QT2 | `<hex>_qt2_partner_terms_license.py` | 6 cột partners |
-| QT7 | `<hex>_qt7_reward_free_voucher.py` | drop CK `ck_rewards_ck_rewards_points_cost_positive` + add CK `ck_rewards_points_cost_nonneg` + add `rewards.valid_from` + add partial unique index `ux_redemptions_user_reward_active` trên `redemptions(user_id, reward_id) WHERE status IN ('PENDING','USED')` |
+| QT7 | `<hex>_qt7_reward_free_voucher.py` | drop CK `ck_rewards_ck_rewards_points_cost_positive` + add CK `ck_rewards_points_cost_nonneg` + drop CK `ck_redemptions_ck_redemptions_points_positive` + add CK `ck_redemptions_points_spent_nonneg` + add `rewards.valid_from`. Ràng buộc 1-voucher-1-user kiểm tại tầng service `claim_free` (KHÔNG partial unique index DB). |
 
 Backfill: rỗng (default values + NULL phù hợp).
 
@@ -724,7 +731,7 @@ Mỗi phase: code → test → smoke → code-reviewer → fix critical → comm
 |---|---|
 | `must_change_password` middleware block /admin → admin tự khoá khi forgot-password | Whitelist `/admin/users/{me}/reset-password` chỉ áp dụng cho admin. Hoặc: super_admin không bao giờ bị set `must_change_password=True` trong reset flow (skip ở service). Chốt: super_admin SKIP. |
 | Migration thêm cột partners có default NULL → existing partners không có `terms_accepted_at` → policy có cần backfill? | Không backfill. Existing partner skip flow mới. Cảnh báo trong báo cáo: "kể từ v1.0 partners mới phải accept terms". |
-| QT7 free voucher abuse — 1 user spam claim | Partial unique index `ux_redemptions_user_reward_active` đảm bảo 1 user chỉ claim 1 voucher/reward khi còn PENDING/USED. Rate limit `10/minute` defense-in-depth. Stock cap giới hạn tổng số phát ra theo phía partner. |
+| QT7 free voucher abuse — 1 user spam claim | Service-layer pre-check trong `claim_free`: query existing PENDING redemption cho `(user_id, reward_id)`, có thì raise `AlreadyClaimedError`. `Reward.with_for_update()` serialise các call concurrent. KHÔNG dùng partial unique index DB để không chặn nhầm luồng `redeem` (đổi điểm) khi user đổi cùng quà nhiều lần. Rate limit `10/minute` defense-in-depth. Stock cap giới hạn tổng phát ra. |
 | Audit log table tăng nhanh | Index trên (target_type, target_id) + created_at. MVP không cần partition. Plan thresh: nếu > 100k rows trong 1 năm → partition. |
 | Phone bắt buộc khi register breaking existing tests | Update test fixtures + factories thêm phone. |
 
