@@ -61,13 +61,22 @@ def test_a03b_dang_nhap_bang_phone(http_client):
     assert len(tok) > 50
 
 
-def test_a04_dang_nhap_sai_pwd(http):
-    """TC-A04: Email/SĐT đúng + mật khẩu sai → 401, không cấp token."""
-    r = http("POST", "/auth/login", body={
-        "identifier": CUSTOMER1_EMAIL, "password": "wrong-password-123",
-    })
-    assert r.status_code == 401, f"Expected 401, got {r.status_code}"
-    assert "access_token" not in r.text
+def test_a04_dang_nhap_sai_thong_tin(http):
+    """TC-A04: Đăng nhập sai thông tin → 401, không cấp token.
+
+    Phủ ba biến thể: pwd sai với email tồn tại, pwd sai với SĐT tồn tại,
+    và email không tồn tại. Backend trả 401 đồng nhất cho mọi trường hợp
+    để tránh oracle leak thông tin tài khoản nào tồn tại.
+    """
+    cases = [
+        {"identifier": CUSTOMER1_EMAIL, "password": "wrong-password-123"},
+        {"identifier": "0901234501", "password": "wrong-password-123"},
+        {"identifier": "khong-ton-tai@example.com", "password": "test1234"},
+    ]
+    for body in cases:
+        r = http("POST", "/auth/login", body=body)
+        assert r.status_code == 401, f"Case {body['identifier']}: expected 401, got {r.status_code}"
+        assert "access_token" not in r.text
 
 
 def test_a05_quen_mat_khau(http):

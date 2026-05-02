@@ -71,7 +71,7 @@ BASE_URL=https://loyalty.ecom-bill.com/api python -m pytest tests_e2e
 | TC-A02 | `test_a02_dang_ky_email_trung` | Email trùng | 409 |
 | TC-A03a | `test_a03a_dang_nhap_bang_email` | Email + pwd đúng | JWT |
 | TC-A03b | `test_a03b_dang_nhap_bang_phone` | SĐT + pwd đúng | JWT |
-| TC-A04 | `test_a04_dang_nhap_sai_pwd` | Email/SĐT đúng, pwd sai | 401 |
+| TC-A04 | `test_a04_dang_nhap_sai_thong_tin` | Sai thông tin (pwd sai hoặc identifier không tồn tại) | 401 |
 | TC-A05 | `test_a05_quen_mat_khau` | Forgot password | 200 + flag TRUE |
 | TC-A06 | `test_a06_truy_cap_khi_buoc_doi_pwd` | Token với flag → API khác | 423 password_change_required |
 | TC-A07 | `test_a07_doi_mat_khau_va_truy_cap_lai` | Đổi pwd → API khác | 204 + 200 |
