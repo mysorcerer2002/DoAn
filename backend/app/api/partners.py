@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select
@@ -277,6 +278,7 @@ async def list_partner_rewards_for_member(
     ) is not None
     balance = user.points_balance
 
+    today = date.today()
     rewards = (
         await db.scalars(
             select(Reward)
@@ -284,6 +286,8 @@ async def list_partner_rewards_for_member(
                 Reward.partner_id == partner.id,
                 Reward.deleted_at.is_(None),
                 Reward.is_active.is_(True),
+                # NEW: ẩn reward hết hạn (Phase 6 sẽ thêm valid_from filter khi cột có)
+                (Reward.valid_until.is_(None)) | (Reward.valid_until >= today),
             )
             .order_by(Reward.points_cost.asc())
         )
@@ -459,6 +463,7 @@ async def list_my_rewards(
     partner_ids = list(partner_names.keys())
     balance = user.points_balance
 
+    today = date.today()
     rewards = (
         await db.scalars(
             select(Reward)
@@ -466,6 +471,8 @@ async def list_my_rewards(
                 Reward.partner_id.in_(partner_ids),
                 Reward.deleted_at.is_(None),
                 Reward.is_active.is_(True),
+                # NEW: ẩn reward hết hạn (Phase 6 sẽ thêm valid_from filter khi cột có)
+                (Reward.valid_until.is_(None)) | (Reward.valid_until >= today),
             )
             .order_by(Reward.points_cost.asc())
         )

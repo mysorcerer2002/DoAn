@@ -1,7 +1,7 @@
 """RedemptionService — atomic đổi quà + ledger (HYBRID: scope user_id global)."""
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -62,8 +62,10 @@ class RedemptionService:
         SELECT FOR UPDATE trên users (giảm contention khi user đổi quà cùng
         lúc earn ở shop khác).
         """
+        today = date.today()
         # 1. Get reward — FOR UPDATE để khoá points_cost/is_active/deleted_at
         # khỏi admin edit concurrent.
+        # NEW: kiểm hạn dùng (Phase 6 sẽ thêm valid_from filter khi cột có)
         reward = await self.db.scalar(
             select(Reward)
             .where(
@@ -71,6 +73,7 @@ class RedemptionService:
                 Reward.partner_id == partner_id,
                 Reward.is_active.is_(True),
                 Reward.deleted_at.is_(None),
+                (Reward.valid_until.is_(None)) | (Reward.valid_until >= today),
             )
             .with_for_update()
         )

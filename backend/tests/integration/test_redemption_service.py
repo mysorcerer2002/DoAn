@@ -1,6 +1,6 @@
 """Integration tests: Redemption service — redeem, use, edge cases."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -201,3 +201,49 @@ async def test_redeem_creates_ledger_entry(db_session):
     assert len(ledger_list) == 1
     assert ledger_list[0].delta == -100
     assert ledger_list[0].balance_after == 400
+
+
+@pytest.mark.asyncio
+async def test_redeem_rejects_expired_reward(
+    db_session, partner_factory, user_factory, reward_factory
+):
+    """Reward valid_until < today → ValueError (giữ generic message)."""
+    partner = await partner_factory(db_session)
+    user = await user_factory(db_session, points_balance=1000)
+    reward = await reward_factory(
+        db_session,
+        partner_id=partner.id,
+        points_cost=100,
+        stock=10,
+        valid_until=date.today() - timedelta(days=1),  # hết hạn hôm qua
+    )
+    from app.services.redemption_service import RedemptionService
+    svc = RedemptionService(db_session)
+    with pytest.raises(ValueError):
+        await svc.redeem(partner_id=partner.id, user_id=user.id, reward_id=reward.id)
+
+
+@pytest.mark.asyncio
+async def test_redeem_accepts_today_boundary(
+    db_session, partner_factory, user_factory, reward_factory
+):
+    """valid_until = today (inclusive) → success."""
+    partner = await partner_factory(db_session)
+    user = await user_factory(db_session, points_balance=1000)
+    reward = await reward_factory(
+        db_session,
+        partner_id=partner.id,
+        points_cost=100,
+        stock=10,
+        valid_until=date.today(),
+    )
+    # User cần membership để redeem
+    from app.models.membership import Membership
+    db_session.add(Membership(partner_id=partner.id, user_id=user.id))
+    await db_session.flush()
+
+    from app.services.redemption_service import RedemptionService
+    svc = RedemptionService(db_session)
+    redemption = await svc.redeem(partner_id=partner.id, user_id=user.id, reward_id=reward.id)
+    assert redemption is not None
+    assert redemption.status.value == "pending"
