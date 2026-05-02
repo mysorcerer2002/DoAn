@@ -131,6 +131,12 @@ async def user_factory():
 
 @pytest_asyncio.fixture
 async def partner_factory():
+    """Tạo Partner; auto-create owner User nếu owner_user=None.
+
+    Khi test cần đăng nhập dưới quyền chủ shop, pass `owner_user=user` rõ ràng
+    để giữ tham chiếu đến User object. Nhánh auto-create chỉ dùng cho test
+    không quan tâm danh tính owner (chỉ cần partner tồn tại).
+    """
     async def _factory(db, *, name=None, status=PartnerStatus.ACTIVE,
                        category=PartnerCategory.CAFE, owner_user=None):
         if name is None:
@@ -219,18 +225,26 @@ def _mint_token(user_id: int) -> str:
 
 @pytest_asyncio.fixture
 async def admin_token(db_session, user_factory):
+    """JWT cho 1 super_admin user mới được tạo riêng cho fixture này.
+
+    Token KHÔNG tương ứng với bất kỳ User object nào trả về từ `user_factory`
+    trong cùng test. Nếu test cần truy cập User object đứng sau token, hãy
+    `await user_factory(db_session, system_role='super_admin')` rồi gọi
+    `create_access_token(user_id=user.id)` thay vì dùng fixture này.
+    """
     admin = await user_factory(db_session, system_role="super_admin")
     return _mint_token(admin.id)
 
 
 @pytest_asyncio.fixture
 async def user_token(db_session, user_factory):
+    """JWT cho 1 regular user mới. Xem note ở `admin_token` về cách lấy User object."""
     user = await user_factory(db_session)
     return _mint_token(user.id)
 
 
 @pytest_asyncio.fixture
 async def customer_token(db_session, user_factory):
-    """Alias customer_token = user_token (regular role)."""
+    """Alias customer_token = user_token (regular role). Xem note ở `admin_token`."""
     user = await user_factory(db_session)
     return _mint_token(user.id)
