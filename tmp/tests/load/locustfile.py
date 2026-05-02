@@ -14,15 +14,14 @@ Setup helpers (chạy trước Locust):
 
 from __future__ import annotations
 
+import json
 import os
 import random
-import secrets
 import string
-import sys
 from datetime import datetime
+from pathlib import Path
 
-import requests
-from locust import HttpUser, between, events, task
+from locust import HttpUser, between, task
 from locust.exception import StopUser
 
 BASE_PATH = "/api"
@@ -32,6 +31,16 @@ ADMIN_PWD = "admin1234"
 OWNER_EMAIL = "owner@cafe.vn"
 OWNER_PWD = "owner1234"
 TEST_CUSTOMER_PWD = "test1234"
+
+# Pre-cached tokens (chạy `python setup_data.py cache_tokens 200` trước Locust)
+_TOKENS_FILE = Path(__file__).parent / "tokens.json"
+if _TOKENS_FILE.exists():
+    _CACHED = json.loads(_TOKENS_FILE.read_text())
+    CUSTOMER_TOKENS: list[str] = _CACHED.get("customers", [])
+    CACHED_OWNER_TOKEN: str = _CACHED.get("owner_token", "")
+    CACHED_PARTNER_ID: int = _CACHED.get("partner_id", 0)
+else:
+    CUSTOMER_TOKENS, CACHED_OWNER_TOKEN, CACHED_PARTNER_ID = [], "", 0
 
 
 def random_ip() -> str:
@@ -58,21 +67,13 @@ class LoadTestRedeemRace(HttpUser):
     REWARD_ID = int(os.getenv("REDEEM_REWARD_ID", "1"))
 
     def on_start(self):
-        # Mỗi virtual user dùng 1 test customer khác nhau từ pool seeded
-        idx = random.randint(1, 100)
-        email = f"test+{idx:04d}@e2e.vn"
-        r = self.client.post(
-            f"{BASE_PATH}/auth/login",
-            json={"identifier": email, "password": TEST_CUSTOMER_PWD},
-            headers={"X-Forwarded-For": random_ip()},
-            name="POST /auth/login",
-        )
-        self.token = r.json().get("access_token") if r.status_code == 200 else None
+        # Pre-cached token (tránh bcrypt bottleneck — race test phải đo race trên redeem, không đo login)
+        if not CUSTOMER_TOKENS:
+            raise StopUser()
+        self.token = random.choice(CUSTOMER_TOKENS)
 
     @task
     def redeem(self):
-        if not self.token:
-            return
         self.client.post(
             f"{BASE_PATH}/users/me/redemptions",
             json={"reward_id": self.REWARD_ID},
@@ -91,23 +92,17 @@ class LoadTestRedeemRace(HttpUser):
 class LoadTestFreeClaimRace(HttpUser):
     wait_time = between(0, 0.05)
     REWARD_ID = int(os.getenv("FREE_REWARD_ID", "1"))
+    _idx_counter = [0]  # class-level counter — mỗi user lấy 1 token unique (test 1-per-user)
 
     def on_start(self):
-        # Mỗi user 1 customer khác (không trùng → cover "mỗi client max 1 voucher")
-        idx = random.randint(1, 200)
-        email = f"test+{idx:04d}@e2e.vn"
-        r = self.client.post(
-            f"{BASE_PATH}/auth/login",
-            json={"identifier": email, "password": TEST_CUSTOMER_PWD},
-            headers={"X-Forwarded-For": random_ip()},
-            name="POST /auth/login",
-        )
-        self.token = r.json().get("access_token") if r.status_code == 200 else None
+        if not CUSTOMER_TOKENS:
+            raise StopUser()
+        # Round-robin token để mỗi virtual user là 1 customer khác
+        self.token = CUSTOMER_TOKENS[self._idx_counter[0] % len(CUSTOMER_TOKENS)]
+        self._idx_counter[0] += 1
 
     @task
     def claim_free(self):
-        if not self.token:
-            return
         self.client.post(
             f"{BASE_PATH}/users/me/rewards/{self.REWARD_ID}/claim",
             headers=auth_headers(self.token),
@@ -126,21 +121,11 @@ class LoadTestPOSThroughput(HttpUser):
     wait_time = between(0.05, 0.2)
 
     def on_start(self):
-        # Login owner Cafe
-        r = self.client.post(
-            f"{BASE_PATH}/auth/login",
-            json={"identifier": OWNER_EMAIL, "password": OWNER_PWD},
-            headers={"X-Forwarded-For": random_ip()},
-            name="POST /auth/login",
-        )
-        self.owner_token = r.json()["access_token"]
-        # Get partner_id
-        r = self.client.get(
-            f"{BASE_PATH}/users/me/partners-as-staff",
-            headers=auth_headers(self.owner_token),
-            name="GET /users/me/partners-as-staff",
-        )
-        self.partner_id = r.json()[0]["id"]
+        # Pre-cached owner token + partner_id (tránh login bottleneck)
+        if not CACHED_OWNER_TOKEN:
+            raise StopUser()
+        self.owner_token = CACHED_OWNER_TOKEN
+        self.partner_id = CACHED_PARTNER_ID
         # Mỗi user gắn 1 customer phone (50 user → 50 phone khác nhau)
         idx = random.randint(1, 50)
         self.customer_phone = f"099{idx:07d}"
@@ -170,19 +155,10 @@ class LoadTestAutoEnroll(HttpUser):
     wait_time = between(0, 0.1)
 
     def on_start(self):
-        r = self.client.post(
-            f"{BASE_PATH}/auth/login",
-            json={"identifier": OWNER_EMAIL, "password": OWNER_PWD},
-            headers={"X-Forwarded-For": random_ip()},
-            name="POST /auth/login",
-        )
-        self.owner_token = r.json()["access_token"]
-        r = self.client.get(
-            f"{BASE_PATH}/users/me/partners-as-staff",
-            headers=auth_headers(self.owner_token),
-            name="GET /users/me/partners-as-staff",
-        )
-        self.partner_id = r.json()[0]["id"]
+        if not CACHED_OWNER_TOKEN:
+            raise StopUser()
+        self.owner_token = CACHED_OWNER_TOKEN
+        self.partner_id = CACHED_PARTNER_ID
         # Phone duy nhất cho user này — 10 ký tự đúng định dạng VN (098 + 7 số)
         self.unique_phone = f"098{random.randint(0, 9999999):07d}"
 

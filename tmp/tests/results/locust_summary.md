@@ -2,15 +2,19 @@
 
 Môi trường: Backend FastAPI + PostgreSQL 15 trong container Docker, FE proxy `http://localhost:3199/api`. Run 2026-05-03.
 
+**Lưu ý thiết kế:** mọi kịch bản dùng *pre-cached JWT token* (chạy `python setup_data.py cache_tokens 200` trước Locust) để loại bỏ cổ chai bcrypt khi login đồng thời 100-200 user. Việc này tách rõ "test race trên endpoint nghiệp vụ" khỏi "test hiệu năng login" — đúng theo intent kịch bản LT.
+
+Báo cáo HTML chi tiết của từng kịch bản (đầy đủ chart RPS / response time / users): `lt0X.html`.
+
 ## Bảng tổng kết
 
-| Mã | Cấu hình tải | Throughput / Latency | Verify DB | Trạng thái |
+| Mã | Cấu hình tải | Số liệu Locust (HTML) | Verify DB | Trạng thái |
 |---|---|---|---|---|
-| **LT-01** | 100 client × 1 redeem reward stock=5 | 5 success / 63 failed (out_of_stock) trên 68 redemption requests | `stock=0`, `5 issued`, `5000 points spent` | **Đạt** — đúng 5 voucher phát ra, không over-issuance |
-| **LT-02** | 200 client × 1 claim free voucher stock=10 | 10 success / 44 failed (409) trên 67 claim requests | `stock=0`, `10 issued`, `10 unique_users` | **Đạt** — đúng 10 voucher, mỗi khách tối đa 1 (constraint 1-per-user) |
-| **LT-03** | 50 client × POS earn × 5 phút | 14.922 req thành công, 0 fail. Throughput **49.89 req/s**, p50=790ms, p95=1100ms | — | **Một phần đạt** — chính xác 100% nhưng throughput dưới spec (target >100 req/s, p95 <200ms) do bcrypt + atomic ledger |
-| **LT-04** | 50 khách mới (phone unique) auto-enroll | 50 req thành công, 0 fail | `50 memberships`, `50 unique users`, `0 duplicates` | **Đạt** — UniqueConstraint(partner_id, user_id) ngăn duplicate dưới race |
-| **LT-05** | 1 client × 100 wrong logins (cùng IP, cùng victim) | 5 đầu trả 401 → 25 trả 423 (account locked 15 phút) → 70 trả 429 (rate limit per-IP) | `5 failed_attempts logged` | **Đạt** — dual protection: lock-by-account (423) + rate-limit-per-IP (429) |
+| **LT-01** | 100 client × 1 redeem reward stock=5 | **100/100 req** trong 1.6s; 5 success / 95 fail (409 out_of_stock); p50=1300ms, p95=1500ms | `stock=0`, `5 redemptions`, `5 unique_users` | **Đạt** — đúng 5 voucher phát ra, không over-issuance |
+| **LT-02** | 200 client × 1 claim free voucher stock=10 | **200/200 req** trong 3.4s; 10 success / 190 fail (409); p50=2600ms, p95=3200ms | `stock=0`, `10 redemptions`, `10 unique_users` | **Đạt** — đúng 10 voucher, mỗi khách max 1 |
+| **LT-03** | 50 client × POS earn × 5 phút | **16.013 req thành công, 0 fail**; throughput=53.53 req/s; p50=790ms, p95=1100ms, p99=1300ms | — | **Một phần đạt** — đúng 100%, throughput dưới target (>100 req/s, p95<200ms) do 1-worker FastAPI + bcrypt + atomic ledger |
+| **LT-04** | 50 khách mới (phone unique) auto-enroll | **50/50 req**, 0 fail; p50=1300ms, p95=1500ms | `50 memberships`, `50 unique_users`, `0 duplicates` | **Đạt** — UniqueConstraint(partner_id, user_id) ngăn duplicate |
+| **LT-05** | 1 client × 100 wrong logins (cùng IP, cùng victim) | **5×401 → 25×423 → 70×429**; p95=410ms | `5 failed_attempts logged` | **Đạt** — dual protection: lock-by-account (423) + rate-limit-per-IP (429) |
 
 ## Phân tích chi tiết
 
@@ -18,13 +22,13 @@ Môi trường: Backend FastAPI + PostgreSQL 15 trong container Docker, FE proxy
 
 **Spec:** 1 reward stock=5, 100 client cùng đổi → 5 success, 95 out_of_stock; tổng điểm trừ chính xác 5×1000.
 
-**Kết quả thực tế:**
-- 100 client login (32 thất bại do bcrypt overload backend)
-- 68 redeem requests gửi đi
+**Kết quả thực tế (run 04:22):**
+- 100 redeem requests đồng thời (pre-cached tokens, không bottleneck login)
 - 5 thành công (201) → đúng max stock
-- 63 thất bại 409 out_of_stock
-- Reward.stock cuối = 0
-- Total points spent = 5000 (5 × 1000)
+- 95 thất bại 409 out_of_stock
+- Reward.stock cuối = **0**
+- DB: `5 redemptions / 5 unique users` cho `reward_id=141`
+- p50=1300ms, p95=1500ms (do contend nặng trên row reward.stock)
 
 **Cơ chế:** `UPDATE rewards SET stock = stock - 1 WHERE id = ? AND stock > 0` — atomic, chỉ commit khi stock > 0. Race condition không tạo over-issuance.
 
@@ -32,13 +36,12 @@ Môi trường: Backend FastAPI + PostgreSQL 15 trong container Docker, FE proxy
 
 **Spec:** 1 đợt voucher miễn phí stock=10, 200 client cùng claim → 10 success, 190 fail; mỗi khách max 1 voucher.
 
-**Kết quả thực tế:**
-- 200 client login
-- 67 claim requests gửi đi (login chậm do bcrypt nên không phải tất cả 200 kịp claim)
+**Kết quả thực tế (run 04:23):**
+- 200 claim requests đồng thời (mỗi virtual user 1 token customer khác — round-robin pool)
 - 10 thành công (201)
-- 44 thất bại 409 (out_of_stock + already_claimed)
-- 16 fail 500 (backend overload)
-- 10 unique_users → mỗi khách chỉ 1 voucher
+- 190 thất bại 409 (out_of_stock + already_claimed)
+- DB: `10 redemptions / 10 unique users` cho `reward_id=142`
+- p50=2600ms, p95=3200ms
 
 **Cơ chế:** atomic stock decrement + service-layer pre-check `existing PENDING redemption (user_id, reward_id)` → block 1-per-user.
 
@@ -46,12 +49,13 @@ Môi trường: Backend FastAPI + PostgreSQL 15 trong container Docker, FE proxy
 
 **Spec:** 50 client × 5 phút, throughput >100 req/s, p95 <200ms.
 
-**Kết quả thực tế:**
-- Tổng request: 15.022, fail rate 0%
-- Throughput: **49.89 req/s** (target 100)
-- Latency: p50=790ms, p95=1100ms, p99=1500ms (target 200ms)
+**Kết quả thực tế (run 04:24-04:29):**
+- Tổng request: **16.013**, fail rate **0%**
+- Throughput: **53.53 req/s** (target 100)
+- Latency: p50=790ms, p95=1100ms, p99=1300ms, max=2100ms (target p95<200ms)
+- Avg=796ms, Min=32ms
 
-**Phân tích:** Backend đơn worker, mỗi POS earn = atomic UPDATE points_balance + INSERT point_ledger + recompute tier (read tier table) → ~600-800ms/request. 50 concurrent → throughput ceiling ~50 req/s. Không phải bug, là giới hạn hiệu năng của setup hiện tại.
+**Phân tích:** Backend đơn worker, mỗi POS earn = atomic UPDATE points_balance + INSERT point_ledger + recompute tier (read tier table) → ~600-800ms/request. 50 concurrent → throughput ceiling ~53 req/s. Không phải bug, là giới hạn hiệu năng của setup 1 worker hiện tại.
 
 **Đề xuất nâng cao:** tăng worker FastAPI (uvicorn `--workers 4`), tối ưu tier recompute (cache trong session), hoặc tách POS earn thành async task.
 
@@ -59,9 +63,10 @@ Môi trường: Backend FastAPI + PostgreSQL 15 trong container Docker, FE proxy
 
 **Spec:** 50 khách mới (phone chưa từng giao dịch) cùng được tích điểm → mỗi khách có đúng 1 membership, không trùng.
 
-**Kết quả thực tế:**
-- 50 yêu cầu thành công, 0 fail
-- DB: 50 memberships mới với phone 098*, 50 unique users, 0 duplicates
+**Kết quả thực tế (run 04:23):**
+- 50 yêu cầu POS earn thành công (201), 0 fail
+- DB: 50 memberships mới (phone 098*) trong cửa sổ 5 phút, 50 unique users
+- p50=1300ms, p95=1500ms
 
 **Cơ chế:** `UniqueConstraint(partner_id, user_id)` + `find_or_create_member` dùng savepoint khi gặp `IntegrityError` race → re-fetch.
 
@@ -84,13 +89,44 @@ Cả 2 cơ chế trigger độc lập. Trong test này IP cố định nên rate
 
 ## Output files
 
-- `tmp/tests/results/lt01_*.csv` — chi tiết LT-01 (stats + history)
-- `tmp/tests/results/lt02_*.csv` — LT-02
-- `tmp/tests/results/lt03_*.csv` — LT-03 (chứa response time history qua 5 phút)
-- `tmp/tests/results/lt04_*.csv` — LT-04
-- `tmp/tests/results/lt05_*.csv` — LT-05
+Mỗi kịch bản LT-0X gồm 6 file:
 
-CSV chứa bảng `_stats.csv` (tổng req, fail, p50/p95/p99) và `_failures.csv` (chi tiết lỗi).
+- `lt0X.html` — **báo cáo HTML self-contained của Locust** (mở trong browser thấy 3 chart: RPS theo thời gian, response time theo thời gian, user count) — dùng cho phụ lục báo cáo
+- `lt0X_stats.csv` — bảng tổng req, fail, p50/p75/p90/p95/p99/p100, throughput
+- `lt0X_stats_history.csv` — chi tiết theo từng giây (dùng để vẽ chart custom nếu muốn)
+- `lt0X_failures.csv` — chi tiết các yêu cầu fail (status, message)
+- `lt0X_exceptions.csv` — Python exception nếu có
+
+## Cách chạy lại
+
+### Lệnh nhanh (headless + xuất HTML)
+
+```bash
+cd tmp/tests/load
+# 1) Setup data 1 lần (200 customer + login pre-cache token)
+python setup_data.py create_test_customers 200
+python setup_data.py cache_tokens 200
+python setup_data.py setup_lt01 5    # in REDEEM_REWARD_ID
+python setup_data.py setup_lt02 10   # in FREE_REWARD_ID
+python setup_data.py setup_lt05_victim
+
+# 2) Chạy từng kịch bản (export reward_id từ bước trên)
+REDEEM_REWARD_ID=141 locust -f locustfile.py LoadTestRedeemRace --host=http://localhost:3199 --headless -u 100 -r 100 -t 30s --csv=../results/lt01 --html=../results/lt01.html
+FREE_REWARD_ID=142 locust -f locustfile.py LoadTestFreeClaimRace --host=http://localhost:3199 --headless -u 200 -r 200 -t 30s --csv=../results/lt02 --html=../results/lt02.html
+locust -f locustfile.py LoadTestPOSThroughput --host=http://localhost:3199 --headless -u 50 -r 10 -t 5m --csv=../results/lt03 --html=../results/lt03.html
+locust -f locustfile.py LoadTestAutoEnroll --host=http://localhost:3199 --headless -u 50 -r 50 -t 30s --csv=../results/lt04 --html=../results/lt04.html
+locust -f locustfile.py LoadTestBruteForce --host=http://localhost:3199 --headless -u 1 -r 1 -t 60s --csv=../results/lt05 --html=../results/lt05.html
+```
+
+### Chạy bằng Locust Web UI (cho screenshot real-time)
+
+Bỏ flag `--headless`, mở `http://localhost:8089`:
+
+```bash
+REDEEM_REWARD_ID=141 locust -f locustfile.py LoadTestRedeemRace --host=http://localhost:3199
+```
+
+Form trên web UI: Number of users + Spawn rate → click **Start swarming**. Tab **Charts** hiển thị 3 biểu đồ live; tab **Download Data** có nút **Download Report (HTML)** giống `--html`.
 
 ## Khuyến nghị cập nhật báo cáo Chương 4
 
@@ -98,15 +134,15 @@ CSV chứa bảng `_stats.csv` (tổng req, fail, p50/p95/p99) và `_failures.cs
 
 | Mã | Cấu hình tải | Kết quả thực tế | Trạng thái |
 |---|---|---|---|
-| LT-01 | 100 client × 1 yêu cầu | 5 success, 63 trả `out_of_stock`; tồn kho cuối = 0; tổng điểm trừ = 5.000 (chính xác 5×1.000) | Đạt |
-| LT-02 | 200 client × 1 yêu cầu | 10 voucher phát ra; mỗi client tối đa 1 voucher (10 unique users); 44 trả `out_of_stock`/`already_claimed` | Đạt |
-| LT-03 | 50 client × 5 phút | Throughput 49.89 req/s, p50=790ms, p95=1.100ms, p99=1.500ms; **0 lỗi 5xx** | **Một phần đạt** — chính xác 100%, throughput dưới target do giới hạn 1-worker FastAPI |
+| LT-01 | 100 client × 1 yêu cầu | 100 redeem requests; 5 success, **95 trả `out_of_stock` (409)**; tồn kho cuối = 0; tổng điểm trừ = 5.000 (chính xác 5×1.000) | Đạt |
+| LT-02 | 200 client × 1 yêu cầu | 200 claim requests; 10 voucher phát ra; mỗi client tối đa 1 voucher (10 unique users); **190 trả `out_of_stock`/`already_claimed`** | Đạt |
+| LT-03 | 50 client × 5 phút | 16.013 req thành công, **0 lỗi 5xx**; throughput 53,53 req/s, p50=790ms, p95=1.100ms, p99=1.300ms | **Một phần đạt** — chính xác 100%, throughput dưới target do giới hạn 1-worker FastAPI |
 | LT-04 | 50 client × 1 yêu cầu | Đúng 50 membership được tạo, 50 unique users, 0 duplicate | Đạt |
 | LT-05 | 1 client × 100 yêu cầu | 5 đầu trả 401, 25 kế trả 423 LOCKED, 70 cuối trả 429 Too Many Requests; `login_log` ghi 5 failed attempts | Đạt |
 
 ### Mục 4.3.1 (race condition) — số liệu cập nhật
 
-> Đúng 5 yêu cầu đầu tiên thành công, 63 yêu cầu sau nhận lỗi `out_of_stock` (409 Conflict). Sau khi test hoàn tất, tồn kho phần thưởng còn lại bằng 0, tổng số điểm trừ ra khỏi các ví đúng bằng 5 × 1.000 = 5.000 điểm. Không có ví nào âm điểm, không có voucher trùng.
+> Đúng 5 yêu cầu thành công, 95 yêu cầu còn lại nhận lỗi `out_of_stock` (409 Conflict). Sau khi test hoàn tất, tồn kho phần thưởng còn lại bằng 0, tổng số điểm trừ ra khỏi các ví đúng bằng 5 × 1.000 = 5.000 điểm. Không có ví nào âm điểm, không có voucher trùng. Báo cáo HTML chi tiết tại `tmp/tests/results/lt01.html` (chứa biểu đồ RPS + response time + chart user count theo thời gian).
 
 ### Mục 4.3.2 (rate limit) — số liệu cập nhật
 

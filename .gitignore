@@ -63,3 +63,6 @@ backend/test_result.txt
 
 # Stitch design mockups (local only)
 stitch-designs/
+
+# Locust tokens cache (JWT — secret)
+tmp/tests/load/tokens.json

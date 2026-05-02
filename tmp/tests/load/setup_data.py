@@ -123,6 +123,32 @@ def setup_lt02(base_url: str, stock: int = 10) -> int:
     return rid
 
 
+def cache_tokens(base_url: str, n: int) -> None:
+    """Login n test customers + owner, lưu tokens.json để Locust dùng (tránh bcrypt bottleneck)."""
+    import json
+    tokens = {"customers": [], "owner_token": "", "partner_id": 0}
+    print(f"Login owner...")
+    owner_tok = login(base_url, OWNER_EMAIL, OWNER_PWD)
+    tokens["owner_token"] = owner_tok
+    tokens["partner_id"] = requests.get(
+        f"{base_url}/users/me/partners-as-staff",
+        headers=auth_headers(owner_tok), timeout=10,
+    ).json()[0]["id"]
+    print(f"Login {n} customers...")
+    for i in range(1, n + 1):
+        email = f"test+{i:04d}@e2e.vn"
+        try:
+            tok = login(base_url, email, TEST_CUSTOMER_PWD)
+            tokens["customers"].append(tok)
+        except Exception as e:
+            print(f"[skip] login {email}: {e}")
+        if i % 25 == 0:
+            print(f"  progress: {i}/{n}")
+    with open("tokens.json", "w") as f:
+        json.dump(tokens, f)
+    print(f"DONE: cached {len(tokens['customers'])} customer tokens + owner → tokens.json")
+
+
 def setup_lt05_victim(base_url: str) -> None:
     """Tạo victim throwaway cho LT-05 (KHÔNG đụng khach1..5 thật)."""
     phone = f"097{random.randint(0, 9999999):07d}"  # 10 ký tự đúng định dạng VN
@@ -154,6 +180,9 @@ if __name__ == "__main__":
         setup_lt02(base, int(sys.argv[2]) if len(sys.argv) > 2 else 10)
     elif cmd == "setup_lt05_victim":
         setup_lt05_victim(base)
+    elif cmd == "cache_tokens":
+        n = int(sys.argv[2]) if len(sys.argv) > 2 else 200
+        cache_tokens(base, n)
     else:
         print(f"Unknown command: {cmd}")
         sys.exit(1)
