@@ -36,6 +36,16 @@ class CustomerMismatchError(Exception):
     pass
 
 
+class WrongClaimMethodError(Exception):
+    """Gọi sai endpoint: reward points_cost>0 không thể claim miễn phí."""
+    pass
+
+
+class AlreadyClaimedError(Exception):
+    """User đã có voucher PENDING của reward này (free reward 1-per-user)."""
+    pass
+
+
 _CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 
 
@@ -65,7 +75,6 @@ class RedemptionService:
         today = date.today()
         # 1. Get reward — FOR UPDATE để khoá points_cost/is_active/deleted_at
         # khỏi admin edit concurrent.
-        # NEW: kiểm hạn dùng (Phase 6 sẽ thêm valid_from filter khi cột có)
         reward = await self.db.scalar(
             select(Reward)
             .where(
@@ -73,12 +82,19 @@ class RedemptionService:
                 Reward.partner_id == partner_id,
                 Reward.is_active.is_(True),
                 Reward.deleted_at.is_(None),
+                (Reward.valid_from.is_(None)) | (Reward.valid_from <= today),
                 (Reward.valid_until.is_(None)) | (Reward.valid_until >= today),
             )
             .with_for_update()
         )
         if reward is None:
             raise ValueError(f"Reward {reward_id} not found")
+
+        # Guard: free reward phải dùng claim_free, không dùng redeem
+        if reward.points_cost == 0:
+            raise WrongClaimMethodError(
+                f"Reward {reward_id} miễn phí — dùng POST /users/me/rewards/{{id}}/claim"
+            )
 
         # 2. Atomic decrement stock (nếu có)
         if reward.stock is not None:
@@ -284,3 +300,94 @@ class RedemptionService:
             .offset(offset)
         )
         return list(rows.all())
+
+    async def claim_free(
+        self,
+        *,
+        reward_id: int,
+        user_id: int,
+        ttl_days: int = 14,
+    ) -> Redemption:
+        """Nhận voucher miễn phí (points_cost == 0) — không trừ điểm, không ledger.
+
+        - Lock reward FOR UPDATE: kiểm is_active, valid_from, valid_until, deleted_at
+        - Guard: points_cost != 0 → WrongClaimMethodError
+        - Guard: user đã có PENDING voucher reward này → AlreadyClaimedError
+        - Atomic stock decrement (nếu có stock)
+        - Insert Redemption với points_spent=0, KHÔNG ghi ledger
+        """
+        today = date.today()
+        reward = await self.db.scalar(
+            select(Reward)
+            .where(
+                Reward.id == reward_id,
+                Reward.is_active.is_(True),
+                Reward.deleted_at.is_(None),
+                (Reward.valid_from.is_(None)) | (Reward.valid_from <= today),
+                (Reward.valid_until.is_(None)) | (Reward.valid_until >= today),
+            )
+            .with_for_update()
+        )
+        if reward is None:
+            raise ValueError(f"Reward {reward_id} not found or unavailable")
+
+        if reward.points_cost != 0:
+            raise WrongClaimMethodError(
+                f"Reward {reward_id} không miễn phí — dùng POST /users/me/redemptions"
+            )
+
+        # 1-voucher-per-user: kiểm tra PENDING chưa dùng
+        existing = await self.db.scalar(
+            select(Redemption.id).where(
+                Redemption.reward_id == reward_id,
+                Redemption.user_id == user_id,
+                Redemption.status == RedemptionStatus.PENDING,
+            )
+        )
+        if existing is not None:
+            raise AlreadyClaimedError(
+                f"User {user_id} đã có voucher PENDING cho reward {reward_id}"
+            )
+
+        # Atomic stock decrement
+        if reward.stock is not None:
+            result = await self.db.execute(
+                update(Reward)
+                .where(Reward.id == reward_id, Reward.stock > 0)
+                .values(stock=Reward.stock - 1)
+            )
+            if result.rowcount == 0:
+                raise OutOfStockError(f"Reward {reward_id} out of stock")
+
+        # Generate unique redemption code (per partner)
+        partner_id = reward.partner_id
+        code: str | None = None
+        for _attempt in range(3):
+            candidate = _generate_code()
+            existing_code = await self.db.scalar(
+                select(Redemption.id).where(
+                    Redemption.partner_id == partner_id,
+                    Redemption.redemption_code == candidate,
+                )
+            )
+            if existing_code is None:
+                code = candidate
+                break
+        if code is None:
+            raise RuntimeError(
+                "Failed to generate unique redemption code after 3 attempts"
+            )
+
+        redemption = Redemption(
+            partner_id=partner_id,
+            user_id=user_id,
+            reward_id=reward_id,
+            points_spent=0,
+            redemption_code=code,
+            status=RedemptionStatus.PENDING,
+            redeemed_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=ttl_days),
+        )
+        self.db.add(redemption)
+        await self.db.flush()
+        return redemption

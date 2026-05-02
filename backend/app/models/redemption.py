@@ -21,8 +21,8 @@ class Redemption(Base, TimestampMixin):
     __tablename__ = "redemptions"
     __table_args__ = (
         # Suffix-only — convention prepend `ck_redemptions_` → final
-        # `ck_redemptions_points_positive`.
-        CheckConstraint("points_spent > 0", name="points_positive"),
+        # `ck_redemptions_points_spent_nonneg`.
+        CheckConstraint("points_spent >= 0", name="points_spent_nonneg"),
         CheckConstraint(
             "(original_amount IS NULL AND discount_amount IS NULL) "
             "OR (original_amount >= 0 AND discount_amount >= 0)",

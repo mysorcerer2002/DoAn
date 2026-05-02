@@ -345,6 +345,17 @@ export function useApproveTenant() {
 }
 
 // ==================== Customer extras ====================
+export function useClaimFreeReward() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (rewardId: number) => customerApi.claimFreeReward(rewardId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["customer", "rewards"] });
+      qc.invalidateQueries({ queryKey: ["customer", "redemptions"] });
+    },
+  });
+}
+
 export function useMyLedger(params?: { limit?: number; offset?: number; partnerSlug?: string }) {
   const { partnerSlug, ...rest } = params ?? {};
   const apiParams = { ...rest, ...(partnerSlug ? { partner_slug: partnerSlug } : {}) };

@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
 import { useMyMemberships } from "@/lib/hooks/use-me";
+import { useClaimFreeReward } from "@/lib/hooks/use-partner";
 
 interface MeRewardItem {
   id: number;
@@ -16,9 +17,12 @@ interface MeRewardItem {
   partner_slug: string;
   name: string;
   description: string | null;
+  offer_type: string;
   points_cost: number;
   stock: number | null;
   image_url: string | null;
+  valid_from: string | null;
+  valid_until: string | null;
   user_points_balance: number;
   can_redeem: boolean;
 }
@@ -87,10 +91,13 @@ export default function RewardsPage() {
   const { data: memberships } = useMyMemberships();
   const { data: rewards, isLoading, isError } = useMyRewards();
   const redeem = useRedeemReward();
+  const claimFree = useClaimFreeReward();
   const [search, setSearch] = useState("");
   const [partnerFilter, setPartnerFilter] = useState<number | null>(null);
   const [confirmReward, setConfirmReward] = useState<MeRewardItem | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const isFree = (r: MeRewardItem) => r.points_cost === 0;
 
   const partners = useMemo(() => {
     const map = new Map<number, string>();
@@ -121,15 +128,28 @@ export default function RewardsPage() {
   function handleConfirmRedeem() {
     if (!confirmReward) return;
     setErrorMsg(null);
-    redeem.mutate(confirmReward.id, {
-      onSuccess: (data) => {
-        setConfirmReward(null);
-        router.push(`/member/vouchers/${data.id}`);
-      },
-      onError: (err) => {
-        setErrorMsg(getErrorMessage(err));
-      },
-    });
+    if (isFree(confirmReward)) {
+      claimFree.mutate(confirmReward.id, {
+        onSuccess: (res) => {
+          setConfirmReward(null);
+          const data = res.data as RedeemResponse;
+          router.push(`/member/vouchers/${data.id}`);
+        },
+        onError: (err) => {
+          setErrorMsg(getErrorMessage(err));
+        },
+      });
+    } else {
+      redeem.mutate(confirmReward.id, {
+        onSuccess: (data) => {
+          setConfirmReward(null);
+          router.push(`/member/vouchers/${data.id}`);
+        },
+        onError: (err) => {
+          setErrorMsg(getErrorMessage(err));
+        },
+      });
+    }
   }
 
   return (
@@ -279,9 +299,15 @@ export default function RewardsPage() {
                     {r.partner_name}
                   </p>
                   <div className="flex items-center justify-between pt-1">
-                    <span className="font-headline text-[14px] font-bold text-brand-orange">
-                      {r.points_cost.toLocaleString("vi-VN")}đ
-                    </span>
+                    {isFree(r) ? (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                        Miễn phí
+                      </span>
+                    ) : (
+                      <span className="font-headline text-[14px] font-bold text-brand-orange">
+                        {r.points_cost.toLocaleString("vi-VN")}đ
+                      </span>
+                    )}
                     {r.can_redeem ? (
                       <button
                         type="button"
@@ -289,9 +315,13 @@ export default function RewardsPage() {
                           setErrorMsg(null);
                           setConfirmReward(r);
                         }}
-                        className="rounded-full bg-brand-indigo px-3 py-1 text-[11px] font-bold text-white shadow-sm active:scale-95"
+                        className={
+                          isFree(r)
+                            ? "rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white shadow-sm active:scale-95"
+                            : "rounded-full bg-brand-indigo px-3 py-1 text-[11px] font-bold text-white shadow-sm active:scale-95"
+                        }
                       >
-                        Đổi
+                        {isFree(r) ? "Nhận" : "Đổi"}
                       </button>
                     ) : (
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
@@ -310,7 +340,7 @@ export default function RewardsPage() {
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 px-4 pb-4 pt-24"
           onClick={() => {
-            if (!redeem.isPending) setConfirmReward(null);
+            if (!redeem.isPending && !claimFree.isPending) setConfirmReward(null);
           }}
         >
           <div
@@ -319,12 +349,12 @@ export default function RewardsPage() {
           >
             <div className="flex items-start justify-between">
               <h3 className="font-headline text-[18px] font-bold text-slate-800">
-                Xác nhận đổi quà
+                {isFree(confirmReward) ? "Nhận voucher miễn phí" : "Xác nhận đổi quà"}
               </h3>
               <button
                 type="button"
                 onClick={() => setConfirmReward(null)}
-                disabled={redeem.isPending}
+                disabled={redeem.isPending || claimFree.isPending}
                 className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
                 aria-label="Đóng"
               >
@@ -344,18 +374,29 @@ export default function RewardsPage() {
                   {confirmReward.partner_name}
                 </span>
               </div>
-              <div className="flex items-center justify-between border-t border-slate-200 pt-3">
-                <span className="text-[12px] text-slate-500">Số điểm trừ</span>
-                <span className="font-headline text-[16px] font-bold text-brand-orange">
-                  -{confirmReward.points_cost.toLocaleString("vi-VN")}đ
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] text-slate-500">Số dư còn lại</span>
-                <span className="text-[13px] font-bold text-slate-800">
-                  {(totalPoints - confirmReward.points_cost).toLocaleString("vi-VN")}đ
-                </span>
-              </div>
+              {isFree(confirmReward) ? (
+                <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                  <span className="text-[12px] text-slate-500">Chi phí</span>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[12px] font-bold text-emerald-700">
+                    Miễn phí
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                    <span className="text-[12px] text-slate-500">Số điểm trừ</span>
+                    <span className="font-headline text-[16px] font-bold text-brand-orange">
+                      -{confirmReward.points_cost.toLocaleString("vi-VN")}đ
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-slate-500">Số dư còn lại</span>
+                    <span className="text-[13px] font-bold text-slate-800">
+                      {(totalPoints - confirmReward.points_cost).toLocaleString("vi-VN")}đ
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
             {errorMsg && (
               <p className="mt-3 rounded-lg bg-red-50 p-3 text-[12px] text-red-600">
@@ -366,7 +407,7 @@ export default function RewardsPage() {
               <button
                 type="button"
                 onClick={() => setConfirmReward(null)}
-                disabled={redeem.isPending}
+                disabled={redeem.isPending || claimFree.isPending}
                 className="flex-1 rounded-full border border-slate-200 bg-white py-3 text-[14px] font-bold text-slate-700 disabled:opacity-50"
               >
                 Huỷ
@@ -374,16 +415,20 @@ export default function RewardsPage() {
               <button
                 type="button"
                 onClick={handleConfirmRedeem}
-                disabled={redeem.isPending}
-                className="flex-1 rounded-full bg-brand-indigo py-3 text-[14px] font-bold text-white shadow-md active:scale-[0.98] disabled:opacity-60"
+                disabled={redeem.isPending || claimFree.isPending}
+                className={
+                  isFree(confirmReward)
+                    ? "flex-1 rounded-full bg-emerald-600 py-3 text-[14px] font-bold text-white shadow-md active:scale-[0.98] disabled:opacity-60"
+                    : "flex-1 rounded-full bg-brand-indigo py-3 text-[14px] font-bold text-white shadow-md active:scale-[0.98] disabled:opacity-60"
+                }
               >
-                {redeem.isPending ? (
+                {(redeem.isPending || claimFree.isPending) ? (
                   <span className="inline-flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Đang đổi…
+                    {isFree(confirmReward) ? "Đang nhận…" : "Đang đổi…"}
                   </span>
                 ) : (
-                  "Xác nhận đổi"
+                  isFree(confirmReward) ? "Xác nhận nhận" : "Xác nhận đổi"
                 )}
               </button>
             </div>

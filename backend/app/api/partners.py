@@ -43,9 +43,11 @@ from app.schemas.partner import (
 from app.schemas.partner_staff import StaffCreateRequest, StaffPatchRequest
 from app.services.partner_service import PartnerNotFoundError, PartnerService, TermsVersionMismatchError
 from app.services.redemption_service import (
+    AlreadyClaimedError,
     InsufficientPointsError,
     OutOfStockError,
     RedemptionService,
+    WrongClaimMethodError,
 )
 
 partner_router = APIRouter(prefix="/partner", tags=["partner"])
@@ -289,7 +291,7 @@ async def list_partner_rewards_for_member(
                 Reward.partner_id == partner.id,
                 Reward.deleted_at.is_(None),
                 Reward.is_active.is_(True),
-                # NEW: ẩn reward hết hạn (Phase 6 sẽ thêm valid_from filter khi cột có)
+                (Reward.valid_from.is_(None)) | (Reward.valid_from <= today),
                 (Reward.valid_until.is_(None)) | (Reward.valid_until >= today),
             )
             .order_by(Reward.points_cost.asc())
@@ -301,11 +303,15 @@ async def list_partner_rewards_for_member(
             "id": r.id,
             "name": r.name,
             "description": r.description,
+            "offer_type": r.offer_type,
+            "offer_label": r.offer_label,
             "points_cost": r.points_cost,
             "stock": r.stock,
             "image_url": r.image_url,
+            "valid_from": r.valid_from.isoformat() if r.valid_from else None,
+            "valid_until": r.valid_until.isoformat() if r.valid_until else None,
             "user_points_balance": balance,
-            "can_redeem": is_member and balance >= r.points_cost,
+            "can_redeem": is_member and (r.points_cost == 0 or balance >= r.points_cost),
         }
         for r in rewards
     ]
@@ -434,7 +440,63 @@ async def redeem_reward_self(
             user_id=user.id,
             reward_id=body.reward_id,
         )
+    except WrongClaimMethodError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except InsufficientPointsError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except OutOfStockError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return RedemptionResponse.model_validate(redemption)
+
+
+@users_router.post(
+    "/me/rewards/{reward_id}/claim", response_model=RedemptionResponse, status_code=201
+)
+@limiter.limit("10/minute")
+async def claim_free_reward(
+    request: Request,
+    reward_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RedemptionResponse:
+    """Customer nhận voucher miễn phí (points_cost == 0).
+
+    Không yêu cầu X-Partner-Id — partner được suy ra từ reward.
+    Yêu cầu user là member của partner sở hữu reward.
+    Giới hạn 1 voucher PENDING per user per reward.
+    """
+    reward = await db.scalar(
+        select(Reward).where(
+            Reward.id == reward_id,
+            Reward.deleted_at.is_(None),
+            Reward.is_active.is_(True),
+        )
+    )
+    if reward is None:
+        raise HTTPException(status_code=404, detail="Reward not found")
+
+    is_member = await db.scalar(
+        select(Membership.id).where(
+            Membership.partner_id == reward.partner_id,
+            Membership.user_id == user.id,
+        )
+    )
+    if is_member is None:
+        raise HTTPException(
+            status_code=403, detail="Bạn cần là thành viên của shop để nhận quà"
+        )
+
+    service = RedemptionService(db)
+    try:
+        redemption = await service.claim_free(
+            reward_id=reward_id,
+            user_id=user.id,
+        )
+    except WrongClaimMethodError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except AlreadyClaimedError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
     except OutOfStockError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -474,7 +536,7 @@ async def list_my_rewards(
                 Reward.partner_id.in_(partner_ids),
                 Reward.deleted_at.is_(None),
                 Reward.is_active.is_(True),
-                # NEW: ẩn reward hết hạn (Phase 6 sẽ thêm valid_from filter khi cột có)
+                (Reward.valid_from.is_(None)) | (Reward.valid_from <= today),
                 (Reward.valid_until.is_(None)) | (Reward.valid_until >= today),
             )
             .order_by(Reward.points_cost.asc())
@@ -489,11 +551,15 @@ async def list_my_rewards(
             "partner_slug": partner_names[r.partner_id][1],
             "name": r.name,
             "description": r.description,
+            "offer_type": r.offer_type,
+            "offer_label": r.offer_label,
             "points_cost": r.points_cost,
             "stock": r.stock,
             "image_url": r.image_url,
+            "valid_from": r.valid_from.isoformat() if r.valid_from else None,
+            "valid_until": r.valid_until.isoformat() if r.valid_until else None,
             "user_points_balance": balance,
-            "can_redeem": balance >= r.points_cost,
+            "can_redeem": r.points_cost == 0 or balance >= r.points_cost,
         }
         for r in rewards
     ]

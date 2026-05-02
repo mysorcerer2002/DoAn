@@ -84,6 +84,7 @@ export interface RewardResponse {
   offer_value: number | null;
   offer_label: string;
   min_purchase_amount: number | null;
+  valid_from: string | null; // ISO date "YYYY-MM-DD"
   valid_until: string | null; // ISO date "YYYY-MM-DD"
   terms: string | null;
 }
@@ -100,6 +101,7 @@ export interface RewardCreateRequest {
   offer_value?: number | null;
   offer_label: string;
   min_purchase_amount?: number | null;
+  valid_from?: string | null;
   valid_until?: string | null;
   terms?: string | null;
 }
@@ -116,6 +118,7 @@ export interface RewardUpdateRequest {
   offer_value?: number | null;
   offer_label?: string;
   min_purchase_amount?: number | null;
+  valid_from?: string | null;
   valid_until?: string | null;
   terms?: string | null;
 }

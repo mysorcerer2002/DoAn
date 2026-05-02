@@ -45,6 +45,7 @@ type FormState = {
   offer_label: string;
   min_purchase_enabled: boolean;
   min_purchase_amount: string;
+  valid_from: string;
   valid_until: string;
   terms: string;
 };
@@ -60,6 +61,7 @@ const defaultForm: FormState = {
   offer_label: "Giảm 10%",
   min_purchase_enabled: false,
   min_purchase_amount: "",
+  valid_from: "",
   valid_until: "",
   terms: "",
 };
@@ -77,6 +79,7 @@ function fromReward(r: RewardResponse): FormState {
     min_purchase_enabled: r.min_purchase_amount != null,
     min_purchase_amount:
       r.min_purchase_amount != null ? String(r.min_purchase_amount) : "",
+    valid_from: r.valid_from ?? "",
     valid_until: r.valid_until ?? "",
     terms: r.terms ?? "",
   };
@@ -143,6 +146,7 @@ export default function MerchantRewardsPage() {
         offer_label: formValues.offer_label.trim(),
         min_purchase_amount:
           editingReward.offer_type === "ITEM_GIFT" ? null : min_purchase_num,
+        valid_from: formValues.valid_from || null,
         valid_until: formValues.valid_until || null,
         terms: formValues.terms.trim() || null,
       };
@@ -161,6 +165,7 @@ export default function MerchantRewardsPage() {
         offer_label: formValues.offer_label.trim(),
         min_purchase_amount:
           formValues.offer_type === "ITEM_GIFT" ? null : min_purchase_num,
+        valid_from: formValues.valid_from || null,
         valid_until: formValues.valid_until || null,
         terms: formValues.terms.trim() || null,
       };
@@ -283,8 +288,14 @@ export default function MerchantRewardsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right font-headline text-[14px] font-bold text-brand-orange">
-                      {reward.points_cost.toLocaleString("vi-VN")}
+                    <td className="px-4 py-3 text-right font-headline text-[14px] font-bold">
+                      {reward.points_cost === 0 ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                          Miễn phí
+                        </span>
+                      ) : (
+                        <span className="text-brand-orange">{reward.points_cost.toLocaleString("vi-VN")}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {reward.stock === null ? (
@@ -469,8 +480,8 @@ function RewardFormModal({
   const validate = (): string | null => {
     if (!form.name.trim()) return "Tên quà bắt buộc";
     const pts = Number(form.points_cost);
-    if (!form.points_cost || Number.isNaN(pts) || pts <= 0)
-      return "Điểm cần phải lớn hơn 0";
+    if (form.points_cost.trim() === "" || Number.isNaN(pts) || pts < 0)
+      return "Điểm cần phải >= 0 (0 = miễn phí)";
     if (!form.offer_label.trim()) return "Nhãn ngắn bắt buộc";
     if (form.offer_label.trim().length > 120)
       return "Nhãn ngắn tối đa 120 ký tự";
@@ -751,11 +762,12 @@ function RewardFormModal({
               id="points_cost"
               required
               type="number"
-              min={1}
+              min={0}
               value={form.points_cost}
               onChange={(e) => setField("points_cost", e.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
             />
+            <p className="mt-1 text-[11px] text-slate-400">0 = miễn phí (khách nhận không tốn điểm)</p>
           </div>
           <div>
             <label
@@ -775,21 +787,38 @@ function RewardFormModal({
           </div>
         </div>
 
-        {/* Hạn dùng */}
-        <div>
-          <label
-            htmlFor="valid_until"
-            className="text-[12px] font-medium text-slate-500"
-          >
-            Hạn dùng
-          </label>
-          <input
-            id="valid_until"
-            type="date"
-            value={form.valid_until}
-            onChange={(e) => setField("valid_until", e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-          />
+        {/* Thời gian hiệu lực */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label
+              htmlFor="valid_from"
+              className="text-[12px] font-medium text-slate-500"
+            >
+              Từ ngày
+            </label>
+            <input
+              id="valid_from"
+              type="date"
+              value={form.valid_from}
+              onChange={(e) => setField("valid_from", e.target.value)}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="valid_until"
+              className="text-[12px] font-medium text-slate-500"
+            >
+              Đến ngày
+            </label>
+            <input
+              id="valid_until"
+              type="date"
+              value={form.valid_until}
+              onChange={(e) => setField("valid_until", e.target.value)}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+            />
+          </div>
         </div>
 
         {/* Điều khoản */}

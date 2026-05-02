@@ -322,4 +322,6 @@ export const adminApi = {
 export const customerApi = {
   myLedger: (params?: { limit?: number; offset?: number; partner_slug?: string }) =>
     api.get<LedgerEntryResponse[]>("/users/me/ledger", { params }),
+  claimFreeReward: (rewardId: number) =>
+    api.post(`/users/me/rewards/${rewardId}/claim`),
 };

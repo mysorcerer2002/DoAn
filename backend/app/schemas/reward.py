@@ -11,7 +11,7 @@ class RewardCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     image_url: str | None = Field(default=None, max_length=500)
-    points_cost: int = Field(gt=0)
+    points_cost: int = Field(ge=0)
     stock: int | None = Field(default=None, ge=0)
     is_active: bool = True
 
@@ -19,6 +19,7 @@ class RewardCreateRequest(BaseModel):
     offer_value: int | None = None
     offer_label: str = Field(min_length=1, max_length=120)
     min_purchase_amount: int | None = Field(default=None, gt=0)
+    valid_from: date | None = None
     valid_until: date | None = None
     terms: str | None = None
 
@@ -31,6 +32,12 @@ class RewardCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def _validate_offer_consistency(self) -> "RewardCreateRequest":
+        if self.valid_from and self.valid_until and self.valid_from > self.valid_until:
+            raise ValueError("Ngày bắt đầu phải trước ngày kết thúc")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_offer_type(self) -> "RewardCreateRequest":
         ot = self.offer_type
         if ot == RewardOfferType.PERCENT_DISCOUNT:
             if self.offer_value is None or not (1 <= self.offer_value <= 100):
@@ -52,13 +59,14 @@ class RewardUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     image_url: str | None = Field(default=None, max_length=500)
-    points_cost: int | None = Field(default=None, gt=0)
+    points_cost: int | None = Field(default=None, ge=0)
     stock: int | None = Field(default=None, ge=0)
     is_active: bool | None = None
 
     offer_value: int | None = None
     offer_label: str | None = Field(default=None, min_length=1, max_length=120)
     min_purchase_amount: int | None = Field(default=None, gt=0)
+    valid_from: date | None = None
     valid_until: date | None = None
     terms: str | None = None
 
@@ -90,6 +98,7 @@ class RewardResponse(BaseModel):
     offer_value: int | None
     offer_label: str
     min_purchase_amount: int | None
+    valid_from: date | None
     valid_until: date | None
     terms: str | None
 

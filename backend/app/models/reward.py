@@ -28,7 +28,7 @@ class Reward(Base, TimestampMixin):
         CheckConstraint(
             "stock IS NULL OR stock >= 0", name="stock_nonneg_or_null"
         ),
-        CheckConstraint("points_cost > 0", name="points_cost_positive"),
+        CheckConstraint("points_cost >= 0", name="points_cost_nonneg"),
         CheckConstraint(
             "(offer_type = 'PERCENT_DISCOUNT' AND offer_value BETWEEN 1 AND 100) OR "
             "(offer_type = 'FIXED_DISCOUNT'   AND offer_value > 0) OR "
@@ -64,6 +64,7 @@ class Reward(Base, TimestampMixin):
     offer_type: Mapped[RewardOfferType] = mapped_column(String(20), nullable=False)
     offer_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
     offer_label: Mapped[str] = mapped_column(String(120), nullable=False)
+    valid_from: Mapped[date | None] = mapped_column(Date, nullable=True)
     valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     terms: Mapped[str | None] = mapped_column(Text, nullable=True)
     min_purchase_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
