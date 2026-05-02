@@ -127,7 +127,8 @@ def _reset_login_lock():
     db_exec(
         "DELETE FROM login_log WHERE success=FALSE AND created_at > NOW() - INTERVAL '20 minutes' "
         "AND identifier IN ('admin@loyalty.vn','owner@cafe.vn','owner@lala.vn',"
-        "'khach1@gmail.com','khach2@gmail.com','khach3@gmail.com','khach4@gmail.com','khach5@gmail.com');"
+        "'khach1@gmail.com','khach2@gmail.com','khach3@gmail.com','khach4@gmail.com','khach5@gmail.com',"
+        "'0901234501','0901234502','khong-ton-tai@example.com');"
     )
     yield
 
