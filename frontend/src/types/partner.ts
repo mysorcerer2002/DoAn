@@ -295,18 +295,14 @@ export interface TierUpdateRequest {
 export interface PointRuleResponse {
   id: number;
   partner_id: number;
-  points_per_unit: string; // Decimal serialised as string
-  unit_amount: number;
-  min_amount: number;
+  earn_percent: number;
   use_tiers: boolean;
   is_active: boolean;
   created_at: string;
 }
 
 export interface PointRuleUpdateRequest {
-  points_per_unit?: string;
-  unit_amount?: number;
-  min_amount?: number;
+  earn_percent?: number;
   use_tiers?: boolean;
   is_active?: boolean;
 }

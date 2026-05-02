@@ -15,35 +15,19 @@ interface PointRuleFormProps {
 export function PointRuleForm({ rule }: PointRuleFormProps) {
   const updateRule = useUpdatePointRule(rule.id);
 
-  const [pointsPerUnit, setPointsPerUnit] = useState(rule.points_per_unit);
-  const [unitAmount, setUnitAmount] = useState(String(rule.unit_amount));
-  const [minAmount, setMinAmount] = useState(String(rule.min_amount));
+  const [earnPercent, setEarnPercent] = useState(rule.earn_percent);
   const [useTiers, setUseTiers] = useState(rule.use_tiers);
   const [status, setStatus] = useState<"idle" | "ok" | "err">("idle");
 
   const handleSave = async () => {
-    const parsedPoints = Number(pointsPerUnit);
-    const parsedUnit = Number(unitAmount);
-    const parsedMin = Number(minAmount);
-
-    if (!parsedPoints || parsedPoints <= 0) {
-      setStatus("err");
-      return;
-    }
-    if (!parsedUnit || parsedUnit <= 0) {
-      setStatus("err");
-      return;
-    }
-    if (parsedMin < 0) {
+    if (!earnPercent || earnPercent < 0.01 || earnPercent > 99.99) {
       setStatus("err");
       return;
     }
 
     try {
       await updateRule.mutateAsync({
-        points_per_unit: String(parsedPoints),
-        unit_amount: parsedUnit,
-        min_amount: parsedMin,
+        earn_percent: earnPercent,
         use_tiers: useTiers,
       });
       setStatus("ok");
@@ -77,45 +61,25 @@ export function PointRuleForm({ rule }: PointRuleFormProps) {
       <div className="mt-4 space-y-3">
         <div>
           <label className="text-[12px] font-medium text-slate-500">
-            Điểm thưởng mỗi đơn vị
+            % tích điểm
           </label>
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={pointsPerUnit}
-            onChange={(e) => { setPointsPerUnit(e.target.value); setStatus("idle"); }}
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-          />
-        </div>
-
-        <div>
-          <label className="text-[12px] font-medium text-slate-500">
-            Đơn vị tiền (VND)
-          </label>
-          <input
-            type="number"
-            min="1"
-            value={unitAmount}
-            onChange={(e) => { setUnitAmount(e.target.value); setStatus("idle"); }}
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-          />
           <p className="mt-0.5 text-[11px] text-slate-400">
-            VD: 1000 → mỗi 1.000đ khách nhận {pointsPerUnit || "1"} điểm
+            Khách hàng nhận số điểm bằng tỷ lệ phần trăm này nhân với giá trị hóa đơn.
+            Ví dụ: cài 1% thì hóa đơn 100.000đ sẽ tích được 1.000 điểm.
           </p>
-        </div>
-
-        <div>
-          <label className="text-[12px] font-medium text-slate-500">
-            Số tiền tối thiểu để tích điểm (VND)
-          </label>
-          <input
-            type="number"
-            min="0"
-            value={minAmount}
-            onChange={(e) => { setMinAmount(e.target.value); setStatus("idle"); }}
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
-          />
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              max="99.99"
+              value={earnPercent}
+              onChange={(e) => { setEarnPercent(parseFloat(e.target.value)); setStatus("idle"); }}
+              className="w-32 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] outline-none focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20"
+              required
+            />
+            <span className="text-[13px] text-slate-500">%</span>
+          </div>
         </div>
 
         <label className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-3">
