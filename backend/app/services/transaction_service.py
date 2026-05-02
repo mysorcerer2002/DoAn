@@ -184,17 +184,17 @@ class TransactionService:
         *,
         membership: "Membership | None" = None,
     ) -> int:
-        if amount < rule.min_amount:
-            return 0
-        units = Decimal(amount) / Decimal(rule.unit_amount)
-        base_points = units * rule.points_per_unit
+        """Tính điểm = floor(amount × earn_percent / 100) × tier_multiplier (nếu use_tiers).
 
+        earn_percent là Numeric(5,2): 0.01 → 99.99. Default 1.00 (1%).
+        BỎ logic min_amount cũ — đối tác muốn limit thì cấu hình percent thấp.
+        """
+        base_points = (Decimal(amount) * rule.earn_percent) / Decimal(100)
         multiplier = Decimal("1.00")
         if rule.use_tiers and membership is not None:
             tier = getattr(membership, "current_tier", None)
             if tier is not None:
                 multiplier = tier.earn_multiplier
-
         return int(base_points * multiplier)
 
     async def list_transactions(

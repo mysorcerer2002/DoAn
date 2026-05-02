@@ -140,14 +140,12 @@ async def _seed_tenant(
     if rule is None:
         db.add(PointRule(
             partner_id=partner.id,
-            unit_amount=10_000,
-            points_per_unit=Decimal("1"),
-            min_amount=0,
+            earn_percent=Decimal("1.00"),
             use_tiers=use_tiers,
             is_active=True,
         ))
         await db.flush()
-        print(f"  ✓ Point rule: 10.000₫ = 1 điểm, use_tiers={use_tiers}")
+        print(f"  ✓ Point rule: earn_percent=1.00%, use_tiers={use_tiers}")
     else:
         # Backfill use_tiers nếu khác
         if rule.use_tiers != use_tiers:

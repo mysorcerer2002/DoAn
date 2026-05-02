@@ -39,9 +39,7 @@ class PointRuleService:
 
         rule = PointRule(
             partner_id=partner_id,
-            points_per_unit=request.points_per_unit,
-            unit_amount=request.unit_amount,
-            min_amount=request.min_amount,
+            earn_percent=request.earn_percent,
             is_active=True,
         )
         self.db.add(rule)

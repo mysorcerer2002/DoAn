@@ -5,16 +5,17 @@ from pydantic import BaseModel, Field
 
 
 class PointRuleCreateRequest(BaseModel):
-    points_per_unit: Decimal = Field(gt=0)
-    unit_amount: int = Field(default=1000, gt=0)
-    min_amount: int = Field(default=0, ge=0)
+    earn_percent: Decimal = Field(
+        default=Decimal("1.00"),
+        ge=Decimal("0.01"),
+        le=Decimal("99.99"),
+        description="Phần trăm giá trị hóa đơn quy đổi thành điểm (0.01% — 99.99%)",
+    )
     use_tiers: bool = False
 
 
 class PointRuleUpdate(BaseModel):
-    points_per_unit: Decimal | None = Field(default=None, gt=0)
-    unit_amount: int | None = Field(default=None, gt=0)
-    min_amount: int | None = Field(default=None, ge=0)
+    earn_percent: Decimal | None = Field(default=None, ge=Decimal("0.01"), le=Decimal("99.99"))
     use_tiers: bool | None = None
     is_active: bool | None = None
 
@@ -22,11 +23,9 @@ class PointRuleUpdate(BaseModel):
 class PointRuleResponse(BaseModel):
     id: int
     partner_id: int
-    points_per_unit: Decimal
-    unit_amount: int
-    min_amount: int
+    earn_percent: Decimal
     use_tiers: bool
     is_active: bool
-    created_at: datetime
+    created_at: datetime  # GIỮ field cũ — không break consumer khác
 
     model_config = {"from_attributes": True}
