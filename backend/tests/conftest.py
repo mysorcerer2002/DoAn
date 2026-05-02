@@ -1,3 +1,4 @@
+import secrets
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -8,8 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from testcontainers.postgres import PostgresContainer
 
 from app.core.db import get_db
+from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.base import Base
+from app.models.partner import Partner, PartnerCategory, PartnerStatus
+from app.models.partner_staff import PartnerStaff
+from app.models.point_rule import PointRule
+from app.models.reward import Reward, RewardOfferType
+from app.models.user import User
 
 
 @pytest.fixture(scope="session")
@@ -87,3 +94,143 @@ async def reset_rate_limiter():
     limiter.reset()
     yield
     limiter.reset()
+
+
+# ---------------------------------------------------------------------------
+# Factory + token fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest_asyncio.fixture
+async def user_factory():
+    """Tạo user với phone unique tự sinh.
+
+    LƯU Ý: Phase 0 KHÔNG có `must_change_password` kwarg vì cột này chưa tồn tại
+    trong DB ở thời điểm Phase 0 commit (Phase 3 mới thêm). Phase 3 sẽ extend
+    factory thêm `must_change_password=False` kwarg.
+    """
+    async def _factory(db, *, email=None, phone=None, password_hash=None,
+                       is_active=True, system_role="regular", points_balance=0):
+        if email is None:
+            email = f"u{secrets.token_hex(4)}@test.vn"
+        if phone is None:
+            phone = f"09{secrets.randbelow(10**8):08d}"
+        if password_hash is None:
+            password_hash = hash_password("testpass1")
+        user = User(
+            email=email, phone=phone, password_hash=password_hash,
+            full_name=f"User {email}", is_active=is_active,
+            system_role=system_role, points_balance=points_balance,
+        )
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
+        return user
+    return _factory
+
+
+@pytest_asyncio.fixture
+async def partner_factory():
+    async def _factory(db, *, name=None, status=PartnerStatus.ACTIVE,
+                       category=PartnerCategory.CAFE, owner_user=None):
+        if name is None:
+            name = f"Shop {secrets.token_hex(3)}"
+        if owner_user is None:
+            owner = User(
+                email=f"owner-{secrets.token_hex(3)}@test.vn",
+                phone=f"09{secrets.randbelow(10**8):08d}",
+                password_hash=hash_password("ownerpass1"),
+                full_name="Owner", is_active=True, system_role="regular",
+            )
+            db.add(owner)
+            await db.flush()
+        else:
+            owner = owner_user
+        slug = name.lower().replace(" ", "-") + secrets.token_hex(2)
+        partner = Partner(
+            name=name, slug=slug, owner_user_id=owner.id,
+            status=status, category=category, settings={},
+        )
+        db.add(partner)
+        await db.flush()
+        await db.refresh(partner)
+        return partner
+    return _factory
+
+
+@pytest_asyncio.fixture
+async def reward_factory():
+    async def _factory(db, *, partner_id, name=None, points_cost=100,
+                       stock=None, offer_type=RewardOfferType.ITEM_GIFT,
+                       offer_value=None, offer_label=None,
+                       valid_until=None, is_active=True):
+        if name is None:
+            name = f"Reward {secrets.token_hex(3)}"
+        if offer_label is None:
+            offer_label = name
+        reward = Reward(
+            partner_id=partner_id, name=name, points_cost=points_cost,
+            stock=stock, offer_type=offer_type, offer_value=offer_value,
+            offer_label=offer_label, valid_until=valid_until, is_active=is_active,
+        )
+        db.add(reward)
+        await db.flush()
+        await db.refresh(reward)
+        return reward
+    return _factory
+
+
+@pytest_asyncio.fixture
+async def point_rule_factory():
+    """Factory dùng schema MỚI sau Phase 1A (earn_percent thay points_per_unit/unit_amount/min_amount).
+
+    Tests Phase 0 KHÔNG gọi factory này → ổn dù migration QT3 chưa apply.
+    Tests Phase 2 trở đi (QT4 dùng đầu tiên) chạy SAU migration QT3 → fixture work.
+    """
+    from decimal import Decimal
+
+    async def _factory(db, *, partner_id, earn_percent=Decimal("1.00"),
+                       use_tiers=False, is_active=True):
+        rule = PointRule(
+            partner_id=partner_id, earn_percent=earn_percent,
+            use_tiers=use_tiers, is_active=is_active,
+        )
+        db.add(rule)
+        await db.flush()
+        return rule
+    return _factory
+
+
+@pytest_asyncio.fixture
+async def staff_user_factory(user_factory):
+    """User là staff của 1 partner."""
+    async def _factory(db, *, partner_id, **kwargs):
+        user = await user_factory(db, **kwargs)
+        staff = PartnerStaff(partner_id=partner_id, user_id=user.id, is_active=True)
+        db.add(staff)
+        await db.flush()
+        return user
+    return _factory
+
+
+def _mint_token(user_id: int) -> str:
+    return create_access_token(user_id=user_id)
+
+
+@pytest_asyncio.fixture
+async def admin_token(db_session, user_factory):
+    admin = await user_factory(db_session, system_role="super_admin")
+    return _mint_token(admin.id)
+
+
+@pytest_asyncio.fixture
+async def user_token(db_session, user_factory):
+    user = await user_factory(db_session)
+    return _mint_token(user.id)
+
+
+@pytest_asyncio.fixture
+async def customer_token(db_session, user_factory):
+    """Alias customer_token = user_token (regular role)."""
+    user = await user_factory(db_session)
+    return _mint_token(user.id)
