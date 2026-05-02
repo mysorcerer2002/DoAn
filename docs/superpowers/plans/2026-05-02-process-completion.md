@@ -4,7 +4,7 @@
 
 **Goal:** Hoàn thiện 6 quy trình (QT1, QT2, QT4, QT5, QT7, QT8) lấp gap giữa code và mục 2.3.1 báo cáo đồ án. QT3 và QT6 đã đủ — không đụng.
 
-**Architecture:** 6 phase tuần tự theo thứ tự rủi ro thấp → cao (QT5 → QT4 → QT1 → QT8 → QT2 → QT7). Mỗi phase có alembic revision riêng (nếu có DDL), TDD test-first, commit sau mỗi task. Giữa các phase chạy `superpowers:code-reviewer` (model `opus`) → fix Critical/Important rồi mới sang phase kế.
+**Architecture:** 7 phase tuần tự (QT3 → QT5 → QT4 → QT1 → QT8 → QT2 → QT7) thứ tự rủi ro thấp → cao. Mỗi phase có alembic revision riêng (nếu có DDL), TDD test-first, commit sau mỗi task. Giữa các phase chạy `superpowers:code-reviewer` (model `opus`) → fix Critical/Important rồi mới sang phase kế. Phase QT3 đầu tiên là foundational change — đổi công thức tích điểm sang phần trăm trước khi đụng các luồng earn/redeem khác.
 
 **Tech Stack:** FastAPI + SQLAlchemy 2.0 async + Alembic + Pydantic v2 / Next.js 14 + TS + Tailwind v4 + shadcn/ui + TanStack Query.
 
@@ -28,8 +28,11 @@
 
 | File | Phase | Type | Purpose |
 |---|---|---|---|
+| `backend/alembic/versions/<hex>_qt3_earn_percent.py` | 1A | Create | Drop 3 cột cũ + add `earn_percent` Numeric(5,2) |
+| `backend/app/models/point_rule.py` | 1A | Modify | Schema mới: `earn_percent` thay `points_per_unit/unit_amount/min_amount` |
+| `backend/app/schemas/point_rule.py` | 1A | Modify | 3 schema Pydantic dùng `earn_percent` |
 | `backend/app/services/redemption_service.py` | 1, 6 | Modify | QT5 expiry filter, QT7 `claim_free` + guards |
-| `backend/app/services/transaction_service.py` | 2 | Modify | QT4 plumb `actor_user_id` |
+| `backend/app/services/transaction_service.py` | 1A, 2 | Modify | QT3 rewrite `_calculate_points`; QT4 plumb `actor_user_id` |
 | `backend/app/services/qr_service.py` | 2 | Modify | QT4 auto-enroll khi không có membership |
 | `backend/app/api/transactions.py` | 2 | Modify | QT4 capture `current_user`, drop 404 trên lookup |
 | `backend/alembic/versions/<hex>_qt1_must_change_password.py` | 3 | Create | Migration cột `users.must_change_password` |
@@ -76,6 +79,8 @@
 | `frontend/src/app/(member)/member/partners/[slug]/page.tsx` | 6 | Modify | Tương tự |
 | `frontend/src/app/(partner)/partner/rewards/page.tsx` | 6 | Modify | Modal create/edit Reward thêm `valid_from` + cho phép `points_cost=0` |
 | `frontend/src/lib/hooks/useRewards.ts` | 6 | Modify | `useClaimFreeReward` mutation |
+| `frontend/src/app/(partner)/partner/settings/page.tsx` | 1A | Modify | Form 1 input `% tích điểm` thay 3 input cũ |
+| `frontend/src/types/partner.ts` | 1A | Modify | `PointRule` interface mới (`earn_percent`) |
 
 ### Tests
 
@@ -200,12 +205,17 @@ async def reward_factory():
 
 @pytest_asyncio.fixture
 async def point_rule_factory():
-    async def _factory(db, *, partner_id, points_per_unit=1,
-                       unit_amount=1000, min_amount=0, use_tiers=False,
-                       is_active=True):
+    """Factory dùng schema MỚI sau Phase 1A (earn_percent thay points_per_unit/unit_amount/min_amount).
+
+    Tests Phase 0 KHÔNG gọi factory này → ổn dù migration QT3 chưa apply.
+    Tests Phase 2 trở đi (QT4 dùng đầu tiên) chạy SAU migration QT3 → fixture work.
+    """
+    from decimal import Decimal
+
+    async def _factory(db, *, partner_id, earn_percent=Decimal("1.00"),
+                       use_tiers=False, is_active=True):
         rule = PointRule(
-            partner_id=partner_id, points_per_unit=points_per_unit,
-            unit_amount=unit_amount, min_amount=min_amount,
+            partner_id=partner_id, earn_percent=earn_percent,
             use_tiers=use_tiers, is_active=is_active,
         )
         db.add(rule)
@@ -288,6 +298,350 @@ git commit -m "test: thêm factory fixtures (user/partner/reward/point_rule/staf
 ```
 
 > **Note:** Phase 0 chạy trước Phase 1. Phase 3 thêm cột `must_change_password` thì test sẽ vẫn pass vì factory đã handle (default False sau migration). Trước Phase 3 migration, factory truyền `must_change_password=False` sẽ FAIL vì cột chưa tồn tại. **Order:** chạy Phase 1 (không đụng must_change_password) → Phase 2 (cũng không đụng) → Phase 3 migration thêm cột → tests phase sau dùng `must_change_password` được. Hoặc đơn giản hơn: Phase 0 tạm thời KHÔNG truyền `must_change_password`, sau Phase 3 thêm vào. Plan dưới đây ngầm hiểu cách thứ 2 — Phase 0 fixture cài `must_change_password=False` chỉ sau khi Phase 3 migration đã apply.
+
+---
+
+## Phase 1A — QT3 Chuyển công thức tích điểm sang phần trăm
+
+**Goal:** Thay công thức `floor(amount / unit_amount) * points_per_unit` bằng `floor(amount * earn_percent / 100)` để khớp nghiệp vụ loyalty chuẩn (1% nghĩa là khách nhận 1% giá trị hóa đơn dưới dạng điểm). Bỏ luôn `min_amount` — đối tác muốn giới hạn thì cấu hình phần trăm thấp.
+
+**Risk:** trung bình — schema thay 3 cột → 1 cột, công thức rewrite, ảnh hưởng test cũ.
+
+**Why đặt ngay sau Phase 0:** đây là foundational change cho luồng tích điểm. Làm trước các phase QT5/QT4/... để tránh test cũ phải double-update khi sang format mới.
+
+### Task 1A.1 — Migration drop 3 cột + add `earn_percent`
+
+**Files:**
+- Create: `backend/alembic/versions/<hex>_qt3_earn_percent.py`
+
+- [ ] **Step 1: Generate revision.**
+
+```bash
+docker compose -p loyalty-prod -f docker-compose.prod.yml exec backend alembic revision -m "qt3_earn_percent"
+```
+
+- [ ] **Step 2: Sửa file revision.**
+
+```python
+"""qt3_earn_percent
+
+Revision ID: <hex>
+Revises: <current_head>
+Create Date: 2026-05-02
+
+Đổi công thức tích điểm sang phần trăm: bỏ points_per_unit + unit_amount +
+min_amount, thêm earn_percent (Numeric(5,2) NOT NULL DEFAULT 1.00). Đối tác
+cũ tự đổi giá trị qua trang cấu hình; default 1% = chuẩn loyalty industry.
+"""
+
+from alembic import op
+import sqlalchemy as sa
+
+
+revision = "<hex>"
+down_revision = "<current_head>"
+branch_labels = None
+depends_on = None
+
+
+def upgrade() -> None:
+    op.add_column(
+        "point_rules",
+        sa.Column(
+            "earn_percent",
+            sa.Numeric(5, 2),
+            nullable=False,
+            server_default=sa.text("1.00"),
+        ),
+    )
+    op.drop_column("point_rules", "points_per_unit")
+    op.drop_column("point_rules", "unit_amount")
+    op.drop_column("point_rules", "min_amount")
+
+
+def downgrade() -> None:
+    op.add_column(
+        "point_rules",
+        sa.Column("points_per_unit", sa.Numeric(10, 2), nullable=False, server_default="1"),
+    )
+    op.add_column(
+        "point_rules",
+        sa.Column("unit_amount", sa.Integer(), nullable=False, server_default="1000"),
+    )
+    op.add_column(
+        "point_rules",
+        sa.Column("min_amount", sa.Integer(), nullable=False, server_default="0"),
+    )
+    op.drop_column("point_rules", "earn_percent")
+```
+
+- [ ] **Step 3: Apply migration.**
+
+```bash
+docker compose -p loyalty-prod -f docker-compose.prod.yml exec backend alembic upgrade head
+```
+
+- [ ] **Step 4: Verify schema.**
+
+```bash
+docker exec loyalty-postgres-prod psql -U loyalty -d loyalty -c "\d point_rules"
+```
+Expected: cột `earn_percent` numeric(5,2) NOT NULL DEFAULT 1.00, KHÔNG còn `points_per_unit`/`unit_amount`/`min_amount`.
+
+```bash
+docker exec loyalty-postgres-prod psql -U loyalty -d loyalty -c \
+  "SELECT id, partner_id, earn_percent, use_tiers FROM point_rules;"
+```
+Expected: existing rules có `earn_percent = 1.00`.
+
+### Task 1A.2 — Update PointRule model + 3 schema Pydantic
+
+**Files:**
+- Modify: `backend/app/models/point_rule.py`
+- Modify: `backend/app/schemas/point_rule.py` (nếu chưa có thì check tên file thực tế)
+
+- [ ] **Step 1: Sửa model.**
+
+```python
+# backend/app/models/point_rule.py
+from decimal import Decimal
+
+from sqlalchemy import Boolean, ForeignKey, Index, Numeric, text
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import Base, TimestampMixin
+
+
+class PointRule(Base, TimestampMixin):
+    __tablename__ = "point_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    earn_percent: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), nullable=False, server_default=text("1.00")
+    )
+    use_tiers: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), nullable=False,
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "uq_point_rules_partner_active",
+            "partner_id",
+            unique=True,
+            postgresql_where="is_active = true",
+        ),
+    )
+```
+
+- [ ] **Step 2: Sửa schema Pydantic.**
+
+```python
+# backend/app/schemas/point_rule.py
+from decimal import Decimal
+
+from pydantic import BaseModel, Field
+
+
+class PointRuleCreateRequest(BaseModel):
+    earn_percent: Decimal = Field(
+        default=Decimal("1.00"),
+        ge=Decimal("0.01"),
+        le=Decimal("99.99"),
+        description="Phần trăm giá trị hóa đơn quy đổi thành điểm (0.01% — 99.99%)",
+    )
+    use_tiers: bool = False
+    is_active: bool = True
+
+
+class PointRuleUpdateRequest(BaseModel):
+    earn_percent: Decimal | None = Field(
+        default=None, ge=Decimal("0.01"), le=Decimal("99.99")
+    )
+    use_tiers: bool | None = None
+    is_active: bool | None = None
+
+
+class PointRuleResponse(BaseModel):
+    id: int
+    partner_id: int
+    earn_percent: Decimal
+    use_tiers: bool
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+```
+
+- [ ] **Step 3: Sửa `point_rule_service.py` (nếu có) bỏ tham chiếu 3 cột cũ.**
+
+Grep `points_per_unit\|unit_amount\|min_amount` trong `app/services/` và `app/api/`, sửa toàn bộ. Có thể có chỗ tạo/update PointRule cần đổi tên field.
+
+### Task 1A.3 — Rewrite `_calculate_points` + tests
+
+**Files:**
+- Modify: `backend/app/services/transaction_service.py`
+- Modify: `backend/tests/integration/test_transaction_service.py`
+
+- [ ] **Step 1: Test trước.**
+
+```python
+# backend/tests/integration/test_transaction_service.py
+from decimal import Decimal
+
+
+def test_calculate_points_1_percent():
+    """100k @ 1% = 1000 điểm."""
+    from app.services.transaction_service import TransactionService
+    rule = type("R", (), {"earn_percent": Decimal("1.00"), "use_tiers": False})()
+    assert TransactionService._calculate_points(rule, 100_000) == 1000
+
+
+def test_calculate_points_decimal_percent():
+    """100k @ 0.5% = 500 điểm."""
+    from app.services.transaction_service import TransactionService
+    rule = type("R", (), {"earn_percent": Decimal("0.50"), "use_tiers": False})()
+    assert TransactionService._calculate_points(rule, 100_000) == 500
+
+
+def test_calculate_points_2_5_percent():
+    """200k @ 2.5% = 5000 điểm."""
+    from app.services.transaction_service import TransactionService
+    rule = type("R", (), {"earn_percent": Decimal("2.50"), "use_tiers": False})()
+    assert TransactionService._calculate_points(rule, 200_000) == 5000
+
+
+def test_calculate_points_with_tier_multiplier():
+    """100k @ 1% × tier 1.5x = 1500 điểm."""
+    from app.services.transaction_service import TransactionService
+    rule = type("R", (), {"earn_percent": Decimal("1.00"), "use_tiers": True})()
+    tier = type("T", (), {"earn_multiplier": Decimal("1.50")})()
+    membership = type("M", (), {"current_tier": tier})()
+    assert TransactionService._calculate_points(rule, 100_000, membership=membership) == 1500
+
+
+def test_calculate_points_tier_disabled():
+    """use_tiers=false → multiplier không áp dụng dù tier có hệ số."""
+    from app.services.transaction_service import TransactionService
+    rule = type("R", (), {"earn_percent": Decimal("1.00"), "use_tiers": False})()
+    tier = type("T", (), {"earn_multiplier": Decimal("1.50")})()
+    membership = type("M", (), {"current_tier": tier})()
+    assert TransactionService._calculate_points(rule, 100_000, membership=membership) == 1000
+
+
+def test_calculate_points_truncation():
+    """Bill 333 @ 1% = 3.33 → floor về 3."""
+    from app.services.transaction_service import TransactionService
+    rule = type("R", (), {"earn_percent": Decimal("1.00"), "use_tiers": False})()
+    assert TransactionService._calculate_points(rule, 333) == 3
+```
+
+- [ ] **Step 2: Run, fail (signature có `min_amount` không khớp).**
+
+- [ ] **Step 3: Rewrite `_calculate_points`.**
+
+```python
+# backend/app/services/transaction_service.py
+from decimal import Decimal
+
+
+@staticmethod
+def _calculate_points(
+    rule: PointRule,
+    amount: int,
+    *,
+    membership: "Membership | None" = None,
+) -> int:
+    """Tính điểm = floor(amount × earn_percent / 100) × tier_multiplier (nếu use_tiers).
+
+    earn_percent là Numeric(5,2): 0.01 → 99.99. Default 1.00 (1%).
+    """
+    base_points = (Decimal(amount) * rule.earn_percent) / Decimal(100)
+    multiplier = Decimal("1.00")
+    if rule.use_tiers and membership is not None:
+        tier = getattr(membership, "current_tier", None)
+        if tier is not None:
+            multiplier = tier.earn_multiplier
+    return int(base_points * multiplier)
+```
+
+- [ ] **Step 4: Tests pass.**
+
+```bash
+docker compose -p loyalty-prod -f docker-compose.prod.yml exec backend pytest tests/integration/test_transaction_service.py -k calculate_points -v
+```
+Expected: 6 PASS.
+
+### Task 1A.4 — Cập nhật trang cấu hình tích điểm (FE)
+
+**Files:**
+- Modify: `frontend/src/app/(partner)/partner/settings/page.tsx` (verify path bằng Glob trước; nếu khác tên thì điều chỉnh)
+- Modify: `frontend/src/types/partner.ts` (PointRule interface)
+- Modify: `frontend/src/lib/api-partner.ts` (request payload type nếu có)
+
+- [ ] **Step 1: Verify path.**
+
+```bash
+ls frontend/src/app/\(partner\)/partner/settings/
+```
+
+- [ ] **Step 2: Update type.**
+
+```typescript
+// frontend/src/types/partner.ts
+export interface PointRule {
+  id: number;
+  partner_id: number;
+  earn_percent: number;  // CHANGED — bỏ points_per_unit/unit_amount/min_amount
+  use_tiers: boolean;
+  is_active: boolean;
+}
+```
+
+- [ ] **Step 3: Sửa form input.** Thay 3 input cũ (points_per_unit, unit_amount, min_amount) bằng 1 input "% tích điểm":
+
+```tsx
+<div>
+  <label className="font-medium">% tích điểm</label>
+  <p className="text-sm text-gray-600 mb-2">
+    Khách hàng nhận số điểm bằng tỷ lệ phần trăm này nhân với giá trị hóa đơn.
+    Ví dụ: cài 1% thì hóa đơn 100.000đ sẽ tích được 1.000 điểm.
+  </p>
+  <input
+    type="number"
+    step="0.01"
+    min="0.01"
+    max="99.99"
+    {...register("earn_percent", { valueAsNumber: true })}
+    className="border rounded p-2 w-32"
+  />
+  <span className="ml-2">%</span>
+  {errors.earn_percent && (
+    <p className="text-red-600 text-sm">{errors.earn_percent.message}</p>
+  )}
+</div>
+
+<label className="flex items-center gap-2 mt-4">
+  <input type="checkbox" {...register("use_tiers")} />
+  <span>Áp dụng hệ số nhân điểm theo hạng thành viên</span>
+</label>
+```
+
+- [ ] **Step 4: tsc + smoke manual.** Mở `/partner/settings`, đổi % từ 1% sang 2%, save, mở lại verify giá trị. Tạo 1 giao dịch POS verify số điểm khớp.
+
+- [ ] **Step 5: Commit toàn bộ Phase 1A.**
+
+```bash
+git add backend/alembic/versions/<hex>_qt3_earn_percent.py backend/app/models/point_rule.py backend/app/schemas/point_rule.py backend/app/services/transaction_service.py backend/tests/integration/test_transaction_service.py backend/tests/conftest.py frontend/src/types/partner.ts frontend/src/app/\(partner\)/partner/settings/page.tsx
+git commit -m "feat(qt3): chuyển công thức tích điểm sang phần trăm (earn_percent)"
+```
+
+### Task 1A.5 — Code-reviewer Phase 1A
+
+- [ ] **Step 1: Dispatch reviewer.** Tập trung: Decimal precision (truncation đúng?), tier multiplier interaction, FE form validation (range 0.01-99.99), grep hết points_per_unit/unit_amount/min_amount references trong codebase.
+- [ ] **Step 2: Fix Critical/Important.**
 
 ---
 

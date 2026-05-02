@@ -34,9 +34,100 @@ Spec này lấp toàn bộ các gap trên.
 - Logic notification riêng cho admin khi có partner pending (đã có `audit-feed` query trên-demand).
 - Email gửi cho user khi bị admin khoá (có thể thêm sau, không bắt buộc theo spec).
 
-## QT3 — Đã đủ, không thay đổi
+## QT3 — Chuyển công thức tích điểm sang phần trăm
 
-PointRule, Tier per-partner, Reward CRUD đã đầy đủ. Spec 2.3.1 v2 (giữ phân hạng) khớp 100% code hiện tại. Cần đảm bảo Chương 1 (Phạm vi) bỏ "Hệ thống phân hạng thành viên" khỏi danh sách out-of-scope (việc trên báo cáo, không phải code).
+Tier per-partner và Reward CRUD đã đầy đủ. Phần duy nhất cần đổi là **công thức tích điểm**: hiện tại dùng pattern "X điểm cho mỗi Y đồng" (`points_per_unit / unit_amount`), cần chuyển sang pattern "X% giá trị hóa đơn" (`earn_percent`) — đúng nghiệp vụ loyalty industry chuẩn.
+
+### Schema
+
+**`point_rules`** thay đổi 3 cột → 1 cột:
+
+```python
+class PointRule(Base, TimestampMixin):
+    __tablename__ = "point_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    partner_id: Mapped[int] = mapped_column(
+        ForeignKey("partners.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    earn_percent: Mapped[Decimal] = mapped_column(  # NEW — thay 3 cột cũ
+        Numeric(5, 2), nullable=False, server_default="1.00"
+    )
+    use_tiers: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Bỏ: points_per_unit, unit_amount, min_amount
+```
+
+`earn_percent` Numeric(5,2) chấp nhận giá trị 0.01 đến 99.99. Default 1.00 (1%) — chuẩn loyalty industry.
+
+`min_amount` bị **bỏ** — đối tác muốn giới hạn hóa đơn tối thiểu thì cấu hình phần trăm thấp hơn. Đơn giản hóa schema + UX.
+
+### Schema Pydantic
+
+```python
+class PointRuleCreateRequest(BaseModel):
+    earn_percent: Decimal = Field(default=Decimal("1.00"), ge=Decimal("0.01"), le=Decimal("99.99"))
+    use_tiers: bool = False
+    is_active: bool = True
+
+
+class PointRuleUpdateRequest(BaseModel):
+    earn_percent: Decimal | None = Field(default=None, ge=Decimal("0.01"), le=Decimal("99.99"))
+    use_tiers: bool | None = None
+    is_active: bool | None = None
+
+
+class PointRuleResponse(BaseModel):
+    id: int
+    partner_id: int
+    earn_percent: Decimal
+    use_tiers: bool
+    is_active: bool
+    model_config = {"from_attributes": True}
+```
+
+### Service
+
+`TransactionService._calculate_points` rewrite:
+
+```python
+@staticmethod
+def _calculate_points(rule, amount, *, membership=None) -> int:
+    """floor(amount × earn_percent / 100) × tier_multiplier (nếu use_tiers + tier ≠ 1)."""
+    base_points = (Decimal(amount) * rule.earn_percent) / Decimal(100)
+    multiplier = Decimal("1.00")
+    if rule.use_tiers and membership is not None:
+        tier = getattr(membership, "current_tier", None)
+        if tier is not None:
+            multiplier = tier.earn_multiplier
+    return int(base_points * multiplier)
+```
+
+Ví dụ:
+- Hóa đơn 100.000đ, `earn_percent = 1.00`, `use_tiers = false` → 1.000 điểm.
+- Hóa đơn 100.000đ, `earn_percent = 0.50`, `use_tiers = false` → 500 điểm.
+- Hóa đơn 100.000đ, `earn_percent = 1.00`, `use_tiers = true`, hạng Gold (multiplier 1.5) → 1.500 điểm.
+- Hóa đơn 333đ, `earn_percent = 1.00` → 3 điểm (floor 3.33).
+
+### Migration
+
+Drop 3 cột cũ + add `earn_percent` default 1.00. Existing rules được set `earn_percent = 1.00` (1%) tự động qua `server_default`. Đối tác cũ tự đổi giá trị qua trang cấu hình nếu muốn khác.
+
+### Frontend
+
+Trang cấu hình tích điểm: 1 input số "% tích điểm" (range 0.01-99.99, step 0.01) + 1 checkbox "Áp dụng hệ số nhân điểm theo hạng thành viên". Bỏ 3 input cũ.
+
+### Test
+
+- Unit `_calculate_points`: 1%, 0.5%, 2.5%, with/without tier multiplier, truncation.
+- Integration: tạo PointRule mới qua API → giao dịch POS → verify số điểm.
+- Smoke: 100k @ 1% → 1000 điểm; 100k @ 1% × Gold 1.5x → 1500 điểm.
+
+---
+
+## QT3 (chương 1 báo cáo)
+
+Cần đảm bảo Chương 1 (Phạm vi) bỏ "Hệ thống phân hạng thành viên" khỏi danh sách out-of-scope (việc trên báo cáo, không phải code).
 
 ---
 
@@ -684,6 +775,7 @@ class AuditLogListResponse(BaseModel):
 
 | Phase | Revision file | DDL |
 |---|---|---|
+| QT3 | `<hex>_qt3_earn_percent.py` | drop `point_rules.points_per_unit` + `point_rules.unit_amount` + add `point_rules.earn_percent` Numeric(5,2) NOT NULL DEFAULT 1.00 |
 | QT5 | (không có DDL) | — |
 | QT4 | (không có DDL) | — |
 | QT1 | `<hex>_qt1_must_change_password.py` | `users.must_change_password BOOL DEFAULT FALSE NOT NULL` |
@@ -705,6 +797,7 @@ Backfill: rỗng (default values + NULL phù hợp).
 
 - Pytest unit + integration cho mọi service/API change. Pattern theo `tests/integration/test_auth_api.py`.
 - Smoke E2E (Playwright hoặc curl scripts) sau mỗi phase per `feedback_smoke_driven_review_loop.md`:
+  - QT3: cấu hình `earn_percent=1.00` → giao dịch POS 100k → 1000 điểm; đổi `earn_percent=0.5` → giao dịch tương tự → 500 điểm.
   - QT1: full forgot-password → login temp → blocked → change → unblocked.
   - QT2: register partner with license + terms → admin approve with reason → audit_logs có entry.
   - QT4: POS scan QR khách mới → tích điểm thành công.
@@ -714,16 +807,17 @@ Backfill: rỗng (default values + NULL phù hợp).
 
 ## Sequencing
 
-Plan sẽ tách 6 phase, mỗi phase 1 quy trình. Order đề xuất (tăng dần độ rủi ro):
+Plan tách 7 phase. Order đề xuất:
 
-1. **QT5** (~0.2d) — 1 dòng SQL, ít rủi ro nhất, làm warm-up.
-2. **QT4** (~0.5d) — service refactor, không có schema change phức tạp.
-3. **QT1** (~0.5d) — schema 1 cột + dependency middleware.
-4. **QT8** (~1.5d) — schema mới, hooks vào nhiều endpoint.
-5. **QT2** (~1d) — schema 6 cột, FE upload flow, T&C UI.
-6. **QT7** (~1.5d) — schema constraint + cột mới + endpoint mới + FE phân biệt 2 button.
+1. **QT3** (~0.5d) — foundational đổi công thức tích điểm sang phần trăm. Làm trước để tests phase sau dùng schema mới.
+2. **QT5** (~0.2d) — 1 dòng SQL filter, warm-up.
+3. **QT4** (~0.5d) — service refactor, không schema change phức tạp.
+4. **QT1** (~0.5d) — schema 1 cột + dependency middleware.
+5. **QT8** (~1.5d) — schema mới, hooks vào nhiều endpoint.
+6. **QT2** (~1d) — schema 6 cột, FE upload flow, T&C UI.
+7. **QT7** (~1.5d) — schema constraint + cột mới + endpoint mới + FE phân biệt 2 button.
 
-Mỗi phase: code → test → smoke → code-reviewer → fix critical → commit → next.
+Tổng ~5.7 ngày dev. Mỗi phase: code → test → smoke → code-reviewer → fix critical → commit → next.
 
 ## Risks & mitigations
 
