@@ -455,9 +455,8 @@ Xoá toàn bộ container VÀ database (reset hoàn toàn):
 Sinh viên thực hiện : Nguyễn Hải Đăng
 Email               : dang.nguyenhai2k2@gmail.com
 URL bản demo online : https://loyalty.ecom-bill.com
-                      (bản em đang chạy trên server cá nhân qua Cloudflare
-                       Tunnel — Thầy/Cô có thể tham khảo song song với bản
-                       cài đặt trên máy để đối chiếu)
+                      (em gửi kèm bản đang chạy trên server cá nhân qua
+                       Cloudflare Tunnel để Thầy/Cô đối chiếu nếu cần)
 
 ================================================================================
                                   HẾT TÀI LIỆU
