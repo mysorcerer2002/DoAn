@@ -5,7 +5,7 @@
 ================================================================================
 
 Tài liệu này hướng dẫn cài đặt và chạy thử source code trên máy cá nhân để
-giảng viên thẩm định. Toàn bộ hệ thống được đóng gói bằng Docker Compose nên
+Thầy/Cô thẩm định. Toàn bộ hệ thống được đóng gói bằng Docker Compose nên
 KHÔNG cần cài Python, Node.js hay PostgreSQL trực tiếp lên máy.
 
 Thời gian cài đặt ước tính: 10–15 phút (lần đầu phải tải image + build).
@@ -25,6 +25,9 @@ Phần mềm bắt buộc:
   - Docker Desktop  >= 4.x  (Windows/macOS) hoặc Docker Engine + Compose v2 (Linux)
     Tải tại: https://www.docker.com/products/docker-desktop/
   - Git  (tuỳ chọn — chỉ cần nếu clone từ repository thay vì giải nén ZIP)
+
+Phần mềm tuỳ chọn (chỉ cần nếu muốn chạy bộ test case tự động ở mục 8):
+  - Python 3.10 trở lên — https://www.python.org/downloads/
 
 Cổng cần trống trên máy:
   - 3000   → Frontend (Next.js)
@@ -90,7 +93,7 @@ Giá trị mặc định trong các file mẫu đã đủ để chạy thử ở
 KHÔNG cần chỉnh sửa gì thêm để demo. JWT_SECRET mặc định trong
 docker-compose.yml chỉ phục vụ chạy thử, KHÔNG dùng cho production.
 
-(Tuỳ chọn — sinh JWT_SECRET ngẫu nhiên cho an toàn hơn)
+(Tuỳ chọn — sinh ngẫu nhiên JWT_SECRET cho an toàn hơn)
 
     Windows PowerShell:
       -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) })
@@ -202,10 +205,120 @@ Các email khách hàng còn lại: khach2..khach5@gmail.com, lala2..lala5@gmail
 
 
 ================================================================================
-  8. KỊCH BẢN DEMO ĐỀ XUẤT (cho giảng viên)
+  8. CHẠY TEST CASE TỰ ĐỘNG (theo Bảng 4-1 báo cáo, Chương 4)
 ================================================================================
 
-Để cảm nhận đầy đủ luồng nghiệp vụ, có thể thực hiện theo thứ tự:
+Đồ án có sẵn 44 test function viết bằng Pytest, tương ứng 34 kịch bản kiểm thử
+trong Bảng 4-1 của báo cáo. Test gọi API thật của backend đang chạy trong
+container, kèm thao tác DB qua psql để dựng các state đặc biệt (mật khẩu tạm,
+hạng Vàng, voucher quá hạn...).
+
+Phân bổ:
+  Nhóm A — Xác thực và phân quyền                  : 10 test  (TC-A01..A10)
+  Nhóm B — Vòng đời đối tác (đăng ký, phê duyệt)   : 12 test  (TC-B01..B10)
+  Nhóm C — Tích điểm POS và đổi quà                : 17 test  (TC-C01..C16 + C13b)
+  Nhóm D — Quản trị hệ thống và kiểm toán          : 7 test   (TC-D01..D07)
+
+Lần chạy gần nhất (commit eb6d463): 44/44 PASS.
+
+------------------------------------------------------------
+  8.1. Chuẩn bị (chỉ cần làm 1 lần)
+------------------------------------------------------------
+
+Yêu cầu:
+  - Python 3.10+ trên máy host (kiểm tra: `python --version`)
+  - 3 container đang chạy (mục 4) và đã seed dữ liệu (mục 6)
+
+Cài thư viện Python cho test runner:
+
+    python -m pip install --upgrade pip
+    python -m pip install pytest httpx pytest-html
+
+------------------------------------------------------------
+  8.2. Chạy toàn bộ 44 test case + xuất báo cáo HTML
+------------------------------------------------------------
+
+Test runner cần biết URL backend và tên container Postgres/Backend (mặc định
+trong code đang trỏ sang môi trường production của sinh viên, nên cần override
+khi chạy trên máy Thầy/Cô).
+
+Windows PowerShell:
+
+    $env:BASE_URL      = "http://localhost:8000"
+    $env:PG_CONTAINER  = "loyalty-postgres"
+    $env:BE_CONTAINER  = "loyalty-backend"
+    python -m pytest tests_e2e `
+        --html=tests_e2e/results/report.html `
+        --self-contained-html `
+        --junitxml=tests_e2e/results/junit.xml
+
+macOS / Linux:
+
+    BASE_URL=http://localhost:8000 \
+    PG_CONTAINER=loyalty-postgres \
+    BE_CONTAINER=loyalty-backend \
+    python -m pytest tests_e2e \
+        --html=tests_e2e/results/report.html \
+        --self-contained-html \
+        --junitxml=tests_e2e/results/junit.xml
+
+Thời gian chạy: 2–3 phút.
+
+Kết quả mong đợi (dòng cuối cùng trên terminal):
+
+    ============== 44 passed in 145.xxs ==============
+
+------------------------------------------------------------
+  8.3. Xem báo cáo HTML
+------------------------------------------------------------
+
+Mở file `tests_e2e/results/report.html` bằng trình duyệt. Báo cáo gồm:
+  - Dashboard tổng quan: số test PASS / FAIL / duration
+  - Danh sách từng test theo nhóm A/B/C/D
+  - Click vào tên test để xem chi tiết: request gửi đi, response nhận về,
+    DB state, assertion đã chạy
+
+(File `junit.xml` cùng thư mục có thể import vào CI hoặc IDE nếu cần.)
+
+------------------------------------------------------------
+  8.4. Chạy chọn lọc 1 nhóm hoặc 1 test case
+------------------------------------------------------------
+
+Chạy 1 nhóm:
+
+    python -m pytest tests_e2e/test_group_a_auth.py -v
+    python -m pytest tests_e2e/test_group_b_partner.py -v
+    python -m pytest tests_e2e/test_group_c_pos.py -v
+    python -m pytest tests_e2e/test_group_d_admin.py -v
+
+Chạy 1 test case cụ thể (ví dụ TC-A01 — đăng ký hợp lệ):
+
+    python -m pytest tests_e2e/test_group_a_auth.py::test_a01_dang_ky_hop_le -v
+
+Bảng mapping đầy đủ (TC ↔ tên test function ↔ kết quả mong đợi) ở file
+`tests_e2e/README.md`.
+
+------------------------------------------------------------
+  8.5. Test backend (unit + integration) — chạy trong container
+------------------------------------------------------------
+
+Không cần cài Python trên host — backend container đã có pytest:
+
+    docker compose exec backend pytest -v                     # toàn bộ
+    docker compose exec backend pytest tests/unit -v          # unit only
+    docker compose exec backend pytest tests/integration -v   # integration
+
+Lưu ý: integration test dùng testcontainers (yêu cầu quyền điều khiển Docker
+từ trong container) — nếu báo lỗi liên quan đến Docker socket, có thể bỏ qua
+phần integration; bộ E2E ở mục 8.2 đã đủ để đánh giá chức năng đầu-cuối.
+
+
+================================================================================
+  9. KỊCH BẢN DEMO ĐỀ XUẤT
+================================================================================
+
+Để cảm nhận đầy đủ luồng nghiệp vụ ngoài test tự động, có thể thực hiện theo
+thứ tự:
 
   (1) Đăng ký khách hàng mới
       → Vào http://localhost:3000/register, đăng ký bằng email mới.
@@ -235,7 +348,7 @@ Các email khách hàng còn lại: khach2..khach5@gmail.com, lala2..lala5@gmail
 
 
 ================================================================================
-  9. LỆNH HỮU ÍCH
+  10. LỆNH HỮU ÍCH
 ================================================================================
 
 Xem log một service cụ thể:
@@ -249,9 +362,6 @@ Khởi động lại một service:
 Truy cập database PostgreSQL:
     docker compose exec postgres psql -U loyalty -d loyalty
     (Trong psql gõ \dt để xem bảng, \q để thoát)
-
-Chạy test backend:
-    docker compose exec backend pytest -v
 
 Tạm dừng toàn bộ (giữ dữ liệu):
     docker compose stop
@@ -267,7 +377,7 @@ Xoá toàn bộ container VÀ database (reset hoàn toàn):
 
 
 ================================================================================
-  10. XỬ LÝ SỰ CỐ THƯỜNG GẶP
+  11. XỬ LÝ SỰ CỐ THƯỜNG GẶP
 ================================================================================
 
 [Lỗi] "port is already allocated" khi `docker compose up`
@@ -287,6 +397,15 @@ Xoá toàn bộ container VÀ database (reset hoàn toàn):
     (mặc định http://localhost:8000).
   → Rebuild frontend:  docker compose up -d --build frontend
 
+[Lỗi] Test E2E báo `connection refused` đến container Postgres
+  → Container đang dùng tên khác. Kiểm tra: `docker compose ps`
+  → Set lại biến PG_CONTAINER và BE_CONTAINER cho khớp tên thực tế.
+
+[Lỗi] Test E2E báo `python: command not found` hoặc `pytest: command not found`
+  → Chưa cài Python hoặc Python không có trong PATH.
+  → Cài Python 3.10+ từ python.org (Windows nhớ tick "Add to PATH" khi cài),
+    sau đó chạy lại `python -m pip install pytest httpx pytest-html`.
+
 [Lỗi] Trang trắng / lỗi 500
   → Xem log backend:   docker compose logs --tail 50 backend
   → Xem log frontend:  docker compose logs --tail 50 frontend
@@ -302,7 +421,7 @@ Xoá toàn bộ container VÀ database (reset hoàn toàn):
 
 
 ================================================================================
-  11. CẤU TRÚC THƯ MỤC DỰ ÁN
+  12. CẤU TRÚC THƯ MỤC DỰ ÁN
 ================================================================================
 
   DoAn/
@@ -315,7 +434,12 @@ Xoá toàn bộ container VÀ database (reset hoàn toàn):
   │   └── src/
   │       └── app/                - Route theo App Router (admin, merchant,
   │                                 staff, member, auth)
-  ├── tests_e2e/                Playwright E2E tests
+  ├── tests_e2e/                Pytest E2E — 44 test theo Bảng 4-1 báo cáo
+  │   ├── test_group_a_auth.py    - Nhóm A (Xác thực)
+  │   ├── test_group_b_partner.py - Nhóm B (Đối tác)
+  │   ├── test_group_c_pos.py     - Nhóm C (POS + đổi quà)
+  │   ├── test_group_d_admin.py   - Nhóm D (Quản trị)
+  │   └── README.md               - Mapping TC ↔ test function
   ├── docs/                     Spec + plan + thiết kế
   ├── bao-cao/                  File báo cáo + ảnh minh hoạ
   ├── docker-compose.yml        Cấu hình môi trường chạy thử (dev)
@@ -325,22 +449,26 @@ Xoá toàn bộ container VÀ database (reset hoàn toàn):
 
 
 ================================================================================
-  12. THÔNG TIN LIÊN HỆ
+  13. THÔNG TIN LIÊN HỆ
 ================================================================================
 
 Sinh viên thực hiện : Nguyễn Hải Đăng
 Email               : dang.nguyenhai2k2@gmail.com
-URL demo online     : https://loyalty.ecom-bill.com
-                      (chạy trên server của sinh viên qua Cloudflare Tunnel —
-                       có thể dùng song song với bản local để đối chiếu)
+URL bản demo online : https://loyalty.ecom-bill.com
+                      (bản em đang chạy trên server cá nhân qua Cloudflare
+                       Tunnel — Thầy/Cô có thể tham khảo song song với bản
+                       cài đặt trên máy để đối chiếu)
 
-Trong quá trình cài đặt nếu gặp lỗi không nằm trong mục 10, vui lòng:
-  - Chụp lại nội dung terminal khi chạy `docker compose ps`
-  - Chụp lại 30 dòng log cuối:  docker compose logs --tail 30
-  - Gửi qua email để được hỗ trợ.
+Em xin chân thành cảm ơn Thầy/Cô đã dành thời gian đọc, cài đặt và thẩm định
+đồ án của em.
 
-Cảm ơn Thầy/Cô đã dành thời gian thẩm định đồ án.
+Trong quá trình cài đặt hoặc chạy thử, nếu Thầy/Cô gặp bất kỳ vướng mắc nào,
+em xin phép được trực tiếp đến hỗ trợ Thầy/Cô — Thầy/Cô vui lòng liên hệ qua
+email phía trên hoặc bất kỳ kênh nào Thầy/Cô thuận tiện, em sẽ có mặt sớm
+nhất có thể.
+
+Em xin trân trọng cảm ơn.
 
 ================================================================================
-                           HẾT — CHÚC THẦY/CÔ DEMO THÀNH CÔNG
+                                  HẾT TÀI LIỆU
 ================================================================================
