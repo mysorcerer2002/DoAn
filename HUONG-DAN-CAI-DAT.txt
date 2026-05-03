@@ -1,0 +1,346 @@
+================================================================================
+  HƯỚNG DẪN CÀI ĐẶT VÀ CHẠY THỬ ĐỒ ÁN
+  Loyalty Platform — Hệ thống tích điểm thành viên đa đối tác
+  Đồ án thực tập tốt nghiệp — Nguyễn Hải Đăng
+================================================================================
+
+Tài liệu này hướng dẫn cài đặt và chạy thử source code trên máy cá nhân để
+giảng viên thẩm định. Toàn bộ hệ thống được đóng gói bằng Docker Compose nên
+KHÔNG cần cài Python, Node.js hay PostgreSQL trực tiếp lên máy.
+
+Thời gian cài đặt ước tính: 10–15 phút (lần đầu phải tải image + build).
+
+
+================================================================================
+  1. YÊU CẦU HỆ THỐNG
+================================================================================
+
+Phần cứng tối thiểu:
+  - CPU      : 2 nhân
+  - RAM      : 4 GB (khuyến nghị 8 GB)
+  - Ổ cứng   : 5 GB trống
+  - Mạng     : Có Internet để pull image lần đầu
+
+Phần mềm bắt buộc:
+  - Docker Desktop  >= 4.x  (Windows/macOS) hoặc Docker Engine + Compose v2 (Linux)
+    Tải tại: https://www.docker.com/products/docker-desktop/
+  - Git  (tuỳ chọn — chỉ cần nếu clone từ repository thay vì giải nén ZIP)
+
+Cổng cần trống trên máy:
+  - 3000   → Frontend (Next.js)
+  - 8000   → Backend (FastAPI)
+  - 5433   → PostgreSQL (đã đổi từ 5432 mặc định để không xung đột nếu máy
+              đã cài Postgres sẵn)
+
+Kiểm tra Docker đã sẵn sàng:
+
+    docker --version
+    docker compose version
+
+Cả hai lệnh phải trả về số phiên bản. Nếu Docker Desktop chưa khởi động, bật
+ứng dụng lên và đợi icon chạy ổn định (biểu tượng cá voi xanh) rồi mới tiếp tục.
+
+
+================================================================================
+  2. CHUẨN BỊ SOURCE CODE
+================================================================================
+
+Cách A — Giải nén từ file ZIP (khi nhận source qua email/USB):
+
+    1. Giải nén file zip vào một thư mục tuỳ chọn, ví dụ:
+         Windows : C:\DoAn
+         macOS   : ~/DoAn
+         Linux   : ~/DoAn
+
+    2. Mở terminal (PowerShell / CMD / Bash) và di chuyển vào thư mục dự án:
+         cd C:\DoAn        (Windows)
+         cd ~/DoAn         (macOS / Linux)
+
+Cách B — Clone từ Git repository (nếu có):
+
+    git clone <URL_REPOSITORY> DoAn
+    cd DoAn
+
+Sau bước này, lệnh `dir` (Windows) hoặc `ls` (macOS/Linux) phải thấy các file:
+    docker-compose.yml
+    backend/
+    frontend/
+    README.md
+
+
+================================================================================
+  3. CẤU HÌNH BIẾN MÔI TRƯỜNG (.env)
+================================================================================
+
+Hệ thống cần ba file `.env` được sao chép từ các file mẫu `.env.example`.
+
+Windows (PowerShell):
+
+    Copy-Item .env.example .env
+    Copy-Item backend\.env.example backend\.env
+    Copy-Item frontend\.env.example frontend\.env.local
+
+macOS / Linux:
+
+    cp .env.example .env
+    cp backend/.env.example backend/.env
+    cp frontend/.env.example frontend/.env.local
+
+Giá trị mặc định trong các file mẫu đã đủ để chạy thử ở môi trường local —
+KHÔNG cần chỉnh sửa gì thêm để demo. JWT_SECRET mặc định trong
+docker-compose.yml chỉ phục vụ chạy thử, KHÔNG dùng cho production.
+
+(Tuỳ chọn — sinh JWT_SECRET ngẫu nhiên cho an toàn hơn)
+
+    Windows PowerShell:
+      -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) })
+
+    macOS / Linux:
+      openssl rand -hex 32
+
+Sao chép chuỗi kết quả, mở file `backend\.env`, gán vào biến `JWT_SECRET=`.
+
+
+================================================================================
+  4. KHỞI ĐỘNG TOÀN BỘ HỆ THỐNG
+================================================================================
+
+Tại thư mục gốc dự án, chạy:
+
+    docker compose up -d --build
+
+Lệnh trên sẽ:
+    [1] Pull image PostgreSQL 15
+    [2] Build image Backend (FastAPI, Python 3.11)
+    [3] Build image Frontend (Next.js 14, Node 20)
+    [4] Khởi động 3 container theo thứ tự: postgres → backend → frontend
+    [5] Backend tự động chạy Alembic migrations để tạo schema khi start
+
+Lần đầu build mất 5–10 phút tuỳ tốc độ mạng. Các lần sau chỉ vài giây.
+
+Theo dõi tiến trình:
+
+    docker compose logs -f
+
+Nhấn Ctrl+C để thoát theo dõi (container vẫn chạy nền).
+
+Kiểm tra cả 3 container đã ở trạng thái healthy:
+
+    docker compose ps
+
+Cột STATUS phải hiển thị `Up ... (healthy)` cho cả `loyalty-postgres`,
+`loyalty-backend`, `loyalty-frontend`.
+
+
+================================================================================
+  5. KIỂM TRA HỆ THỐNG ĐÃ CHẠY
+================================================================================
+
+Backend health check:
+
+    curl http://localhost:8000/health
+
+Kết quả mong đợi:
+    {"status":"ok"}
+
+Backend API documentation (Swagger UI):
+    Mở trình duyệt: http://localhost:8000/docs
+
+Frontend:
+    Mở trình duyệt: http://localhost:3000
+
+
+================================================================================
+  6. NẠP DỮ LIỆU DEMO
+================================================================================
+
+Hệ thống cần dữ liệu mẫu (đối tác, khách hàng, giao dịch, phần thưởng) để demo
+đầy đủ. Chạy script seed bên trong container backend:
+
+    docker compose exec backend python seed_demo.py
+
+Script sẽ tạo:
+    - 1 super admin
+    - 2 đối tác (Cafe Cộng, Trà Sữa Lala) với đầy đủ tier, point rule, reward
+    - 4 nhân viên (staff)
+    - 10 khách hàng đã tham gia membership
+    - ~65 giao dịch POS trong 14 ngày gần nhất
+    - Bút toán point ledger + một số redemption mẫu
+
+Khi script in dòng `✅ Seed completed` là hoàn tất.
+
+Lưu ý: Có thể chạy lại lệnh seed nhiều lần — script idempotent, không nhân
+đôi dữ liệu.
+
+
+================================================================================
+  7. TÀI KHOẢN DEMO
+================================================================================
+
+Truy cập trang đăng nhập: http://localhost:3000/login
+
+  ┌──────────────────────┬─────────────────────┬──────────────┐
+  │ Vai trò              │ Email               │ Mật khẩu     │
+  ├──────────────────────┼─────────────────────┼──────────────┤
+  │ Super admin          │ admin@loyalty.vn    │ admin1234    │
+  │ Chủ shop — Cafe Cộng │ owner@cafe.vn       │ owner1234    │
+  │ Chủ shop — Lala Food │ owner@lala.vn       │ owner1234    │
+  │ Nhân viên — Cafe Cộng│ staff1@cafe.vn      │ staff1234    │
+  │ Nhân viên — Lala     │ staff1@lala.vn      │ staff1234    │
+  │ Khách hàng (Cafe)    │ khach1@gmail.com    │ khach1234    │
+  │ Khách hàng (Lala)    │ lala1@gmail.com     │ khach1234    │
+  └──────────────────────┴─────────────────────┴──────────────┘
+
+Các email khách hàng còn lại: khach2..khach5@gmail.com, lala2..lala5@gmail.com
+(cùng mật khẩu khach1234).
+
+Đường dẫn nhanh sau đăng nhập (hệ thống tự điều hướng theo vai trò):
+    - Super admin           → /admin
+    - Chủ shop              → /merchant
+    - Nhân viên             → /staff
+    - Khách hàng            → /member
+
+
+================================================================================
+  8. KỊCH BẢN DEMO ĐỀ XUẤT (cho giảng viên)
+================================================================================
+
+Để cảm nhận đầy đủ luồng nghiệp vụ, có thể thực hiện theo thứ tự:
+
+  (1) Đăng ký khách hàng mới
+      → Vào http://localhost:3000/register, đăng ký bằng email mới.
+      → Đăng nhập, vào /member/partners, tham gia một đối tác.
+
+  (2) Nhân viên ghi giao dịch tích điểm
+      → Đăng nhập staff1@cafe.vn / staff1234.
+      → Vào /staff/pos, quét QR khách hoặc nhập số điện thoại,
+        nhập số tiền hoá đơn, xác nhận → hệ thống cộng điểm tự động.
+
+  (3) Khách hàng đổi quà
+      → Đăng nhập khach3@gmail.com / khach1234 (đã có ~2650 điểm).
+      → Vào /member, chọn đối tác Cafe Cộng → /member/partners/cafe-cong,
+        bấm "Đổi quà" trên một phần thưởng phù hợp.
+      → Mã đổi quà (OTP) hiển thị; copy lại.
+      → Đăng nhập staff1@cafe.vn, vào /staff/redeem, nhập mã OTP → xác nhận.
+
+  (4) Chủ shop xem báo cáo
+      → Đăng nhập owner@cafe.vn / owner1234.
+      → Dashboard /merchant hiển thị tổng giao dịch, điểm phát/tiêu, top khách.
+      → Vào /merchant/customers, /merchant/transactions, /merchant/rewards
+        để khảo sát.
+
+  (5) Super admin giám sát hệ thống
+      → Đăng nhập admin@loyalty.vn / admin1234.
+      → Vào /admin để xem tổng quan đa đối tác, quản lý điểm hệ thống, log.
+
+
+================================================================================
+  9. LỆNH HỮU ÍCH
+================================================================================
+
+Xem log một service cụ thể:
+    docker compose logs -f backend
+    docker compose logs -f frontend
+    docker compose logs -f postgres
+
+Khởi động lại một service:
+    docker compose restart backend
+
+Truy cập database PostgreSQL:
+    docker compose exec postgres psql -U loyalty -d loyalty
+    (Trong psql gõ \dt để xem bảng, \q để thoát)
+
+Chạy test backend:
+    docker compose exec backend pytest -v
+
+Tạm dừng toàn bộ (giữ dữ liệu):
+    docker compose stop
+
+Khởi động lại sau khi stop:
+    docker compose start
+
+Xoá toàn bộ container nhưng GIỮ database:
+    docker compose down
+
+Xoá toàn bộ container VÀ database (reset hoàn toàn):
+    docker compose down -v
+
+
+================================================================================
+  10. XỬ LÝ SỰ CỐ THƯỜNG GẶP
+================================================================================
+
+[Lỗi] "port is already allocated" khi `docker compose up`
+  → Một ứng dụng khác đang dùng cổng 3000/8000/5433.
+  → Kiểm tra:
+       Windows : netstat -ano | findstr :3000
+       Linux   : lsof -i :3000
+  → Hoặc đóng ứng dụng đang chiếm cổng, hoặc đổi cổng trong
+    docker-compose.yml (mục `ports:` — đổi `"3000:3000"` thành `"3001:3000"`).
+
+[Lỗi] Backend không healthy, log có "could not connect to postgres"
+  → Postgres chưa sẵn sàng. Đợi 30 giây rồi:
+       docker compose restart backend
+
+[Lỗi] Frontend báo "Network Error" khi đăng nhập
+  → Kiểm tra biến NEXT_PUBLIC_API_URL trong frontend/.env.local đúng chưa
+    (mặc định http://localhost:8000).
+  → Rebuild frontend:  docker compose up -d --build frontend
+
+[Lỗi] Trang trắng / lỗi 500
+  → Xem log backend:   docker compose logs --tail 50 backend
+  → Xem log frontend:  docker compose logs --tail 50 frontend
+
+[Cần] Reset toàn bộ dữ liệu để demo lại từ đầu
+  → docker compose down -v
+  → docker compose up -d --build
+  → docker compose exec backend python seed_demo.py
+
+[Cần] Build lại sau khi sửa code
+  → docker compose up -d --build backend     (chỉ backend)
+  → docker compose up -d --build frontend    (chỉ frontend)
+
+
+================================================================================
+  11. CẤU TRÚC THƯ MỤC DỰ ÁN
+================================================================================
+
+  DoAn/
+  ├── backend/                  Mã nguồn FastAPI + SQLAlchemy + Alembic
+  │   ├── app/                    - Source chính (api, services, models, schemas)
+  │   ├── alembic/                - Migration database
+  │   ├── tests/                  - Test (unit + integration)
+  │   └── seed_demo.py            - Script seed dữ liệu demo
+  ├── frontend/                 Mã nguồn Next.js 14 + Tailwind + shadcn/ui
+  │   └── src/
+  │       └── app/                - Route theo App Router (admin, merchant,
+  │                                 staff, member, auth)
+  ├── tests_e2e/                Playwright E2E tests
+  ├── docs/                     Spec + plan + thiết kế
+  ├── bao-cao/                  File báo cáo + ảnh minh hoạ
+  ├── docker-compose.yml        Cấu hình môi trường chạy thử (dev)
+  ├── docker-compose.prod.yml   Cấu hình môi trường production
+  ├── README.md                 Mô tả ngắn gọn
+  └── HUONG-DAN-CAI-DAT.txt     File đang đọc
+
+
+================================================================================
+  12. THÔNG TIN LIÊN HỆ
+================================================================================
+
+Sinh viên thực hiện : Nguyễn Hải Đăng
+Email               : dang.nguyenhai2k2@gmail.com
+URL demo online     : https://loyalty.ecom-bill.com
+                      (chạy trên server của sinh viên qua Cloudflare Tunnel —
+                       có thể dùng song song với bản local để đối chiếu)
+
+Trong quá trình cài đặt nếu gặp lỗi không nằm trong mục 10, vui lòng:
+  - Chụp lại nội dung terminal khi chạy `docker compose ps`
+  - Chụp lại 30 dòng log cuối:  docker compose logs --tail 30
+  - Gửi qua email để được hỗ trợ.
+
+Cảm ơn Thầy/Cô đã dành thời gian thẩm định đồ án.
+
+================================================================================
+                           HẾT — CHÚC THẦY/CÔ DEMO THÀNH CÔNG
+================================================================================
