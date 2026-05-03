@@ -5,7 +5,7 @@
 ================================================================================
 
 Tài liệu này hướng dẫn cài đặt và chạy thử source code trên máy cá nhân để
-Thầy/Cô thẩm định. Toàn bộ hệ thống được đóng gói bằng Docker Compose nên
+Thầy thẩm định. Toàn bộ hệ thống được đóng gói bằng Docker Compose nên
 KHÔNG cần cài Python, Node.js hay PostgreSQL trực tiếp lên máy.
 
 Thời gian cài đặt ước tính: 10–15 phút (lần đầu phải tải image + build).
@@ -240,7 +240,7 @@ Cài thư viện Python cho test runner:
 
 Test runner cần biết URL backend và tên container Postgres/Backend (mặc định
 trong code đang trỏ sang môi trường production của sinh viên, nên cần override
-khi chạy trên máy Thầy/Cô).
+khi chạy trên máy Thầy).
 
 Windows PowerShell:
 
@@ -456,7 +456,7 @@ Sinh viên thực hiện : Nguyễn Hải Đăng
 Email               : dang.nguyenhai2k2@gmail.com
 URL bản demo online : https://loyalty.ecom-bill.com
                       (em gửi kèm bản đang chạy trên server cá nhân qua
-                       Cloudflare Tunnel để Thầy/Cô đối chiếu nếu cần)
+                       Cloudflare Tunnel để Thầy đối chiếu nếu cần)
 
 ================================================================================
                                   HẾT TÀI LIỆU
