@@ -244,6 +244,52 @@ docker compose exec backend pytest tests/integration -v   # integration
 
 Integration test dùng testcontainers (yêu cầu quyền điều khiển Docker từ trong container) — nếu báo lỗi liên quan đến Docker socket, có thể bỏ qua phần integration; bộ E2E ở mục 7.2 đã đủ để đánh giá chức năng đầu-cuối.
 
+### 7.6. Load test bằng Locust (Bảng 4-2 báo cáo)
+
+5 kịch bản kiểm thử tải nằm ở `tmp/tests/load/locustfile.py`:
+
+| Mã    | Class                    | Kịch bản                                              |
+|-------|--------------------------|-------------------------------------------------------|
+| LT-01 | `LoadTestRedeemRace`     | Race condition khi đổi quà (1 reward stock=5, 100 client) |
+| LT-02 | `LoadTestFreeClaimRace`  | Race condition khi nhận voucher giới hạn (stock=10, 200 client) |
+| LT-03 | `LoadTestPOSThroughput`  | Hiệu năng tích điểm POS (50 client × 5 phút, mục tiêu p95 < 200ms) |
+| LT-04 | `LoadTestAutoEnroll`     | Auto-enroll khi tích điểm lần đầu (50 khách mới đồng thời) |
+| LT-05 | `LoadTestBruteForce`     | Chống tấn công thử mật khẩu (100 lần login sai liên tiếp) |
+
+**Chuẩn bị (1 lần):**
+
+```bash
+python -m pip install locust requests
+cd tmp/tests/load
+
+# 100 customer test + tích sẵn 5000 điểm cho mỗi
+BASE_URL=http://localhost:3000/api python setup_data.py create_test_customers 100
+
+# Cache JWT token (tránh login bottleneck khi đo race)
+BASE_URL=http://localhost:3000/api python setup_data.py cache_tokens 100
+
+# Tạo reward + voucher cho LT-01, LT-02; tạo victim cho LT-05
+BASE_URL=http://localhost:3000/api python setup_data.py setup_lt01 5      # in REDEEM_REWARD_ID=<id>
+BASE_URL=http://localhost:3000/api python setup_data.py setup_lt02 10     # in FREE_REWARD_ID=<id>
+BASE_URL=http://localhost:3000/api python setup_data.py setup_lt05_victim
+```
+
+**Chạy 1 kịch bản (ví dụ LT-01):**
+
+```bash
+# headless mode + xuất CSV
+REDEEM_REWARD_ID=<id-từ-setup-lt01> \
+locust -f locustfile.py LoadTestRedeemRace --host=http://localhost:3000 \
+    --headless -u 100 -r 100 -t 20s --csv=../results/lt01
+
+# Hoặc UI mode (mở http://localhost:8089 để cấu hình + xem dashboard real-time)
+locust -f locustfile.py LoadTestRedeemRace --host=http://localhost:3000
+```
+
+Tương tự cho `LoadTestFreeClaimRace` (LT-02), `LoadTestPOSThroughput` (LT-03), `LoadTestAutoEnroll` (LT-04), `LoadTestBruteForce` (LT-05). Mỗi kịch bản LT-01/LT-02 cần biến môi trường tương ứng (`REDEEM_REWARD_ID`, `FREE_REWARD_ID`).
+
+Chi tiết tham số + verify kết quả sau mỗi LT (tồn kho cuối, số voucher phát, p95 latency...): xem `tmp/tests/README.md`.
+
 ---
 
 ## 8. Kịch bản demo đề xuất
@@ -332,6 +378,10 @@ DoAn/
 │   ├── test_group_c_pos.py     - Nhóm C (POS + đổi quà)
 │   ├── test_group_d_admin.py   - Nhóm D (Quản trị)
 │   └── README.md               - Mapping TC ↔ test function
+├── tmp/tests/                Locust load test — 5 kịch bản theo Bảng 4-2 báo cáo
+│   ├── load/locustfile.py      - 5 LT class (LT-01..LT-05)
+│   ├── load/setup_data.py      - Tạo customer + cache token + setup reward
+│   └── README.md               - Chi tiết tham số + cách verify
 ├── docs/                     Spec + plan + thiết kế
 ├── bao-cao/                  File báo cáo + ảnh minh hoạ
 ├── docker-compose.yml        Cấu hình môi trường chạy thử (dev)
