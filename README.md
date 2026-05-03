@@ -9,12 +9,8 @@ Sinh viên thực hiện: **Nguyễn Hải Đăng**.
 
 ## 1. Chuẩn bị source code
 
-**Cách A — Giải nén từ file ZIP:** Giải nén ZIP vào một thư mục bất kỳ (ví dụ `C:\DoAn` trên Windows, `~/DoAn` trên macOS/Linux), sau đó mở terminal tại thư mục gốc đó.
-
-**Cách B — Clone từ Git:**
-
 ```bash
-git clone <URL_REPOSITORY> DoAn
+git clone https://github.com/mysorcerer2002/DoAn.git
 cd DoAn
 ```
 
