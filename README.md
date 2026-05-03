@@ -211,11 +211,37 @@ Thời gian chạy: 2–3 phút. Kết quả mong đợi (dòng cuối terminal)
 
 ### 7.3. Xem báo cáo HTML
 
-Mở `tests_e2e/results/report.html` bằng trình duyệt. Báo cáo gồm:
+Mở `tests_e2e/results/report.html` bằng trình duyệt.
 
-- Dashboard tổng quan: số test PASS / FAIL / duration.
-- Danh sách từng test theo nhóm A/B/C/D.
-- Click vào tên test để xem chi tiết: request, response, DB state, assertion.
+**Khối Summary (đầu trang)** — các con số tổng hợp toàn suite:
+
+| Chỉ số      | Ý nghĩa                                                                 |
+|-------------|-------------------------------------------------------------------------|
+| `passed`    | Số test đạt — assertion + HTTP status đều khớp kỳ vọng.                 |
+| `failed`    | Số test sai kết quả — request thành công nhưng response/DB không khớp.  |
+| `error`     | Số test crash — exception trong fixture/setup, chưa tới được assert.    |
+| `skipped`   | Số test bị bỏ qua bằng marker `@pytest.mark.skip`.                      |
+| `duration`  | Tổng thời gian chạy toàn bộ suite (giây).                               |
+
+**Khối Environment** — phiên bản Python, OS, các thư viện (httpx, pytest-html…). Dùng để đối chiếu khi reproduce.
+
+**Khối Results (bảng chính)** — dòng/test:
+
+| Cột        | Ý nghĩa                                                                  |
+|------------|--------------------------------------------------------------------------|
+| `Result`   | Trạng thái Passed / Failed / Error / Skipped (có nhãn màu).              |
+| `Test`     | Đường dẫn module + tên test function, vd `test_group_a_auth.py::test_a01_dang_ky_hop_le`. |
+| `Duration` | Thời gian chạy riêng test đó (giây).                                     |
+| `Links`    | Click mũi tên để mở phần chi tiết phía dưới.                             |
+
+**Phần chi tiết khi click một test:**
+
+- `Captured stdout` — log `print()` trong test (request body, response status code…).
+- `Captured stderr` — cảnh báo / error log từ thư viện.
+- `Captured log` — log của Python `logging` (thường rỗng).
+- Stack trace (nếu fail/error) — chỉ rõ dòng assertion vi phạm và giá trị thực tế vs kỳ vọng.
+
+File `junit.xml` cùng thư mục dùng để import vào CI/CD hoặc IDE — chứa cùng dữ liệu nhưng dạng XML chuẩn JUnit.
 
 ### 7.4. Chạy chọn lọc 1 nhóm hoặc 1 test case
 
@@ -274,21 +300,58 @@ BASE_URL=http://localhost:3000/api python setup_data.py setup_lt02 10     # in F
 BASE_URL=http://localhost:3000/api python setup_data.py setup_lt05_victim
 ```
 
-**Chạy 1 kịch bản (ví dụ LT-01):**
+**Chạy 1 kịch bản (ví dụ LT-01) + xuất báo cáo HTML:**
 
 ```bash
-# headless mode + xuất CSV
+# headless mode — toàn bộ kết quả lưu vào 1 file HTML self-contained
 REDEEM_REWARD_ID=<id-từ-setup-lt01> \
 locust -f locustfile.py LoadTestRedeemRace --host=http://localhost:3000 \
-    --headless -u 100 -r 100 -t 20s --csv=../results/lt01
+    --headless -u 100 -r 100 -t 20s --html=../results/lt01.html
 
-# Hoặc UI mode (mở http://localhost:8089 để cấu hình + xem dashboard real-time)
+# Hoặc UI mode (mở http://localhost:8089 để cấu hình + xem dashboard real-time;
+# dừng test rồi bấm "Download Report" để lấy HTML)
 locust -f locustfile.py LoadTestRedeemRace --host=http://localhost:3000
 ```
 
-Tương tự cho `LoadTestFreeClaimRace` (LT-02), `LoadTestPOSThroughput` (LT-03), `LoadTestAutoEnroll` (LT-04), `LoadTestBruteForce` (LT-05). Mỗi kịch bản LT-01/LT-02 cần biến môi trường tương ứng (`REDEEM_REWARD_ID`, `FREE_REWARD_ID`).
+Tương tự cho `LoadTestFreeClaimRace` (LT-02), `LoadTestPOSThroughput` (LT-03), `LoadTestAutoEnroll` (LT-04), `LoadTestBruteForce` (LT-05). LT-01/LT-02 cần biến môi trường tương ứng (`REDEEM_REWARD_ID`, `FREE_REWARD_ID`).
 
-Chi tiết tham số + verify kết quả sau mỗi LT (tồn kho cuối, số voucher phát, p95 latency...): xem `tmp/tests/README.md`.
+**Mở báo cáo `lt01.html` bằng trình duyệt — các phần chính:**
+
+*Khối "Request statistics" (bảng chính, 1 dòng / endpoint):*
+
+| Cột                    | Ý nghĩa                                                                |
+|------------------------|------------------------------------------------------------------------|
+| `Method` / `Name`      | HTTP method + endpoint (vd `POST /users/me/redemptions`).              |
+| `# Requests`           | Tổng số request đã gửi tới endpoint trong suốt thời gian test.         |
+| `# Fails`              | Số request thất bại (HTTP 4xx/5xx hoặc timeout). Với LT-01: mong đợi 95 fails (out_of_stock). |
+| `Average (ms)`         | Thời gian phản hồi trung bình.                                         |
+| `Min (ms)` / `Max (ms)`| Thời gian nhanh nhất / chậm nhất.                                      |
+| `Average size (bytes)` | Kích thước response trung bình.                                        |
+| `Current RPS`          | Số request/giây tại thời điểm cuối test.                               |
+| `Current Failures/s`   | Số failure/giây tại thời điểm cuối test.                               |
+
+*Khối "Response time statistics" (percentile latency, 1 dòng / endpoint):*
+
+| Cột       | Ý nghĩa                                                                                |
+|-----------|----------------------------------------------------------------------------------------|
+| `50%ile`  | Median — 50% request có latency ≤ giá trị này.                                         |
+| `66%/75%` | Đa số request hoàn tất trong khoảng này.                                               |
+| `80%/90%` | Đuôi trên — đo độ ổn định khi tải cao.                                                 |
+| `95%ile`  | Chỉ số quan trọng nhất với LT-03 (yêu cầu p95 < 200 ms theo Bảng 4-2 báo cáo).         |
+| `98%/99%` | Phần đuôi rất xa — phản ánh worst-case dưới tải.                                       |
+| `100%ile` | Latency request chậm nhất.                                                             |
+
+*Khối "Charts":*
+
+- **Total Requests per Second** — đường RPS theo thời gian (xanh = total, đỏ = fails). Xác định throughput thực tế.
+- **Response Time (ms)** — 2 đường p50 (median) và p95 theo thời gian, xem độ ổn định.
+- **Number of Users** — số virtual user đang hoạt động theo thời gian (ramp-up thấy rõ).
+
+*Khối "Failures":* liệt kê các loại lỗi — exception/HTTP code + số lần xảy ra. Với LT-01 sẽ thấy `409 Conflict` × 95 (out_of_stock đúng kỳ vọng).
+
+*Khối "Exceptions":* các exception phát sinh phía Locust client (không phải lỗi server) — thường rỗng.
+
+Chi tiết tham số mỗi LT + cách verify DB state sau khi chạy (tồn kho cuối, số voucher phát thành công…): xem `tmp/tests/README.md`.
 
 ---
 
