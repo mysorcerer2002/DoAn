@@ -25,13 +25,3 @@ Thử nghiệm thực hiện trên môi trường production-replica của hệ 
 **LT-04 — Tự động tạo thành viên khi tích điểm lần đầu.** 50 khách hàng mới (mỗi khách một số điện thoại duy nhất, chưa từng có trong hệ thống) cùng được tích điểm tại một cửa hàng. Toàn bộ 50 yêu cầu trả thành công, sau đợt tải có đúng 50 hồ sơ thành viên mới được tạo trên 50 tài khoản khác nhau, không có hồ sơ trùng. Hành vi này được đảm bảo bởi ràng buộc duy nhất `(partner_id, user_id)` trên bảng `memberships`, kết hợp với hàm `find_or_create_member` sử dụng savepoint: khi gặp lỗi `IntegrityError` do hai luồng song song cùng cố tạo cùng một hồ sơ, savepoint được rollback và luồng thua sẽ truy vấn lại để lấy hồ sơ đã được luồng thắng tạo. Độ trễ trung vị 1.300 ms, p95 1.500 ms.
 
 **LT-05 — Chống tấn công thử mật khẩu.** Một client cố định gửi 100 yêu cầu đăng nhập với mật khẩu sai cho cùng một tài khoản nạn nhân từ cùng một địa chỉ IP. Năm yêu cầu đầu tiên trả 401 với lý do `invalid_credentials`; tới yêu cầu thứ 6 hệ thống xác định tài khoản đã đạt ngưỡng 5 lần thất bại trong 15 phút và bắt đầu trả 423 `account_temporarily_locked` cho 25 yêu cầu kế tiếp; từ yêu cầu thứ 31 trở đi, lớp giới hạn tốc độ theo IP của slowapi (30 yêu cầu/phút) cũng kích hoạt, trả 429 `Too Many Requests` cho 70 yêu cầu cuối. Trên cơ sở dữ liệu, bảng `login_log` chỉ ghi nhận 5 lần thất bại được tính, các yêu cầu sau đó bị chặn trước khi đụng đến bcrypt, qua đó cũng giảm tải xác minh mật khẩu. Hai cơ chế bảo vệ là độc lập: khoá theo định danh tài khoản đảm bảo dù kẻ tấn công đổi IP cũng không thoát được, còn rate limit theo IP đảm bảo dù kẻ tấn công đổi tài khoản mục tiêu cũng bị chặn ở cùng nguồn.
-
-### 4. Tệp dữ liệu kèm theo
-
-Mỗi kịch bản LT-0X xuất 5 tệp tại thư mục `tmp/tests/results/`:
-
-- `lt0X.html` — báo cáo HTML self-contained của Locust, mở trực tiếp bằng trình duyệt thấy ba biểu đồ động: số yêu cầu/giây, độ trễ đáp ứng và số người dùng theo thời gian; được dùng làm minh hoạ trong Phụ lục B.
-- `lt0X_stats.csv` — bảng tổng hợp số yêu cầu, số lỗi, độ trễ p50, p75, p90, p95, p99, p100 và throughput.
-- `lt0X_stats_history.csv` — chi tiết độ trễ theo từng giây trong suốt thời gian chạy.
-- `lt0X_failures.csv` — chi tiết các yêu cầu thất bại kèm mã trạng thái và thông điệp.
-- `lt0X_exceptions.csv` — ngoại lệ phía Locust nếu có.
