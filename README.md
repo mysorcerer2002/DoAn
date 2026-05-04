@@ -9,10 +9,7 @@ Sinh viên thực hiện: **Nguyễn Hải Đăng**.
 
 ## 1. Chuẩn bị source code
 
-**Cách A — Giải nén từ file ZIP:**
-
-1. Giải nén ZIP vào một thư mục, ví dụ `C:\DoAn` (Windows) hoặc `~/DoAn` (macOS/Linux).
-2. Mở terminal và `cd` vào thư mục đó.
+**Cách A — Giải nén từ file ZIP:** Giải nén ZIP vào một thư mục bất kỳ (ví dụ `C:\DoAn` trên Windows, `~/DoAn` trên macOS/Linux), sau đó mở terminal tại thư mục gốc đó.
 
 **Cách B — Clone từ Git:**
 
@@ -21,7 +18,7 @@ git clone <URL_REPOSITORY> DoAn
 cd DoAn
 ```
 
-Sau bước này, `ls` (hoặc `dir`) phải thấy `docker-compose.yml`, `backend/`, `frontend/`, `README.md`.
+Thư mục gốc đúng khi `ls` (hoặc `dir`) thấy `docker-compose.yml`, `backend/`, `frontend/`, `README.md`.
 
 ---
 
@@ -47,7 +44,7 @@ cp frontend/.env.example frontend/.env.local
 
 Giá trị mặc định trong các file mẫu đủ để chạy thử ở môi trường local — không cần chỉnh sửa thêm để demo. `JWT_SECRET` mặc định trong `docker-compose.yml` chỉ phục vụ chạy thử, không dùng cho production.
 
-*(Tuỳ chọn — sinh ngẫu nhiên `JWT_SECRET` cho an toàn hơn)*
+*JWT_SECRET ngẫu nhiên (không bắt buộc khi chạy thử local) sinh bằng:*
 
 ```powershell
 # Windows PowerShell
@@ -59,45 +56,35 @@ Giá trị mặc định trong các file mẫu đủ để chạy thử ở môi
 openssl rand -hex 32
 ```
 
-Sao chép chuỗi kết quả, mở `backend/.env`, gán vào biến `JWT_SECRET=`.
+Chuỗi kết quả thay vào biến `JWT_SECRET=` của `backend/.env`.
 
 ---
 
-## 3. Khởi động toàn bộ hệ thống
+## 3. Quy trình khởi động
 
 ```bash
 docker compose up -d --build
 ```
 
-Lệnh trên:
+Lệnh này thực hiện 5 bước: pull image PostgreSQL 15, build image Backend (FastAPI, Python 3.11), build image Frontend (Next.js 14, Node 20), khởi động 3 container theo thứ tự `postgres → backend → frontend`, và Backend tự chạy Alembic migrations để tạo schema khi start.
 
-1. Pull image PostgreSQL 15.
-2. Build image Backend (FastAPI, Python 3.11).
-3. Build image Frontend (Next.js 14, Node 20).
-4. Khởi động 3 container theo thứ tự: postgres → backend → frontend.
-5. Backend tự động chạy Alembic migrations để tạo schema khi start.
-
-Lần đầu build mất 5–10 phút tuỳ tốc độ mạng. Các lần sau chỉ vài giây.
-
-Theo dõi tiến trình:
+Lần đầu build mất 5–10 phút tuỳ tốc độ mạng; các lần sau chỉ vài giây.
 
 ```bash
 docker compose logs -f
 ```
 
-Nhấn `Ctrl+C` để thoát theo dõi (container vẫn chạy nền).
-
-Kiểm tra cả 3 container đã healthy:
+Lệnh trên theo dõi tiến trình real-time; phím `Ctrl+C` thoát chế độ theo dõi mà không dừng container.
 
 ```bash
 docker compose ps
 ```
 
-Cột `STATUS` phải hiển thị `Up ... (healthy)` cho `loyalty-postgres`, `loyalty-backend`, `loyalty-frontend`.
+Khi khởi động thành công, cột `STATUS` của ba container `loyalty-postgres`, `loyalty-backend`, `loyalty-frontend` đều ở trạng thái `Up ... (healthy)`.
 
 ---
 
-## 4. Kiểm tra hệ thống đã chạy
+## 4. Trạng thái sau khởi động
 
 ```bash
 curl http://localhost:8000/health
@@ -109,28 +96,21 @@ curl http://localhost:8000/health
 
 ---
 
-## 5. Nạp dữ liệu demo
+## 5. Dữ liệu seed cho demo
 
 ```bash
 docker compose exec backend python seed_demo.py
 ```
 
-Script tạo:
+Script `seed_demo.py` tạo dữ liệu mẫu trong container backend, gồm: 1 super admin; 2 đối tác (Cafe Cộng, Trà Sữa Lala) với đầy đủ tier, point rule, reward; 4 nhân viên; 10 khách hàng đã tham gia membership; ~65 giao dịch POS trong 14 ngày gần nhất; và bút toán point ledger + một số redemption mẫu.
 
-- 1 super admin
-- 2 đối tác (Cafe Cộng, Trà Sữa Lala) với đầy đủ tier, point rule, reward
-- 4 nhân viên (staff)
-- 10 khách hàng đã tham gia membership
-- ~65 giao dịch POS trong 14 ngày gần nhất
-- Bút toán point ledger + một số redemption mẫu
-
-Khi script in dòng `✅ Seed completed` là hoàn tất. Có thể chạy lại nhiều lần — script idempotent, không nhân đôi dữ liệu.
+Script kết thúc bằng dòng `✅ Seed completed`. Script là idempotent — chạy lặp không nhân đôi dữ liệu.
 
 ---
 
 ## 6. Tài khoản demo
 
-Truy cập: http://localhost:3000/login
+Trang đăng nhập: http://localhost:3000/login
 
 | Vai trò               | Email              | Mật khẩu  |
 |-----------------------|--------------------|-----------|
@@ -153,7 +133,7 @@ Các email khách hàng còn lại: `khach2..khach5@gmail.com`, `lala2..lala5@gm
 
 ---
 
-## 7. Chạy test case tự động (Bảng 4-1 báo cáo, Chương 4)
+## 7. Bộ kiểm thử tự động (Bảng 4-1 báo cáo, Chương 4)
 
 Đồ án có sẵn 44 test function viết bằng Pytest, tương ứng 34 kịch bản kiểm thử trong Bảng 4-1. Test gọi API thật của backend đang chạy trong container, kèm thao tác DB qua psql để dựng các state đặc biệt (mật khẩu tạm, hạng Vàng, voucher quá hạn...).
 
@@ -175,7 +155,7 @@ python -m pip install --upgrade pip
 python -m pip install pytest httpx pytest-html
 ```
 
-### 7.2. Chạy toàn bộ 44 test case + xuất báo cáo HTML
+### 7.2. Bộ lệnh chạy 44 test case + xuất báo cáo HTML
 
 Test runner cần biết URL backend và tên container Postgres/Backend (mặc định trong code đang trỏ sang môi trường production của sinh viên, nên cần override).
 
@@ -209,9 +189,9 @@ Thời gian chạy: 2–3 phút. Kết quả mong đợi (dòng cuối terminal)
 ============== 44 passed in 145.xxs ==============
 ```
 
-### 7.3. Xem báo cáo HTML
+### 7.3. Cấu trúc báo cáo HTML
 
-Mở `tests_e2e/results/report.html` bằng trình duyệt.
+Báo cáo HTML nằm tại `tests_e2e/results/report.html`.
 
 **Khối Summary (đầu trang)** — các con số tổng hợp toàn suite:
 
@@ -243,7 +223,7 @@ Mở `tests_e2e/results/report.html` bằng trình duyệt.
 
 File `junit.xml` cùng thư mục dùng để import vào CI/CD hoặc IDE — chứa cùng dữ liệu nhưng dạng XML chuẩn JUnit.
 
-### 7.4. Chạy chọn lọc 1 nhóm hoặc 1 test case
+### 7.4. Chạy chọn lọc theo nhóm / test case
 
 ```bash
 # 1 nhóm
@@ -258,9 +238,9 @@ python -m pytest tests_e2e/test_group_a_auth.py::test_a01_dang_ky_hop_le -v
 
 Bảng mapping đầy đủ TC ↔ tên test function ↔ kết quả mong đợi: file `tests_e2e/README.md`.
 
-### 7.5. Test backend (unit + integration) — chạy trong container
+### 7.5. Bộ test backend (unit + integration) bên trong container
 
-Không cần cài Python trên host:
+Backend container đã sẵn pytest, không cần cài Python trên host:
 
 ```bash
 docker compose exec backend pytest -v                     # toàn bộ
@@ -268,9 +248,9 @@ docker compose exec backend pytest tests/unit -v          # unit only
 docker compose exec backend pytest tests/integration -v   # integration
 ```
 
-Integration test dùng testcontainers (yêu cầu quyền điều khiển Docker từ trong container) — nếu báo lỗi liên quan đến Docker socket, có thể bỏ qua phần integration; bộ E2E ở mục 7.2 đã đủ để đánh giá chức năng đầu-cuối.
+Phần integration dùng testcontainers (cần quyền điều khiển Docker từ trong container) nên phụ thuộc Docker socket — không phải môi trường nào cũng đáp ứng. Bộ E2E ở mục 7.2 đã bao phủ chức năng đầu-cuối nên không bắt buộc chạy thêm phần này khi thẩm định.
 
-### 7.6. Load test bằng Locust (Bảng 4-2 báo cáo)
+### 7.6. Kịch bản load test với Locust (Bảng 4-2 báo cáo)
 
 5 kịch bản kiểm thử tải nằm ở `tmp/tests/load/locustfile.py`:
 
@@ -315,7 +295,7 @@ locust -f locustfile.py LoadTestRedeemRace --host=http://localhost:3000
 
 Tương tự cho `LoadTestFreeClaimRace` (LT-02), `LoadTestPOSThroughput` (LT-03), `LoadTestAutoEnroll` (LT-04), `LoadTestBruteForce` (LT-05). LT-01/LT-02 cần biến môi trường tương ứng (`REDEEM_REWARD_ID`, `FREE_REWARD_ID`).
 
-**Mở báo cáo `lt01.html` bằng trình duyệt — các phần chính:**
+**Báo cáo `lt01.html` gồm các khối chính:**
 
 *Khối "Request statistics" (bảng chính, 1 dòng / endpoint):*
 
@@ -357,11 +337,13 @@ Chi tiết tham số mỗi LT + cách verify DB state sau khi chạy (tồn kho 
 
 ## 8. Kịch bản demo đề xuất
 
-1. **Đăng ký khách hàng mới** — Vào http://localhost:3000/register, đăng ký bằng email mới. Đăng nhập, vào `/member/partners`, tham gia một đối tác.
-2. **Nhân viên ghi giao dịch tích điểm** — Đăng nhập `staff1@cafe.vn / staff1234`. Vào `/staff/pos`, quét QR khách hoặc nhập số điện thoại, nhập số tiền hoá đơn, xác nhận → hệ thống cộng điểm tự động.
-3. **Khách hàng đổi quà** — Đăng nhập `khach3@gmail.com / khach1234` (đã có ~2650 điểm). Vào `/member`, chọn đối tác Cafe Cộng → `/member/partners/cafe-cong`, bấm "Đổi quà". Mã OTP hiển thị, copy lại. Đăng nhập `staff1@cafe.vn`, vào `/staff/redeem`, nhập OTP → xác nhận.
-4. **Chủ shop xem báo cáo** — Đăng nhập `owner@cafe.vn / owner1234`. Dashboard `/merchant` hiển thị tổng giao dịch, điểm phát/tiêu, top khách. Vào `/merchant/customers`, `/merchant/transactions`, `/merchant/rewards`.
-5. **Super admin giám sát** — Đăng nhập `admin@loyalty.vn / admin1234`. Vào `/admin` để xem tổng quan đa đối tác, quản lý điểm hệ thống, log.
+Năm kịch bản dưới đây bao quát các luồng nghiệp vụ chính của hệ thống ngoài bộ kiểm thử tự động:
+
+1. **Đăng ký khách hàng mới** — Khách truy cập `/register` đăng ký bằng email mới, sau đó tham gia một đối tác tại `/member/partners`.
+2. **Nhân viên ghi giao dịch tích điểm** — Nhân viên `staff1@cafe.vn` đăng nhập và mở `/staff/pos`, quét QR khách hoặc nhập số điện thoại kèm số tiền hoá đơn; hệ thống tự cộng điểm theo rule của shop.
+3. **Khách hàng đổi quà** — Khách `khach3@gmail.com` (đã có sẵn ~2650 điểm) chọn đối tác Cafe Cộng tại `/member/partners/cafe-cong` và đổi một phần thưởng phù hợp; hệ thống cấp mã OTP. Nhân viên `staff1@cafe.vn` xác nhận tại `/staff/redeem` bằng OTP đó.
+4. **Chủ shop xem báo cáo** — Chủ shop `owner@cafe.vn` đăng nhập vào `/merchant`; dashboard hiển thị tổng giao dịch, điểm phát/tiêu, top khách. Các trang chi tiết: `/merchant/customers`, `/merchant/transactions`, `/merchant/rewards`.
+5. **Super admin giám sát** — Super admin `admin@loyalty.vn` truy cập `/admin` để xem tổng quan đa đối tác, quản lý điểm hệ thống và log audit.
 
 ---
 
