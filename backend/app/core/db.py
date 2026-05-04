@@ -29,6 +29,12 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     Commit chỉ chạy ở `else` branch — nếu yield raise (kể cả HTTPException
     bubble lên sau khi yield return), rollback và KHÔNG commit. Đây là pattern
     đúng cho FastAPI dependency.
+
+    LƯU Ý: yield-style cleanup chạy SAU khi response đã gửi → race window:
+    client gọi tiếp ngay sau khi nhận response có thể thấy state CHƯA commit.
+    Routes tạo resource rồi return token/id (vd /auth/register, /partner/register,
+    POST /partner/rewards, POST /admin/...) phải gọi `await db.commit()` explicit
+    TRƯỚC khi return để client nhận response chỉ khi commit đã xong.
     """
     async with AsyncSessionLocal() as session:
         try:
