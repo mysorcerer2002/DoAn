@@ -69,3 +69,16 @@ stitch-designs/
 
 # Locust tokens cache (JWT — secret)
 tmp/tests/load/tokens.json
+
+# Báo cáo TTTN (local-only, không track lên GitHub)
+bao-cao/
+
+# AI tooling artifacts (local-only, không ship lên GitHub)
+/CLAUDE.md
+/AGENTS.md
+
+# Docs noi bo (local-only)
+docs/
+
+# File bao cao DOCX & backup (local-only)
+NguyenHaiDang_DH52005756_*

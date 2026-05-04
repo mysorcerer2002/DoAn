@@ -1,0 +1,11 @@
+# GitHub Linguist overrides — control Languages display
+# Repo bản chất là Python (FastAPI) + TypeScript (Next.js).
+
+# Playwright/Locust report artifacts
+tmp/tests/results/** linguist-generated=true
+
+# DB schema dump (source-of-truth: Alembic migrations)
+schema.sql linguist-generated=true
+
+# Smoke test scripts (support tooling)
+tmp/tests/**/*.sh linguist-vendored=true
