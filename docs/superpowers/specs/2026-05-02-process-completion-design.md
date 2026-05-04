@@ -68,10 +68,9 @@ class PointRule(Base, TimestampMixin):
 class PointRuleCreateRequest(BaseModel):
     earn_percent: Decimal = Field(default=Decimal("1.00"), ge=Decimal("0.01"), le=Decimal("99.99"))
     use_tiers: bool = False
-    is_active: bool = True
 
 
-class PointRuleUpdateRequest(BaseModel):
+class PointRuleUpdate(BaseModel):  # GIỮ tên `PointRuleUpdate` (code hiện tại không có suffix Request)
     earn_percent: Decimal | None = Field(default=None, ge=Decimal("0.01"), le=Decimal("99.99"))
     use_tiers: bool | None = None
     is_active: bool | None = None
@@ -83,6 +82,7 @@ class PointRuleResponse(BaseModel):
     earn_percent: Decimal
     use_tiers: bool
     is_active: bool
+    created_at: datetime  # GIỮ field cũ
     model_config = {"from_attributes": True}
 ```
 
@@ -388,10 +388,13 @@ Trang `/users/me/rewards` + `/users/me/partners/{slug}/rewards`: backend đã fi
 ### Schema
 
 **`rewards` table**:
-- Relax CheckConstraint: `points_cost > 0` → `points_cost >= 0`.
+- Relax CheckConstraint: `points_cost > 0` → `points_cost >= 0` (cho phép phần thưởng miễn phí có `points_cost = 0`).
 - Thêm cột `valid_from: Mapped[date | None] = mapped_column(Date, nullable=True)`.
 
-Alembic (chú ý: tên CK thực tế trong DB là **`ck_rewards_ck_rewards_points_cost_positive`** do double-prefix vì model dùng `name="points_cost_positive"` rồi convention `ck_<table>_` prepend tiếp — verified với prod `pg_constraint`):
+**`redemptions` table**:
+- Relax CheckConstraint: `points_spent > 0` → `points_spent >= 0` (đối ứng — voucher claim free có `points_spent = 0`).
+
+Alembic (chú ý: cả 2 CK đều có tên double-prefix trong DB do convention `ck_<table>_` prepend tiếp lên model name đã có prefix — verified với prod `pg_constraint`: `ck_rewards_ck_rewards_points_cost_positive` và `ck_redemptions_ck_redemptions_points_positive`):
 
 ```python
 op.drop_constraint("ck_rewards_ck_rewards_points_cost_positive", "rewards", type_="check")
@@ -400,6 +403,11 @@ op.create_check_constraint(
     "rewards", "points_cost >= 0",
 )
 op.add_column("rewards", sa.Column("valid_from", sa.Date(), nullable=True))
+
+op.drop_constraint("ck_redemptions_ck_redemptions_points_positive", "redemptions", type_="check")
+op.create_check_constraint(
+    "points_spent_nonneg", "redemptions", "points_spent >= 0",
+)
 ```
 
 CK mới gọi từ `op.create_check_constraint` với `name=` thuần (không tự prepend) — alembic dùng literal name. Tuy nhiên model declaration `__table_args__` của Reward dùng convention nên khi SQLAlchemy đọc lại metadata sẽ resolve về `ck_rewards_<name>`. Để alembic và model align, dùng tên ngắn `points_cost_nonneg` ở alembic + `points_cost_nonneg` ở model — runtime cả hai đều thành `ck_rewards_points_cost_nonneg` (single-prefix). CK mới NOT bị double-prefix bug; rebuild các CK cũ ngoài scope spec này.
@@ -407,6 +415,11 @@ CK mới gọi từ `op.create_check_constraint` với `name=` thuần (không t
 Cập nhật `Reward.__table_args__`:
 ```python
 CheckConstraint("points_cost >= 0", name="points_cost_nonneg"),  # thay positive
+```
+
+Cập nhật `Redemption.__table_args__` (`backend/app/models/redemption.py`):
+```python
+CheckConstraint("points_spent >= 0", name="points_spent_nonneg"),  # thay points_positive
 ```
 
 ### Schema (Pydantic)

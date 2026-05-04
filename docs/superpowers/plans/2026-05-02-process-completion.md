@@ -128,10 +128,14 @@ from app.models.partner_staff import PartnerStaff
 
 @pytest_asyncio.fixture
 async def user_factory():
-    """Tạo user với phone unique tự sinh."""
+    """Tạo user với phone unique tự sinh.
+
+    LƯU Ý: Phase 0 KHÔNG có `must_change_password` kwarg vì cột này chưa tồn tại
+    trong DB ở thời điểm Phase 0 commit (Phase 3 mới thêm). Phase 3 sẽ extend
+    factory thêm `must_change_password=False` kwarg.
+    """
     async def _factory(db, *, email=None, phone=None, password_hash=None,
-                       is_active=True, system_role="regular", points_balance=0,
-                       must_change_password=False):
+                       is_active=True, system_role="regular", points_balance=0):
         if email is None:
             email = f"u{secrets.token_hex(4)}@test.vn"
         if phone is None:
@@ -142,7 +146,6 @@ async def user_factory():
             email=email, phone=phone, password_hash=password_hash,
             full_name=f"User {email}", is_active=is_active,
             system_role=system_role, points_balance=points_balance,
-            must_change_password=must_change_password,  # field thêm Phase 3
         )
         db.add(user)
         await db.flush()
@@ -297,7 +300,7 @@ git add backend/tests/conftest.py
 git commit -m "test: thêm factory fixtures (user/partner/reward/point_rule/staff + tokens)"
 ```
 
-> **Note:** Phase 0 chạy trước Phase 1. Phase 3 thêm cột `must_change_password` thì test sẽ vẫn pass vì factory đã handle (default False sau migration). Trước Phase 3 migration, factory truyền `must_change_password=False` sẽ FAIL vì cột chưa tồn tại. **Order:** chạy Phase 1 (không đụng must_change_password) → Phase 2 (cũng không đụng) → Phase 3 migration thêm cột → tests phase sau dùng `must_change_password` được. Hoặc đơn giản hơn: Phase 0 tạm thời KHÔNG truyền `must_change_password`, sau Phase 3 thêm vào. Plan dưới đây ngầm hiểu cách thứ 2 — Phase 0 fixture cài `must_change_password=False` chỉ sau khi Phase 3 migration đã apply.
+> **Note về timing fixture vs migration:** Phase 0 fixture `user_factory` ban đầu KHÔNG có kwarg `must_change_password` để tránh AttributeError trước khi Phase 3 migration thêm cột. Phase 3 Task 3.4 Step 5 sẽ extend factory thêm kwarg này. Tương tự: `point_rule_factory` ở Phase 0 đã dùng `earn_percent` (schema mới của Phase 1A) — Phase 0 KHÔNG gọi factory này trong smoke test, nên việc commit factory với schema chưa có không gây lỗi tại Phase 0. Phase 1A migration apply trước khi bất kỳ test nào gọi `point_rule_factory` (Phase 2 trở đi).
 
 ---
 
@@ -454,10 +457,9 @@ class PointRuleCreateRequest(BaseModel):
         description="Phần trăm giá trị hóa đơn quy đổi thành điểm (0.01% — 99.99%)",
     )
     use_tiers: bool = False
-    is_active: bool = True
 
 
-class PointRuleUpdateRequest(BaseModel):
+class PointRuleUpdate(BaseModel):  # GIỮ tên cũ — code hiện tại dùng `PointRuleUpdate` (không có suffix Request)
     earn_percent: Decimal | None = Field(
         default=None, ge=Decimal("0.01"), le=Decimal("99.99")
     )
@@ -471,76 +473,23 @@ class PointRuleResponse(BaseModel):
     earn_percent: Decimal
     use_tiers: bool
     is_active: bool
+    created_at: datetime  # GIỮ — code hiện tại có, FE chưa dùng nhưng giữ để không break consumer khác
 
     model_config = {"from_attributes": True}
 ```
 
-- [ ] **Step 3: Sửa `point_rule_service.py` (nếu có) bỏ tham chiếu 3 cột cũ.**
+- [ ] **Step 3: Sửa `point_rule_service.py` + `seed_demo.py` bỏ tham chiếu 3 cột cũ.**
 
-Grep `points_per_unit\|unit_amount\|min_amount` trong `app/services/` và `app/api/`, sửa toàn bộ. Có thể có chỗ tạo/update PointRule cần đổi tên field.
-
-### Task 1A.3 — Rewrite `_calculate_points` + tests
-
-**Files:**
-- Modify: `backend/app/services/transaction_service.py`
-- Modify: `backend/tests/integration/test_transaction_service.py`
-
-- [ ] **Step 1: Test trước.**
-
-```python
-# backend/tests/integration/test_transaction_service.py
-from decimal import Decimal
-
-
-def test_calculate_points_1_percent():
-    """100k @ 1% = 1000 điểm."""
-    from app.services.transaction_service import TransactionService
-    rule = type("R", (), {"earn_percent": Decimal("1.00"), "use_tiers": False})()
-    assert TransactionService._calculate_points(rule, 100_000) == 1000
-
-
-def test_calculate_points_decimal_percent():
-    """100k @ 0.5% = 500 điểm."""
-    from app.services.transaction_service import TransactionService
-    rule = type("R", (), {"earn_percent": Decimal("0.50"), "use_tiers": False})()
-    assert TransactionService._calculate_points(rule, 100_000) == 500
-
-
-def test_calculate_points_2_5_percent():
-    """200k @ 2.5% = 5000 điểm."""
-    from app.services.transaction_service import TransactionService
-    rule = type("R", (), {"earn_percent": Decimal("2.50"), "use_tiers": False})()
-    assert TransactionService._calculate_points(rule, 200_000) == 5000
-
-
-def test_calculate_points_with_tier_multiplier():
-    """100k @ 1% × tier 1.5x = 1500 điểm."""
-    from app.services.transaction_service import TransactionService
-    rule = type("R", (), {"earn_percent": Decimal("1.00"), "use_tiers": True})()
-    tier = type("T", (), {"earn_multiplier": Decimal("1.50")})()
-    membership = type("M", (), {"current_tier": tier})()
-    assert TransactionService._calculate_points(rule, 100_000, membership=membership) == 1500
-
-
-def test_calculate_points_tier_disabled():
-    """use_tiers=false → multiplier không áp dụng dù tier có hệ số."""
-    from app.services.transaction_service import TransactionService
-    rule = type("R", (), {"earn_percent": Decimal("1.00"), "use_tiers": False})()
-    tier = type("T", (), {"earn_multiplier": Decimal("1.50")})()
-    membership = type("M", (), {"current_tier": tier})()
-    assert TransactionService._calculate_points(rule, 100_000, membership=membership) == 1000
-
-
-def test_calculate_points_truncation():
-    """Bill 333 @ 1% = 3.33 → floor về 3."""
-    from app.services.transaction_service import TransactionService
-    rule = type("R", (), {"earn_percent": Decimal("1.00"), "use_tiers": False})()
-    assert TransactionService._calculate_points(rule, 333) == 3
+Grep TOÀN BỘ `backend/`:
+```bash
+docker compose -p loyalty-prod -f docker-compose.prod.yml exec backend bash -c "cd /app && grep -rn 'points_per_unit\|unit_amount\|min_amount' app/ tests/ seed_demo.py"
 ```
 
-- [ ] **Step 2: Run, fail (signature có `min_amount` không khớp).**
+Phải sửa các file sau (verified 2026-05-02):
+- `backend/app/services/point_rule_service.py` — `create()` + `update()` đang đọc `request.points_per_unit/unit_amount/min_amount` để insert. Sửa thành `request.earn_percent` + bỏ logic 2 field còn lại.
+- `backend/seed_demo.py` (line 143-145) — script seed cấu hình PointRule mặc định, đổi sang `earn_percent=Decimal("1.00")`.
 
-- [ ] **Step 3: Rewrite `_calculate_points`.**
+- [ ] **Step 4: Rewrite `_calculate_points` formula trong `transaction_service.py`.**
 
 ```python
 # backend/app/services/transaction_service.py
@@ -549,7 +498,7 @@ from decimal import Decimal
 
 @staticmethod
 def _calculate_points(
-    rule: PointRule,
+    rule: "PointRule",
     amount: int,
     *,
     membership: "Membership | None" = None,
@@ -557,6 +506,7 @@ def _calculate_points(
     """Tính điểm = floor(amount × earn_percent / 100) × tier_multiplier (nếu use_tiers).
 
     earn_percent là Numeric(5,2): 0.01 → 99.99. Default 1.00 (1%).
+    BỎ logic min_amount cũ — đối tác muốn limit thì cấu hình percent thấp.
     """
     base_points = (Decimal(amount) * rule.earn_percent) / Decimal(100)
     multiplier = Decimal("1.00")
@@ -567,40 +517,153 @@ def _calculate_points(
     return int(base_points * multiplier)
 ```
 
-- [ ] **Step 4: Tests pass.**
-
-```bash
-docker compose -p loyalty-prod -f docker-compose.prod.yml exec backend pytest tests/integration/test_transaction_service.py -k calculate_points -v
-```
-Expected: 6 PASS.
-
-### Task 1A.4 — Cập nhật trang cấu hình tích điểm (FE)
+### Task 1A.4 — Migrate test cũ sang schema mới
 
 **Files:**
-- Modify: `frontend/src/app/(partner)/partner/settings/page.tsx` (verify path bằng Glob trước; nếu khác tên thì điều chỉnh)
-- Modify: `frontend/src/types/partner.ts` (PointRule interface)
-- Modify: `frontend/src/lib/api-partner.ts` (request payload type nếu có)
+- Modify: `backend/tests/unit/test_transaction_service_earn.py` (file cũ — toàn bộ tests dùng `points_per_unit/unit_amount/min_amount`)
+- Modify: `backend/tests/integration/test_point_rule_service.py`
+- Modify: `backend/tests/integration/test_point_rules_api.py`
+- Modify: `backend/tests/integration/test_partner_settings_api.py`
+- Modify: `backend/tests/integration/test_partner_isolation.py`
+- Modify: `backend/tests/integration/test_redemptions_api.py`
+- Modify: `backend/tests/integration/test_transactions_api.py`
+- Modify: `backend/tests/integration/test_ledger_invariant.py`
+- Modify: `backend/tests/integration/test_earn_tier_multiplier.py`
 
-- [ ] **Step 1: Verify path.**
+- [ ] **Step 1: Rewrite `tests/unit/test_transaction_service_earn.py`.**
 
-```bash
-ls frontend/src/app/\(partner\)/partner/settings/
+File này là test cũ cho `_calculate_points`. Sau Phase 1A:
+- DELETE test `test_calculate_points_below_min_amount_returns_zero` (semantic `min_amount` đã bị bỏ).
+- Rewrite mọi `_rule(points_per_unit=…, unit_amount=…)` thành `type("R", (), {"earn_percent": Decimal("..."), "use_tiers": False})()` (mock minimal, không cần DB).
+- Thay assertion theo công thức mới.
+
+Đặt 7 test case mới (cover toàn bộ formula behavior):
+
+```python
+# backend/tests/unit/test_transaction_service_earn.py — toàn bộ rewrite
+from decimal import Decimal
+
+import pytest
+
+from app.services.transaction_service import TransactionService
+
+
+def _rule(earn_percent="1.00", use_tiers=False):
+    return type("R", (), {
+        "earn_percent": Decimal(earn_percent),
+        "use_tiers": use_tiers,
+    })()
+
+
+def _membership(multiplier="1.00"):
+    tier = type("T", (), {"earn_multiplier": Decimal(multiplier)})()
+    return type("M", (), {"current_tier": tier})()
+
+
+def test_calculate_points_1_percent():
+    """100k @ 1% = 1000 điểm."""
+    assert TransactionService._calculate_points(_rule("1.00"), 100_000) == 1000
+
+
+def test_calculate_points_decimal_percent():
+    """100k @ 0.5% = 500 điểm."""
+    assert TransactionService._calculate_points(_rule("0.50"), 100_000) == 500
+
+
+def test_calculate_points_2_5_percent():
+    """200k @ 2.5% = 5000 điểm."""
+    assert TransactionService._calculate_points(_rule("2.50"), 200_000) == 5000
+
+
+def test_calculate_points_with_tier_multiplier():
+    """100k @ 1% × tier 1.5x = 1500 điểm."""
+    assert (
+        TransactionService._calculate_points(
+            _rule("1.00", use_tiers=True), 100_000, membership=_membership("1.50")
+        ) == 1500
+    )
+
+
+def test_calculate_points_tier_disabled():
+    """use_tiers=false → multiplier không áp dụng dù tier có hệ số."""
+    assert (
+        TransactionService._calculate_points(
+            _rule("1.00", use_tiers=False), 100_000, membership=_membership("1.50")
+        ) == 1000
+    )
+
+
+def test_calculate_points_truncation():
+    """Bill 333 @ 1% = 3.33 → floor về 3."""
+    assert TransactionService._calculate_points(_rule("1.00"), 333) == 3
+
+
+def test_calculate_points_zero_amount():
+    """Bill 0 @ bất kỳ % = 0 điểm."""
+    assert TransactionService._calculate_points(_rule("1.00"), 0) == 0
 ```
 
-- [ ] **Step 2: Update type.**
+- [ ] **Step 2: API integration tests** (`test_point_rule_service.py` + `test_point_rules_api.py` + `test_partner_settings_api.py`).
 
+Thay POST/PATCH JSON body từ:
+```python
+{"points_per_unit": "1.00", "unit_amount": 1000, "min_amount": 0}
+```
+Thành:
+```python
+{"earn_percent": "1.00"}
+```
+
+Assertion về response cũng đổi tương ứng.
+
+- [ ] **Step 3: Other integration tests dùng helper `_setup_for_redemption` / `_make_partner_with_member`** (`test_redemptions_api.py`, `test_transactions_api.py`, `test_ledger_invariant.py`, `test_partner_isolation.py`).
+
+Tìm các chỗ tạo PointRule trực tiếp:
+```python
+PointRule(partner_id=..., points_per_unit=Decimal("1.00"), unit_amount=1000, min_amount=0, ...)
+```
+Đổi thành:
+```python
+PointRule(partner_id=..., earn_percent=Decimal("1.00"), ...)
+```
+
+- [ ] **Step 4: `test_earn_tier_multiplier.py` rewrite.** File này test multiplier interaction — chỉ cần đổi factory kwargs/PointRule constructor, semantics same. Verify: bill 100k @ 1% × Gold 1.5x = 1500 (cũ là 100 * 1.5 = 150 với rule 1pt/1000đ).
+
+- [ ] **Step 5: Run full test suite, verify pass.**
+
+```bash
+docker compose -p loyalty-prod -f docker-compose.prod.yml exec backend pytest tests/unit tests/integration -v --tb=short
+```
+Expected: tất cả pass (trước Phase 1A chạy lệnh này nên đã green; sau Phase 1A migration + code/test rewrite vẫn green).
+
+### Task 1A.5 — Cập nhật form cấu hình tích điểm (FE)
+
+**Files:**
+- Modify: `frontend/src/components/partner/settings-form.tsx` (form thực tế — không phải `page.tsx` ở settings/)
+- Modify: `frontend/src/types/partner.ts` (`PointRuleResponse` + `PointRuleUpdateRequest`)
+- Modify: `frontend/src/lib/hooks/use-partner-settings.ts` (nếu có tham chiếu cụ thể đến 3 field cũ)
+
+- [ ] **Step 1: Update types.**
+
+`frontend/src/types/partner.ts` — sửa cả 2 interface, KHÔNG đổi tên:
 ```typescript
-// frontend/src/types/partner.ts
-export interface PointRule {
+export interface PointRuleResponse {
   id: number;
   partner_id: number;
   earn_percent: number;  // CHANGED — bỏ points_per_unit/unit_amount/min_amount
   use_tiers: boolean;
   is_active: boolean;
+  created_at: string;
+}
+
+export interface PointRuleUpdateRequest {
+  earn_percent?: number;  // CHANGED
+  use_tiers?: boolean;
+  is_active?: boolean;
 }
 ```
 
-- [ ] **Step 3: Sửa form input.** Thay 3 input cũ (points_per_unit, unit_amount, min_amount) bằng 1 input "% tích điểm":
+- [ ] **Step 2: Rewrite `settings-form.tsx`.** Bỏ 3 useState (`pointsPerUnit`, `unitAmount`, `minAmount`), thêm 1 useState `earnPercent`. Bỏ 3 input field cũ ("Điểm thưởng mỗi đơn vị", "Đơn vị tiền VND", "Số tiền tối thiểu"), thêm 1 input field "% tích điểm". Đổi mọi tham chiếu `rule.points_per_unit/unit_amount/min_amount` → `rule.earn_percent`. mutate payload từ `{points_per_unit, unit_amount, min_amount}` → `{earn_percent}`.
 
 ```tsx
 <div>
@@ -629,16 +692,34 @@ export interface PointRule {
 </label>
 ```
 
-- [ ] **Step 4: tsc + smoke manual.** Mở `/partner/settings`, đổi % từ 1% sang 2%, save, mở lại verify giá trị. Tạo 1 giao dịch POS verify số điểm khớp.
+- [ ] **Step 3: tsc + smoke manual.** Mở `/partner/settings`, đổi % từ 1% sang 2%, save, mở lại verify giá trị. Tạo 1 giao dịch POS verify số điểm khớp.
 
-- [ ] **Step 5: Commit toàn bộ Phase 1A.**
+- [ ] **Step 4: Commit toàn bộ Phase 1A.**
 
 ```bash
-git add backend/alembic/versions/<hex>_qt3_earn_percent.py backend/app/models/point_rule.py backend/app/schemas/point_rule.py backend/app/services/transaction_service.py backend/tests/integration/test_transaction_service.py backend/tests/conftest.py frontend/src/types/partner.ts frontend/src/app/\(partner\)/partner/settings/page.tsx
-git commit -m "feat(qt3): chuyển công thức tích điểm sang phần trăm (earn_percent)"
+git add \
+  backend/alembic/versions/<hex>_qt3_earn_percent.py \
+  backend/app/models/point_rule.py \
+  backend/app/schemas/point_rule.py \
+  backend/app/services/point_rule_service.py \
+  backend/app/services/transaction_service.py \
+  backend/seed_demo.py \
+  backend/tests/conftest.py \
+  backend/tests/unit/test_transaction_service_earn.py \
+  backend/tests/integration/test_point_rule_service.py \
+  backend/tests/integration/test_point_rules_api.py \
+  backend/tests/integration/test_partner_settings_api.py \
+  backend/tests/integration/test_partner_isolation.py \
+  backend/tests/integration/test_redemptions_api.py \
+  backend/tests/integration/test_transactions_api.py \
+  backend/tests/integration/test_ledger_invariant.py \
+  backend/tests/integration/test_earn_tier_multiplier.py \
+  frontend/src/types/partner.ts \
+  frontend/src/components/partner/settings-form.tsx
+git commit -m "feat(qt3): chuyển công thức tích điểm sang phần trăm (earn_percent thay 3 cột cũ)"
 ```
 
-### Task 1A.5 — Code-reviewer Phase 1A
+### Task 1A.6 — Code-reviewer Phase 1A
 
 - [ ] **Step 1: Dispatch reviewer.** Tập trung: Decimal precision (truncation đúng?), tier multiplier interaction, FE form validation (range 0.01-99.99), grep hết points_per_unit/unit_amount/min_amount references trong codebase.
 - [ ] **Step 2: Fix Critical/Important.**
@@ -850,7 +931,7 @@ async def test_create_manual_records_actor_in_ledger(
     """EARN ledger entry phải có actor_user_id = staff thực hiện."""
     partner = await partner_factory(db_session)
     staff = await staff_user_factory(db_session, partner_id=partner.id)
-    await point_rule_factory(db_session, partner_id=partner.id, points_per_unit=1, unit_amount=1000)
+    await point_rule_factory(db_session, partner_id=partner.id)  # default earn_percent=Decimal("1.00") sau Phase 1A
 
     from app.services.transaction_service import TransactionService
     from app.schemas.transaction import CreateManualTransactionRequest
@@ -1680,20 +1761,33 @@ async def register(...) -> TokenResponse:
     ...
 ```
 
-- [ ] **Step 5: Update test fixtures — `user_factory` thêm phone (random unique).**
+- [ ] **Step 5: Extend `user_factory` thêm `must_change_password` kwarg (đã có phone từ Phase 0).**
 
-`backend/tests/conftest.py`:
+`backend/tests/conftest.py` — thêm 1 kwarg vào factory đã có:
+
 ```python
-import secrets
-
-@pytest.fixture
+@pytest_asyncio.fixture
 async def user_factory():
-    async def _factory(db, *, email=None, phone=None, **kwargs):
+    """Sau Phase 3: thêm `must_change_password=False` kwarg."""
+    async def _factory(db, *, email=None, phone=None, password_hash=None,
+                       is_active=True, system_role="regular", points_balance=0,
+                       must_change_password=False):  # NEW từ Phase 3
         if email is None:
             email = f"u{secrets.token_hex(4)}@test.vn"
         if phone is None:
-            phone = f"09{secrets.randbelow(10**8):08d}"  # 10 chars
-        ...
+            phone = f"09{secrets.randbelow(10**8):08d}"
+        if password_hash is None:
+            password_hash = hash_password("testpass1")
+        user = User(
+            email=email, phone=phone, password_hash=password_hash,
+            full_name=f"User {email}", is_active=is_active,
+            system_role=system_role, points_balance=points_balance,
+            must_change_password=must_change_password,  # NEW
+        )
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
+        return user
     return _factory
 ```
 
