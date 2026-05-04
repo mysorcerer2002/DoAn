@@ -58,9 +58,9 @@ Chuỗi kết quả thay vào biến `JWT_SECRET=` của `backend/.env`.
 ```
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=<email Gmail của bạn>
+SMTP_USER=<địa chỉ Gmail>
 SMTP_PASSWORD=<Gmail App Password 16 ký tự>
-SMTP_FROM_EMAIL=<email Gmail của bạn>
+SMTP_FROM_EMAIL=<địa chỉ Gmail>
 SMTP_FROM_NAME=Loyalty Platform
 SMTP_USE_TLS=True
 ```
