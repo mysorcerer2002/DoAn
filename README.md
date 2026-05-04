@@ -53,6 +53,20 @@ openssl rand -hex 32
 
 Chuỗi kết quả thay vào biến `JWT_SECRET=` của `backend/.env`.
 
+*Tính năng "Quên mật khẩu" cần SMTP để gửi email đặt lại. Nếu để trống các biến `SMTP_*` trong `backend/.env`, hệ thống vẫn chạy bình thường — chỉ là email reset không được gửi. Để bật, cấu hình:*
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=<email Gmail của bạn>
+SMTP_PASSWORD=<Gmail App Password 16 ký tự>
+SMTP_FROM_EMAIL=<email Gmail của bạn>
+SMTP_FROM_NAME=Loyalty Platform
+SMTP_USE_TLS=True
+```
+
+*Tạo Gmail App Password tại https://myaccount.google.com/apppasswords (yêu cầu đã bật 2-Step Verification trên tài khoản Google), sau đó dán chuỗi 16 ký tự vào `SMTP_PASSWORD`.*
+
 ---
 
 ## 3. Quy trình khởi động
