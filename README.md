@@ -1,6 +1,5 @@
 # Đồ án thực tập tốt nghiệp: Xây dựng hệ thống website cung cấp giải pháp chăm sóc khách hàng thân thiết cho doanh nghiệp SME
 
-Hệ thống tích điểm thành viên đa đối tác cho SME (cà phê, nhà hàng, shop bán lẻ).
 Sinh viên thực hiện: **Nguyễn Hải Đăng**.
 
 **Stack:** FastAPI + SQLAlchemy 2.0 async + PostgreSQL 15 + Alembic · Next.js 14 App Router + Tailwind v4 + shadcn/ui · Docker Compose.
