@@ -49,8 +49,11 @@ Thumbs.db
 # Playwright MCP artifacts
 .playwright-mcp/
 
-# Claude Code runtime state
-.claude/scheduled_tasks.lock
+# Claude Code config & runtime state
+.claude/
+
+# GitHub agents/commands (dev tooling, không cần ship)
+.github/
 
 # Test/debug outputs
 test_*.txt
