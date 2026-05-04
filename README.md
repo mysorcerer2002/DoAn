@@ -1,4 +1,4 @@
-# Loyalty Platform — Đồ án thực tập tốt nghiệp
+# Đồ án thực tập tốt nghiệp: Xây dựng hệ thống website cung cấp giải pháp chăm sóc khách hàng thân thiết cho doanh nghiệp SME
 
 Hệ thống tích điểm thành viên đa đối tác cho SME (cà phê, nhà hàng, shop bán lẻ).
 Sinh viên thực hiện: **Nguyễn Hải Đăng**.
