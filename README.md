@@ -142,9 +142,7 @@ Các email khách hàng còn lại: `khach2..khach5@gmail.com`, `lala2..lala5@gm
 
 ---
 
-## 7. Bộ kiểm thử tự động
-
-### 7.1. Bộ test backend (unit + integration) bên trong container
+## 7. Bộ kiểm thử tự động (unit + integration backend)
 
 Backend container đã sẵn pytest, không cần cài Python trên host:
 
@@ -155,89 +153,6 @@ docker compose exec backend pytest tests/integration -v   # integration
 ```
 
 Phần integration dùng testcontainers (cần quyền điều khiển Docker từ trong container) nên phụ thuộc Docker socket — không phải môi trường nào cũng đáp ứng.
-
-### 7.2. Kịch bản load test với Locust (Bảng 4-2 báo cáo)
-
-5 kịch bản kiểm thử tải nằm ở `tmp/tests/load/locustfile.py`:
-
-| Mã    | Class                    | Kịch bản                                              |
-|-------|--------------------------|-------------------------------------------------------|
-| LT-01 | `LoadTestRedeemRace`     | Race condition khi đổi quà (1 reward stock=5, 100 client) |
-| LT-02 | `LoadTestFreeClaimRace`  | Race condition khi nhận voucher giới hạn (stock=10, 200 client) |
-| LT-03 | `LoadTestPOSThroughput`  | Hiệu năng tích điểm POS (50 client × 5 phút, mục tiêu p95 < 200ms) |
-| LT-04 | `LoadTestAutoEnroll`     | Auto-enroll khi tích điểm lần đầu (50 khách mới đồng thời) |
-| LT-05 | `LoadTestBruteForce`     | Chống tấn công thử mật khẩu (100 lần login sai liên tiếp) |
-
-**Chuẩn bị (1 lần):**
-
-```bash
-python -m pip install locust requests
-cd tmp/tests/load
-
-# 100 customer test + tích sẵn 5000 điểm cho mỗi
-BASE_URL=http://localhost:3000/api python setup_data.py create_test_customers 100
-
-# Cache JWT token (tránh login bottleneck khi đo race)
-BASE_URL=http://localhost:3000/api python setup_data.py cache_tokens 100
-
-# Tạo reward + voucher cho LT-01, LT-02; tạo victim cho LT-05
-BASE_URL=http://localhost:3000/api python setup_data.py setup_lt01 5      # in REDEEM_REWARD_ID=<id>
-BASE_URL=http://localhost:3000/api python setup_data.py setup_lt02 10     # in FREE_REWARD_ID=<id>
-BASE_URL=http://localhost:3000/api python setup_data.py setup_lt05_victim
-```
-
-**Chạy 1 kịch bản (ví dụ LT-01) + xuất báo cáo HTML:**
-
-```bash
-# headless mode — toàn bộ kết quả lưu vào 1 file HTML self-contained
-REDEEM_REWARD_ID=<id-từ-setup-lt01> \
-locust -f locustfile.py LoadTestRedeemRace --host=http://localhost:3000 \
-    --headless -u 100 -r 100 -t 20s --html=../results/lt01.html
-
-# Hoặc UI mode (mở http://localhost:8089 để cấu hình + xem dashboard real-time;
-# dừng test rồi bấm "Download Report" để lấy HTML)
-locust -f locustfile.py LoadTestRedeemRace --host=http://localhost:3000
-```
-
-Tương tự cho `LoadTestFreeClaimRace` (LT-02), `LoadTestPOSThroughput` (LT-03), `LoadTestAutoEnroll` (LT-04), `LoadTestBruteForce` (LT-05). LT-01/LT-02 cần biến môi trường tương ứng (`REDEEM_REWARD_ID`, `FREE_REWARD_ID`).
-
-**Báo cáo `lt01.html` gồm các khối chính:**
-
-*Khối "Request statistics" (bảng chính, 1 dòng / endpoint):*
-
-| Cột                    | Ý nghĩa                                                                |
-|------------------------|------------------------------------------------------------------------|
-| `Method` / `Name`      | HTTP method + endpoint (vd `POST /users/me/redemptions`).              |
-| `# Requests`           | Tổng số request đã gửi tới endpoint trong suốt thời gian test.         |
-| `# Fails`              | Số request thất bại (HTTP 4xx/5xx hoặc timeout). Với LT-01: mong đợi 95 fails (out_of_stock). |
-| `Average (ms)`         | Thời gian phản hồi trung bình.                                         |
-| `Min (ms)` / `Max (ms)`| Thời gian nhanh nhất / chậm nhất.                                      |
-| `Average size (bytes)` | Kích thước response trung bình.                                        |
-| `Current RPS`          | Số request/giây tại thời điểm cuối test.                               |
-| `Current Failures/s`   | Số failure/giây tại thời điểm cuối test.                               |
-
-*Khối "Response time statistics" (percentile latency, 1 dòng / endpoint):*
-
-| Cột       | Ý nghĩa                                                                                |
-|-----------|----------------------------------------------------------------------------------------|
-| `50%ile`  | Median — 50% request có latency ≤ giá trị này.                                         |
-| `66%/75%` | Đa số request hoàn tất trong khoảng này.                                               |
-| `80%/90%` | Đuôi trên — đo độ ổn định khi tải cao.                                                 |
-| `95%ile`  | Chỉ số quan trọng nhất với LT-03 (yêu cầu p95 < 200 ms theo Bảng 4-2 báo cáo).         |
-| `98%/99%` | Phần đuôi rất xa — phản ánh worst-case dưới tải.                                       |
-| `100%ile` | Latency request chậm nhất.                                                             |
-
-*Khối "Charts":*
-
-- **Total Requests per Second** — đường RPS theo thời gian (xanh = total, đỏ = fails). Xác định throughput thực tế.
-- **Response Time (ms)** — 2 đường p50 (median) và p95 theo thời gian, xem độ ổn định.
-- **Number of Users** — số virtual user đang hoạt động theo thời gian (ramp-up thấy rõ).
-
-*Khối "Failures":* liệt kê các loại lỗi — exception/HTTP code + số lần xảy ra. Với LT-01 sẽ thấy `409 Conflict` × 95 (out_of_stock đúng kỳ vọng).
-
-*Khối "Exceptions":* các exception phát sinh phía Locust client (không phải lỗi server) — thường rỗng.
-
-Chi tiết tham số mỗi LT + cách verify DB state sau khi chạy (tồn kho cuối, số voucher phát thành công…): xem `tmp/tests/README.md`.
 
 ---
 
@@ -319,10 +234,6 @@ DoAn/
 │   └── seed_demo.py            - Script seed dữ liệu demo
 ├── frontend/                 Mã nguồn Next.js 14 + Tailwind + shadcn/ui
 │   └── src/app/                - Route theo App Router (admin, merchant, staff, member, auth)
-├── tmp/tests/                Locust load test — 5 kịch bản theo Bảng 4-2 báo cáo
-│   ├── load/locustfile.py      - 5 LT class (LT-01..LT-05)
-│   ├── load/setup_data.py      - Tạo customer + cache token + setup reward
-│   └── README.md               - Chi tiết tham số + cách verify
 ├── docs/                     Spec + plan + thiết kế
 ├── bao-cao/                  File báo cáo + ảnh minh hoạ
 ├── docker-compose.yml        Cấu hình môi trường chạy thử (dev)

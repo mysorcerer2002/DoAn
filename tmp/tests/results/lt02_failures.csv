@@ -1,2 +1,0 @@
-Method,Name,Error,Occurrences
-POST,POST /users/me/rewards/{id}/claim,HTTPError('409 Client Error: Conflict for url: POST /users/me/rewards/{id}/claim'),190
