@@ -142,112 +142,9 @@ Các email khách hàng còn lại: `khach2..khach5@gmail.com`, `lala2..lala5@gm
 
 ---
 
-## 7. Bộ kiểm thử tự động (Bảng 4-1 báo cáo, Chương 4)
+## 7. Bộ kiểm thử tự động
 
-Đồ án có sẵn 44 test function viết bằng Pytest, tương ứng 34 kịch bản kiểm thử trong Bảng 4-1. Test gọi API thật của backend đang chạy trong container, kèm thao tác DB qua psql để dựng các state đặc biệt (mật khẩu tạm, hạng Vàng, voucher quá hạn...).
-
-| Nhóm | Phạm vi                                       | Số test            |
-|------|-----------------------------------------------|--------------------|
-| A    | Xác thực và phân quyền                        | 10 (TC-A01..A10)   |
-| B    | Vòng đời đối tác (đăng ký, phê duyệt)         | 12 (TC-B01..B10)   |
-| C    | Tích điểm POS và đổi quà                      | 17 (TC-C01..C16 + C13b) |
-| D    | Quản trị hệ thống và kiểm toán                | 7 (TC-D01..D07)    |
-
-Lần chạy gần nhất (commit `eb6d463`): 44/44 PASS.
-
-### 7.1. Chuẩn bị (chỉ cần làm 1 lần)
-
-Yêu cầu: Python 3.10+ trên máy host, 3 container đang chạy (mục 3), đã seed dữ liệu (mục 5).
-
-```bash
-python -m pip install --upgrade pip
-python -m pip install pytest httpx pytest-html
-```
-
-### 7.2. Bộ lệnh chạy 44 test case + xuất báo cáo HTML
-
-Test runner cần biết URL backend và tên container Postgres/Backend (mặc định trong code đang trỏ sang môi trường production của sinh viên, nên cần override).
-
-**Windows PowerShell:**
-
-```powershell
-$env:BASE_URL      = "http://localhost:8000"
-$env:PG_CONTAINER  = "loyalty-postgres"
-$env:BE_CONTAINER  = "loyalty-backend"
-python -m pytest tests_e2e `
-    --html=tests_e2e/results/report.html `
-    --self-contained-html `
-    --junitxml=tests_e2e/results/junit.xml
-```
-
-**macOS / Linux:**
-
-```bash
-BASE_URL=http://localhost:8000 \
-PG_CONTAINER=loyalty-postgres \
-BE_CONTAINER=loyalty-backend \
-python -m pytest tests_e2e \
-    --html=tests_e2e/results/report.html \
-    --self-contained-html \
-    --junitxml=tests_e2e/results/junit.xml
-```
-
-Thời gian chạy: 2–3 phút. Kết quả mong đợi (dòng cuối terminal):
-
-```
-============== 44 passed in 145.xxs ==============
-```
-
-### 7.3. Cấu trúc báo cáo HTML
-
-Báo cáo HTML nằm tại `tests_e2e/results/report.html`.
-
-**Khối Summary (đầu trang)** — các con số tổng hợp toàn suite:
-
-| Chỉ số      | Ý nghĩa                                                                 |
-|-------------|-------------------------------------------------------------------------|
-| `passed`    | Số test đạt — assertion + HTTP status đều khớp kỳ vọng.                 |
-| `failed`    | Số test sai kết quả — request thành công nhưng response/DB không khớp.  |
-| `error`     | Số test crash — exception trong fixture/setup, chưa tới được assert.    |
-| `skipped`   | Số test bị bỏ qua bằng marker `@pytest.mark.skip`.                      |
-| `duration`  | Tổng thời gian chạy toàn bộ suite (giây).                               |
-
-**Khối Environment** — phiên bản Python, OS, các thư viện (httpx, pytest-html…). Dùng để đối chiếu khi reproduce.
-
-**Khối Results (bảng chính)** — dòng/test:
-
-| Cột        | Ý nghĩa                                                                  |
-|------------|--------------------------------------------------------------------------|
-| `Result`   | Trạng thái Passed / Failed / Error / Skipped (có nhãn màu).              |
-| `Test`     | Đường dẫn module + tên test function, vd `test_group_a_auth.py::test_a01_dang_ky_hop_le`. |
-| `Duration` | Thời gian chạy riêng test đó (giây).                                     |
-| `Links`    | Click mũi tên để mở phần chi tiết phía dưới.                             |
-
-**Phần chi tiết khi click một test:**
-
-- `Captured stdout` — log `print()` trong test (request body, response status code…).
-- `Captured stderr` — cảnh báo / error log từ thư viện.
-- `Captured log` — log của Python `logging` (thường rỗng).
-- Stack trace (nếu fail/error) — chỉ rõ dòng assertion vi phạm và giá trị thực tế vs kỳ vọng.
-
-File `junit.xml` cùng thư mục dùng để import vào CI/CD hoặc IDE — chứa cùng dữ liệu nhưng dạng XML chuẩn JUnit.
-
-### 7.4. Chạy chọn lọc theo nhóm / test case
-
-```bash
-# 1 nhóm
-python -m pytest tests_e2e/test_group_a_auth.py -v
-python -m pytest tests_e2e/test_group_b_partner.py -v
-python -m pytest tests_e2e/test_group_c_pos.py -v
-python -m pytest tests_e2e/test_group_d_admin.py -v
-
-# 1 test case
-python -m pytest tests_e2e/test_group_a_auth.py::test_a01_dang_ky_hop_le -v
-```
-
-Bảng mapping đầy đủ TC ↔ tên test function ↔ kết quả mong đợi: file `tests_e2e/README.md`.
-
-### 7.5. Bộ test backend (unit + integration) bên trong container
+### 7.1. Bộ test backend (unit + integration) bên trong container
 
 Backend container đã sẵn pytest, không cần cài Python trên host:
 
@@ -257,9 +154,9 @@ docker compose exec backend pytest tests/unit -v          # unit only
 docker compose exec backend pytest tests/integration -v   # integration
 ```
 
-Phần integration dùng testcontainers (cần quyền điều khiển Docker từ trong container) nên phụ thuộc Docker socket — không phải môi trường nào cũng đáp ứng. Bộ E2E ở mục 7.2 đã bao phủ chức năng đầu-cuối nên không bắt buộc chạy thêm phần này khi thẩm định.
+Phần integration dùng testcontainers (cần quyền điều khiển Docker từ trong container) nên phụ thuộc Docker socket — không phải môi trường nào cũng đáp ứng.
 
-### 7.6. Kịch bản load test với Locust (Bảng 4-2 báo cáo)
+### 7.2. Kịch bản load test với Locust (Bảng 4-2 báo cáo)
 
 5 kịch bản kiểm thử tải nằm ở `tmp/tests/load/locustfile.py`:
 
@@ -392,10 +289,6 @@ docker compose down -v
 
 **Frontend `Network Error` khi đăng nhập** — Kiểm tra `NEXT_PUBLIC_API_URL` trong `frontend/.env.local` (mặc định `http://localhost:8000`). Rebuild: `docker compose up -d --build frontend`.
 
-**Test E2E `connection refused` đến container Postgres** — Container đang dùng tên khác. `docker compose ps` để xem tên thực tế, set lại biến `PG_CONTAINER` và `BE_CONTAINER`.
-
-**Test E2E `python: command not found` hoặc `pytest: command not found`** — Chưa cài Python hoặc Python không có trong PATH. Cài Python 3.10+ từ python.org (Windows nhớ tick "Add to PATH"), sau đó chạy lại `python -m pip install pytest httpx pytest-html`.
-
 **Trang trắng / lỗi 500** — Xem log: `docker compose logs --tail 50 backend` và `docker compose logs --tail 50 frontend`.
 
 **Reset toàn bộ dữ liệu để demo lại từ đầu:**
@@ -426,12 +319,6 @@ DoAn/
 │   └── seed_demo.py            - Script seed dữ liệu demo
 ├── frontend/                 Mã nguồn Next.js 14 + Tailwind + shadcn/ui
 │   └── src/app/                - Route theo App Router (admin, merchant, staff, member, auth)
-├── tests_e2e/                Pytest E2E — 44 test theo Bảng 4-1 báo cáo
-│   ├── test_group_a_auth.py    - Nhóm A (Xác thực)
-│   ├── test_group_b_partner.py - Nhóm B (Đối tác)
-│   ├── test_group_c_pos.py     - Nhóm C (POS + đổi quà)
-│   ├── test_group_d_admin.py   - Nhóm D (Quản trị)
-│   └── README.md               - Mapping TC ↔ test function
 ├── tmp/tests/                Locust load test — 5 kịch bản theo Bảng 4-2 báo cáo
 │   ├── load/locustfile.py      - 5 LT class (LT-01..LT-05)
 │   ├── load/setup_data.py      - Tạo customer + cache token + setup reward
