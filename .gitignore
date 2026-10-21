@@ -51,6 +51,7 @@ Thumbs.db
 
 # Claude Code config & runtime state
 .claude/
+/.mcp.json
 
 # GitHub agents/commands (dev tooling, không cần ship)
 .github/
